@@ -1,0 +1,6 @@
+#!/bin/sh
+# Calamares: enable contrib + non-free + backports on the target before packages.
+set -eu
+. /usr/share/neuronix/ensure-apt-contrib-nonfree.sh
+ensure_apt_contrib_nonfree
+ensure_apt_backports

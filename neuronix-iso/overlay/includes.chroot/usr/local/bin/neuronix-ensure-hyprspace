@@ -1,0 +1,111 @@
+#!/bin/sh
+# Ensure the ISO-patched Hyprspace is loaded (not an unpatched hyprpm build).
+# Upstream Hyprspace + drawActiveWorkspace=false leaves a black/grey active tile
+# on Hyprland 0.55; our .so stub-renders that workspace instead.
+set -eu
+
+MARKER="${HOME}/.config/hypr/.neuronix-hyprspace-ok"
+PLUGIN_SO="/usr/lib/x86_64-linux-gnu/hyprland/plugins/Hyprspace.so"
+mkdir -p "${HOME}/.config/hypr"
+
+command -v hyprctl >/dev/null 2>&1 || exit 0
+
+_loaded() {
+	hyprctl plugin list 2>/dev/null | grep -qi Hyprspace
+}
+
+_unload_all_hyprspace() {
+	# Drop every loaded Hyprspace copy (ISO path or hyprpm cache) so the patched
+	# ISO build always wins — hyprpm reload can race and reintroduce black tiles.
+	hyprctl plugin list 2>/dev/null | awk '
+		BEGIN { want=0 }
+		/^Plugin / { want=0 }
+		/Hyprspace/ { want=1 }
+		want && /Handle:/ {
+			# no path in list — unload by known paths below
+		}
+	' >/dev/null 2>&1 || true
+	hyprctl plugin unload "${PLUGIN_SO}" >/dev/null 2>&1 || true
+	# Common hyprpm install locations
+	for _p in \
+		"${HOME}/.local/share/hyprpm/"*/Hyprspace/Hyprspace.so \
+		"${HOME}/.local/share/hyprpm/"*/hyprspace/Hyprspace.so \
+		/usr/lib/x86_64-linux-gnu/hyprland/plugins/Hyprspace.so
+	do
+		[ -f "${_p}" ] || continue
+		hyprctl plugin unload "${_p}" >/dev/null 2>&1 || true
+	done
+}
+
+_load_iso_plugin() {
+	[ -f "${PLUGIN_SO}" ] || return 1
+	_unload_all_hyprspace
+	hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
+	_loaded
+}
+
+_apply_defaults() {
+	if [ -x /usr/local/bin/neuronix-overview-defaults ]; then
+		/usr/local/bin/neuronix-overview-defaults >/dev/null 2>&1 || true
+	fi
+}
+
+# Prefer ISO patched .so every time (even if something else already loaded).
+if _load_iso_plugin; then
+	touch "${MARKER}"
+	_apply_defaults
+	exit 0
+fi
+
+if _loaded; then
+	touch "${MARKER}"
+	_apply_defaults
+	exit 0
+fi
+
+command -v hyprpm >/dev/null 2>&1 || exit 0
+
+# Avoid enabling upstream Hyprspace via hyprpm when we have no ISO .so —
+# building from hyprpm is a last resort and lacks Neuronix patches.
+if [ ! -f "${PLUGIN_SO}" ]; then
+	if hyprpm list 2>/dev/null | grep -A1 'Plugin Hyprspace' | grep -q 'enabled:.*true'; then
+		hyprpm reload -n 2>/dev/null || true
+	fi
+	if _loaded; then
+		touch "${MARKER}"
+		_apply_defaults
+		exit 0
+	fi
+fi
+
+if [ -f "${MARKER}" ]; then
+	hyprpm reload -n 2>/dev/null || true
+	_load_iso_plugin || true
+	_apply_defaults
+	exit 0
+fi
+
+if ! command -v cmake >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1; then
+	exit 0
+fi
+if ! command -v meson >/dev/null 2>&1; then
+	exit 0
+fi
+if ! pkg-config --exists pixman-1 pangocairo 2>/dev/null; then
+	exit 0
+fi
+
+hyprpm update >/dev/null 2>&1 || true
+if ! hyprpm list 2>/dev/null | grep -q 'Repository Hyprspace'; then
+	printf 'Y\n' | hyprpm add https://github.com/KZDKM/Hyprspace >/dev/null 2>&1 || true
+fi
+if hyprpm list 2>/dev/null | grep -A1 'Plugin Hyprspace' | grep -qi 'failed to build'; then
+	hyprpm update -f >/dev/null 2>&1 || true
+fi
+hyprpm enable Hyprspace >/dev/null 2>&1 || true
+hyprpm reload -n >/dev/null 2>&1 || true
+# ISO patched .so still preferred when present
+_load_iso_plugin || true
+_apply_defaults
+touch "${MARKER}"
+exit 0

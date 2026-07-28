@@ -1,0 +1,87 @@
+#!/bin/sh
+# Session actions for Hyprland / waybar.
+# Usage: neuronix-session-action logout|restart|reboot|shutdown
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
+
+_confirm() {
+	_text="$1"
+	_title="${2:-Neuronix}"
+	if command -v zenity >/dev/null 2>&1; then
+		zenity --question --no-wrap --title="${_title}" --text="${_text}" 2>/dev/null
+		return $?
+	fi
+	printf '%s [y/N] ' "${_text}"
+	read -r _ans || _ans=""
+	case "${_ans}" in
+		y|Y|yes|YES) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+# Stop portals before killing the compositor so xdph does not SEGV-restart-loop
+# into a failed unit that breaks the next login (known xdph + Hyprland race).
+_stop_portals() {
+	command -v systemctl >/dev/null 2>&1 || return 0
+	systemctl --user stop \
+		xdg-desktop-portal-hyprland.service \
+		xdg-desktop-portal-gtk.service \
+		xdg-desktop-portal.service \
+		2>/dev/null || true
+	systemctl --user reset-failed \
+		xdg-desktop-portal-hyprland.service \
+		xdg-desktop-portal-gtk.service \
+		xdg-desktop-portal.service \
+		2>/dev/null || true
+}
+
+case "${1:-}" in
+	logout)
+		_stop_portals
+		# Prefer a clean compositor exit (releases DRM) over terminate-session.
+		if command -v hyprctl >/dev/null 2>&1; then
+			hyprctl dispatch exit 2>/dev/null && exit 0
+		fi
+		if [ -n "${XDG_SESSION_ID:-}" ] && command -v loginctl >/dev/null 2>&1; then
+			loginctl terminate-session "${XDG_SESSION_ID}" 2>/dev/null && exit 0
+		fi
+		exit 0
+		;;
+	restart)
+		if command -v hyprctl >/dev/null 2>&1; then
+			hyprctl reload 2>/dev/null || true
+		fi
+		pkill -x waybar 2>/dev/null || true
+		pkill -x mako 2>/dev/null || true
+		sleep 0.2
+		waybar &
+		mako &
+		exit 0
+		;;
+	reboot)
+		_confirm "Reboot the computer now?" "Reboot" || exit 0
+		_stop_portals
+		if command -v loginctl >/dev/null 2>&1 && loginctl reboot 2>/dev/null; then
+			exit 0
+		fi
+		if command -v systemctl >/dev/null 2>&1; then
+			exec systemctl reboot
+		fi
+		exec reboot
+		;;
+	shutdown|poweroff)
+		_confirm "Shut down the computer now?" "Shut Down" || exit 0
+		_stop_portals
+		if command -v loginctl >/dev/null 2>&1 && loginctl poweroff 2>/dev/null; then
+			exit 0
+		fi
+		if command -v systemctl >/dev/null 2>&1; then
+			exec systemctl poweroff
+		fi
+		exec shutdown -h now
+		;;
+	*)
+		echo "Usage: neuronix-session-action logout|restart|reboot|shutdown" >&2
+		exit 1
+		;;
+esac

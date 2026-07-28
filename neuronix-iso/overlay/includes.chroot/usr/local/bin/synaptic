@@ -1,0 +1,28 @@
+#!/bin/sh
+# Synaptic on Hyprland — elevate via Neuronix root helper (DISPLAY rediscovered as root).
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck source=/usr/share/neuronix/neuronix-hyprland-session-env.sh
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env
+fi
+
+if [ -z "${DISPLAY:-}" ]; then
+	if [ -S /tmp/.X11-unix/X0 ]; then
+		DISPLAY=:0
+	elif [ -S /tmp/.X11-unix/X1 ]; then
+		DISPLAY=:1
+	else
+		DISPLAY=:0
+	fi
+fi
+export DISPLAY
+
+if command -v xhost >/dev/null 2>&1; then
+	xhost +SI:localuser:root >/dev/null 2>&1 || true
+fi
+
+exec pkexec /usr/local/libexec/neuronix-synaptic "$@"

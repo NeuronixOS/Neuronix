@@ -1,0 +1,21 @@
+#!/bin/sh
+# Run as root via pkexec. pkexec clears the environment; rediscover XWayland.
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+if [ -z "${DISPLAY:-}" ]; then
+	if [ -S /tmp/.X11-unix/X0 ]; then
+		DISPLAY=:0
+	elif [ -S /tmp/.X11-unix/X1 ]; then
+		DISPLAY=:1
+	else
+		DISPLAY=:0
+	fi
+fi
+export DISPLAY
+export GDK_BACKEND=x11
+export GTK_THEME="${GTK_THEME:-Adwaita-dark}"
+export GSK_RENDERER="${GSK_RENDERER:-cairo}"
+
+exec /usr/sbin/synaptic "$@"

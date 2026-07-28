@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Colors
+Comment=GTK4 color palette helper (gtk-colors)
+Exec=gtk-colors
+TryExec=gtk-colors
+Icon=applications-graphics
+Terminal=false
+Categories=Utility;Graphics;
+StartupNotify=true
+StartupWMClass=org.neuronix.GtkColors

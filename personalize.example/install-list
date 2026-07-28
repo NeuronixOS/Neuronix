@@ -1,0 +1,20 @@
+# Personalize extras — append-only onto Neuronix default/install-list
+# @manifest-format: 1
+#
+# Duplicate names are skipped (base wins). Omit sections you do not need.
+# Desktop profile installs server + desktop lists; Server installs server only.
+#
+# Put console / daemons / CLI under # --- server --- (both profiles).
+# Put GUI / media / creative apps under # --- desktop --- (Desktop only).
+#
+# Copy this file to ../personalize/install-list and edit for your machine.
+# Example below is illustrative — replace with your real package set.
+
+# --- server ---
+# git # fast, scalable, distributed revision control system
+# docker.io # Linux container runtime
+# nginx # small, powerful, scalable web/proxy server
+
+# --- desktop ---
+# gimp # GNU Image Manipulation Program
+# vlc # multimedia player and streamer

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Neuronix Settings
+Comment=Display, network, sound, Bluetooth, and system preferences
+Exec=neuronix-settings
+Icon=preferences-system
+Terminal=false
+Categories=Settings;
+StartupNotify=true

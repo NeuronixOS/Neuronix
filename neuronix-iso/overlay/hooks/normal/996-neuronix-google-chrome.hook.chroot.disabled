@@ -1,0 +1,12 @@
+#!/bin/sh
+# Live ISO squashfs: Google Chrome from Google's apt repo (network required during lb build).
+set -e
+if [ -x /usr/share/neuronix/install-google-chrome.sh ]; then
+	/usr/share/neuronix/install-google-chrome.sh
+elif [ -f /usr/share/neuronix/install-google-chrome.sh ]; then
+	chmod 0755 /usr/share/neuronix/install-google-chrome.sh
+	/usr/share/neuronix/install-google-chrome.sh
+else
+	echo "996-neuronix-google-chrome: missing install-google-chrome.sh" >&2
+	exit 1
+fi

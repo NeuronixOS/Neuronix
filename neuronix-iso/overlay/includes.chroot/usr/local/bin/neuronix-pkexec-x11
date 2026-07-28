@@ -1,0 +1,64 @@
+#!/bin/sh
+# Run a GUI as root under Hyprland/XWayland via pkexec.
+# pkexec clears the environment; Synaptic/GParted need DISPLAY + xhost.
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck source=/usr/share/neuronix/neuronix-hyprland-session-env.sh
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env
+fi
+
+# XWayland socket from Hyprland (DISPLAY may be unset in some launch paths).
+if [ -z "${DISPLAY:-}" ]; then
+	if [ -S /tmp/.X11-unix/X0 ]; then
+		DISPLAY=:0
+	elif [ -S /tmp/.X11-unix/X1 ]; then
+		DISPLAY=:1
+	else
+		DISPLAY=:0
+	fi
+fi
+export DISPLAY
+
+# Hyprland often has empty XAUTHORITY; prefer real files when present.
+if [ -z "${XAUTHORITY:-}" ] || [ ! -r "${XAUTHORITY}" ]; then
+	for _xa in \
+		"${HOME}/.Xauthority" \
+		"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.mutter-Xwaylandauth."* \
+		"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/xauth_"*
+	do
+		# shellcheck disable=SC2086
+		for _f in ${_xa}; do
+			if [ -r "${_f}" ]; then
+				XAUTHORITY="${_f}"
+				export XAUTHORITY
+				break 2
+			fi
+		done
+	done
+fi
+
+unset WAYLAND_DISPLAY 2>/dev/null || true
+export GDK_BACKEND=x11
+
+if [ "$(id -u)" -eq 0 ]; then
+	exec "$@"
+fi
+
+if command -v xhost >/dev/null 2>&1; then
+	xhost +SI:localuser:root >/dev/null 2>&1 || true
+fi
+
+_env="DISPLAY=${DISPLAY} GDK_BACKEND=x11"
+_env="${_env} GTK_THEME=${GTK_THEME:-Adwaita-dark}"
+_env="${_env} GSK_RENDERER=${GSK_RENDERER:-cairo}"
+_env="${_env} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+if [ -n "${XAUTHORITY:-}" ] && [ -r "${XAUTHORITY}" ]; then
+	_env="${_env} XAUTHORITY=${XAUTHORITY}"
+fi
+
+# shellcheck disable=SC2086
+exec pkexec env ${_env} "$@"

@@ -1,0 +1,55 @@
+#!/bin/sh
+# Launch XFCE Power Manager settings without its duplicate header close
+# (hyprbars already provides ×). Other windows keep the normal hyprbars ×.
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck disable=SC1091
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env
+fi
+
+_css_home="${XDG_RUNTIME_DIR}/neuronix-power-manager-gtk"
+rm -rf "${_css_home}"
+mkdir -p "${_css_home}/gtk-3.0"
+
+# Keep theme/icon prefs from the real user config when present.
+_user_cfg="${XDG_CONFIG_HOME:-${HOME}/.config}"
+if [ -f "${_user_cfg}/gtk-3.0/settings.ini" ]; then
+	cp "${_user_cfg}/gtk-3.0/settings.ini" "${_css_home}/gtk-3.0/settings.ini"
+else
+	printf '%s\n' '[Settings]' >"${_css_home}/gtk-3.0/settings.ini"
+fi
+# Drop client-side close from the headerbar layout (hyprbars owns ×).
+if grep -q '^gtk-decoration-layout=' "${_css_home}/gtk-3.0/settings.ini"; then
+	sed -i 's/^gtk-decoration-layout=.*/gtk-decoration-layout=icon:/' "${_css_home}/gtk-3.0/settings.ini"
+else
+	printf '%s\n' 'gtk-decoration-layout=icon:' >>"${_css_home}/gtk-3.0/settings.ini"
+fi
+
+cat >"${_css_home}/gtk-3.0/gtk.css" <<'EOF'
+/* Hide any remaining XFCE/GTK header close control for this process only */
+headerbar button.titlebutton.close,
+headerbar button.close,
+button.titlebutton.close,
+headerbar > box:last-child > button {
+  opacity: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  background-image: none;
+  box-shadow: none;
+  -gtk-icon-transform: scale(0);
+}
+EOF
+
+export XDG_CONFIG_HOME="${_css_home}"
+exec xfce4-power-manager-settings "$@"

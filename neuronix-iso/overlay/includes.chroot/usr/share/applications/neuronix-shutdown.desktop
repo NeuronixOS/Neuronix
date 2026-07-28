@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Shut Down
+Comment=Power off the computer
+Exec=neuronix-session-action shutdown
+Icon=system-shutdown
+Terminal=false
+Categories=System;
+Keywords=shutdown;poweroff;power;off;

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Layer C1/C3: launch apps via XWayland (wxWidgets, GPU-sensitive tools on Hyprland).
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck source=/usr/share/neuronix/neuronix-hyprland-session-env.sh
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env
+fi
+# Prefer XWayland; unset Wayland so GDK/Qt pick X11 backend reliably.
+exec env -u WAYLAND_DISPLAY GDK_BACKEND=x11 "$@"

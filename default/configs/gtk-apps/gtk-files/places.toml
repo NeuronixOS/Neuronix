@@ -1,0 +1,4 @@
+favorites = []
+recent_folders = []
+bookmarks = []
+bookmarks_imported_from_gtk = false

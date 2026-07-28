@@ -1,0 +1,64 @@
+#!/bin/sh
+# Ensure hyprbars (titlebar min/max/close) is loaded for this Hyprland session.
+# Prefer the ISO-built / packaged plugin (.so); fall back to hyprpm when ABI matches.
+set -eu
+
+MARKER="${HOME}/.config/hypr/.neuronix-hyprbars-ok"
+PLUGIN_DIR="/usr/lib/x86_64-linux-gnu/hyprland/plugins"
+mkdir -p "${HOME}/.config/hypr"
+
+command -v hyprctl >/dev/null 2>&1 || exit 0
+
+_loaded() {
+	hyprctl plugin list 2>/dev/null | grep -qi hyprbars
+}
+
+# Already loaded this session?
+if _loaded; then
+	touch "${MARKER}"
+	exit 0
+fi
+
+# ISO-built or packaged plugin — no compile, works offline on live ISO
+for PLUGIN_SO in \
+	"${PLUGIN_DIR}/libhyprbars.so" \
+	"${PLUGIN_DIR}/hyprbars.so"; do
+	[ -f "${PLUGIN_SO}" ] || continue
+	hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
+	if _loaded; then
+		touch "${MARKER}"
+		exit 0
+	fi
+done
+
+command -v hyprpm >/dev/null 2>&1 || exit 0
+
+# Enabled in hyprpm — just reload
+if hyprpm list 2>/dev/null | grep -A1 'Plugin hyprbars' | grep -q 'enabled:.*true'; then
+	hyprpm reload -n 2>/dev/null || true
+	if _loaded; then
+		touch "${MARKER}"
+		exit 0
+	fi
+fi
+
+# One-shot hyprpm build when tools + network exist (first boot / ABI mismatch)
+if [ -f "${MARKER}" ]; then
+	hyprpm reload -n 2>/dev/null || true
+	exit 0
+fi
+
+if ! command -v cmake >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1; then
+	exit 0
+fi
+
+hyprpm update >/dev/null 2>&1 || true
+if ! hyprpm list 2>/dev/null | grep -q 'Repository hyprland-plugins'; then
+	yes Y | hyprpm add https://github.com/hyprwm/hyprland-plugins >/dev/null 2>&1 || true
+fi
+hyprpm enable hyprbars >/dev/null 2>&1 || true
+hyprpm reload -n >/dev/null 2>&1 || true
+if _loaded; then
+	touch "${MARKER}"
+fi
+exit 0

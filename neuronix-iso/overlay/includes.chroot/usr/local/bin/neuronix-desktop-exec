@@ -1,0 +1,16 @@
+#!/bin/sh
+# Re-exec a desktop command under Hyprland so short-lived launchers (fuzzel)
+# are not the parent of pkexec. mate-polkit refuses: "dead parents".
+set -eu
+
+if [ "$#" -lt 1 ]; then
+	echo "usage: neuronix-desktop-exec <command> [args...]" >&2
+	exit 2
+fi
+
+if command -v hyprctl >/dev/null 2>&1 \
+	&& [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+	exec hyprctl dispatch exec -- "$@"
+fi
+
+exec "$@"

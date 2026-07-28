@@ -1,0 +1,12 @@
+[Unit]
+Description=Neuronix live ISO SSH host key prep
+Before=ssh.socket
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/neuronix-sshd-live-prep
+RemainAfterExit=yes
+
+[Install]
+WantedBy=ssh.socket

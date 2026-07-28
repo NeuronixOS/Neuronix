@@ -1,0 +1,23 @@
+#!/bin/sh
+# Prefer live-session browser; Desktop install sets Chrome via Calamares.
+set -e
+if [ -x /usr/bin/google-chrome-stable ]; then
+	update-alternatives --install /usr/bin/x-www-browser x-www-browser \
+		/usr/bin/google-chrome-stable 100 2>/dev/null || true
+	update-alternatives --install /usr/bin/gnome-www-browser gnome-www-browser \
+		/usr/bin/google-chrome-stable 100 2>/dev/null || true
+	update-alternatives --set x-www-browser /usr/bin/google-chrome-stable
+	update-alternatives --set gnome-www-browser /usr/bin/google-chrome-stable 2>/dev/null || true
+	exit 0
+fi
+if [ -x /usr/bin/firefox-esr ]; then
+	update-alternatives --install /usr/bin/x-www-browser x-www-browser \
+		/usr/bin/firefox-esr 80 2>/dev/null || true
+	update-alternatives --set x-www-browser /usr/bin/firefox-esr
+	exit 0
+fi
+if [ -x /usr/bin/epiphany-browser ]; then
+	update-alternatives --install /usr/bin/x-www-browser x-www-browser \
+		/usr/bin/epiphany-browser 50 2>/dev/null || true
+	update-alternatives --set x-www-browser /usr/bin/epiphany-browser
+fi

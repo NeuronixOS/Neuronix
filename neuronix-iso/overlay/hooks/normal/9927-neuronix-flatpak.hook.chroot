@@ -1,0 +1,6 @@
+#!/bin/sh
+# Enable Flathub on the live squashfs when flatpak is present.
+set -e
+if [ -x /usr/local/sbin/neuronix-enable-flathub.sh ]; then
+	/usr/local/sbin/neuronix-enable-flathub.sh || true
+fi

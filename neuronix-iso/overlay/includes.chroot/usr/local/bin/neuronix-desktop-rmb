@@ -1,0 +1,129 @@
+#!/bin/sh
+# Right-click on empty desktop → wallpaper picker.
+# Passes through when a window, titlebar, or panel (waybar, etc.) is under the cursor.
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+# hyprctl needs the live compositor instance (keybind children usually inherit this;
+# fall back to the only instance under XDG_RUNTIME_DIR).
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -d "${XDG_RUNTIME_DIR}/hypr" ]; then
+	HYPRLAND_INSTANCE_SIGNATURE="$(
+		find "${XDG_RUNTIME_DIR}/hypr" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | head -n1
+	)"
+	export HYPRLAND_INSTANCE_SIGNATURE
+fi
+
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck disable=SC1091
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env 2>/dev/null || true
+fi
+
+command -v hyprctl >/dev/null 2>&1 || exit 0
+command -v neuronix-change-background >/dev/null 2>&1 || exit 0
+command -v python3 >/dev/null 2>&1 || exit 0
+
+# cursorpos prints "x, y"
+_pos="$(hyprctl cursorpos 2>/dev/null || true)"
+_x="${_pos%%,*}"
+_y="${_pos#*, }"
+_x="$(printf '%s' "${_x}" | tr -cd '0-9')"
+_y="$(printf '%s' "${_y}" | tr -cd '0-9')"
+[ -n "${_x}" ] && [ -n "${_y}" ] || exit 0
+
+# IMPORTANT: do not pipe hyprctl into `python3 - <<EOF` — the heredoc steals stdin
+# and the layer/client JSON never arrives (waybar hits were ignored).
+# Clients: fail closed. Layers: fail open (wallpaper layers vary by hyprpaper version).
+if ! python3 - "${_x}" "${_y}" <<'PY'
+import json, subprocess, sys
+
+x, y = int(sys.argv[1]), int(sys.argv[2])
+BAR_SLACK = 40  # hyprbars height when bar_part_of_window=false sits above client box
+
+def load(cmd):
+    try:
+        return json.loads(subprocess.check_output(cmd, text=True))
+    except Exception:
+        return None
+
+# 1) Mapped clients on the *active* workspace only (windows on other desks still
+# report full-screen at/size and would block wallpaper RMB on empty desktops).
+clients = load(["hyprctl", "clients", "-j"])
+if clients is None:
+    raise SystemExit(1)
+active = load(["hyprctl", "activeworkspace", "-j"]) or {}
+active_ws = active.get("id")
+for c in clients:
+    if c.get("hidden") or c.get("mapped") is False:
+        continue
+    # workspace field may be int id or {id: N}
+    ws = c.get("workspace")
+    if isinstance(ws, dict):
+        ws = ws.get("id")
+    try:
+        ws = int(ws) if ws is not None else None
+    except (TypeError, ValueError):
+        ws = None
+    if active_ws is not None and ws is not None and ws != active_ws:
+        continue
+    at = c.get("at") or [0, 0]
+    size = c.get("size") or [0, 0]
+    if len(at) < 2 or len(size) < 2:
+        continue
+    ax, ay = int(at[0]), int(at[1])
+    w, h = int(size[0]), int(size[1])
+    top = ay - BAR_SLACK
+    if ax <= x < ax + w and top <= y < ay + h:
+        raise SystemExit(1)
+
+# 2) Interactive layer surfaces (waybar, notifications, …). Skip wallpaper layers.
+_IGNORE = (
+    "hyprpaper",
+    "wallpaper",
+    "background",
+    "desktop",
+    "wpaperd",
+    "swww-daemon",
+    "swww",
+    "paper",
+)
+layers = load(["hyprctl", "layers", "-j"])
+if layers is not None:
+    # Newer hyprctl may return {monitor: {levels: ...}} or a list
+    monitors = layers.values() if isinstance(layers, dict) else layers
+    for mon in monitors:
+        if not isinstance(mon, dict):
+            continue
+        levels = mon.get("levels") or {}
+        if isinstance(levels, dict):
+            surface_iters = levels.values()
+        elif isinstance(levels, list):
+            surface_iters = [levels]
+        else:
+            continue
+        for surfaces in surface_iters:
+            for s in surfaces or []:
+                if not isinstance(s, dict):
+                    continue
+                ns = (s.get("namespace") or "").lower()
+                if not ns or ns in _IGNORE or any(p in ns for p in _IGNORE):
+                    continue
+                sx, sy = int(s.get("x", 0)), int(s.get("y", 0))
+                sw, sh = int(s.get("w", 0)), int(s.get("h", 0))
+                if sw <= 0 or sh <= 0:
+                    continue
+                if sx <= x < sx + sw and sy <= y < sy + sh:
+                    raise SystemExit(1)
+
+raise SystemExit(0)
+PY
+then
+	# Exit 1 from python → interactive hit → do not open picker
+	exit 0
+fi
+
+exec neuronix-change-background

@@ -1,0 +1,863 @@
+#!/usr/bin/env bash
+# Merge personalize drop-ins into live-build includes.chroot.
+# Usage: merge-personalize-dropins.sh <includes.chroot> <personalize_root>
+#
+#   configs/             → etc/skel/configs + links from configs/links.json
+#   browser-extensions/  → usr/share/neuronix/browser-extensions + Chrome registration
+#   services/            → usr/local/lib/neuronix/services + install.sh (preferred)
+#   gtk-apps/            → overlay onto usr/local/lib/neuronix/gtk-apps (+ bin + desktops)
+set -euo pipefail
+
+INCLUDES="${1:?usage: merge-personalize-dropins.sh <includes.chroot> <personalize_root>}"
+PERSONALIZE="${2:?}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DEFAULT_LINKS="$SCRIPT_DIR/configs-links.default.json"
+
+_info() { echo "merge-personalize-dropins: $*"; }
+
+_is_meta_name() {
+	case "$1" in
+	# Note: .git is intentionally NOT meta — personalize/configs/.git is staged to ~/configs
+	.gitkeep | .gitkeep.txt | README.md | README | links.json | install.sh.example) return 0 ;;
+	*.example) return 0 ;;
+	esac
+	return 1
+}
+
+# True if dir has payload beyond docs / stubs
+_has_dropin_content() {
+	local dir="$1"
+	[[ -d "$dir" ]] || return 1
+	local f base
+	while IFS= read -r -d '' f; do
+		base="$(basename "$f")"
+		_is_meta_name "$base" && continue
+		if [[ -d "$f" ]]; then
+			if find "$f" -type f \
+				! -name '.gitkeep' ! -name '.gitkeep.txt' \
+				! -name 'README.md' ! -name 'README' ! -name '*.example' \
+				2>/dev/null | grep -q .; then
+				return 0
+			fi
+			continue
+		fi
+		return 0
+	done < <(find "$dir" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+	return 1
+}
+
+# True if path is only stubs/docs (skip when overlaying personalize onto default)
+_is_stub_only() {
+	local path="$1"
+	if [[ -f "$path" ]]; then
+		_is_meta_name "$(basename "$path")" && return 0
+		# empty placeholder file
+		[[ ! -s "$path" ]] && return 0
+		return 1
+	fi
+	[[ -d "$path" ]] || return 1
+	if find "$path" -type f \
+		! -name '.gitkeep' ! -name '.gitkeep.txt' \
+		! -name 'README.md' ! -name 'README' ! -name '*.example' \
+		2>/dev/null | grep -q .; then
+		return 1
+	fi
+	return 0
+}
+
+_rel_path_for_symlink() {
+	# Echo relative symlink target from $1 (absolute link path under skel) to $2 (absolute dest under skel/configs/...)
+	# Uses python for reliable relative paths.
+	python3 - "$1" "$2" <<'PY'
+import os, sys
+link, target = sys.argv[1], sys.argv[2]
+print(os.path.relpath(target, start=os.path.dirname(link)))
+PY
+}
+
+_rel_symlink_abs() {
+	local link="$1" target_abs="$2" rel
+	mkdir -p "$(dirname "$link")"
+	rel="$(_rel_path_for_symlink "$link" "$target_abs")"
+	rm -rf "$link"
+	ln -s "$rel" "$link"
+}
+
+# Stage system web configs under /etc/neuronix/configs and symlink into /etc
+_merge_system_web_configs() {
+	local src="$1" dest="$2" map="$3"
+
+	local need_apache=0 need_nginx=0
+	[[ -d "$dest/apache/sites-available" || -d "$dest/apache/sites-enabled" ]] && need_apache=1
+	[[ -d "$dest/nginx/sites-available" || -d "$dest/nginx/sites-enabled" ]] && need_nginx=1
+	[[ -f "$dest/apache/apache2.conf" ]] && need_apache=1
+	[[ -f "$dest/nginx/nginx.conf" ]] && need_nginx=1
+
+	if [[ "$need_apache" -eq 0 && "$need_nginx" -eq 0 && ! -e "$dest/hosts" && ! -e "$dest/htpasswd" ]]; then
+		return 0
+	fi
+
+	local sys="$INCLUDES/etc/neuronix/configs"
+	mkdir -p "$sys"
+	if [[ "$need_apache" -eq 1 ]]; then
+		rm -rf "$sys/apache"
+		cp -a "$dest/apache" "$sys/apache"
+	fi
+	if [[ "$need_nginx" -eq 1 ]]; then
+		rm -rf "$sys/nginx"
+		cp -a "$dest/nginx" "$sys/nginx"
+	fi
+	[[ -e "$dest/hosts" ]] && cp -a "$dest/hosts" "$sys/hosts"
+	[[ -e "$dest/htpasswd" ]] && cp -a "$dest/htpasswd" "$sys/htpasswd"
+
+	# Default system map (overridable via links.json "system" array)
+	local sys_lines
+	sys_lines="$(mktemp)"
+	python3 - "$map" <<'PY' >"$sys_lines"
+import json, sys
+defaults = [
+    ("symlink", "hosts", "/etc/hosts"),
+    ("symlink", "htpasswd", "/etc/apache2/.htpasswd"),
+    ("symlink", "apache/apache2.conf", "/etc/apache2/apache2.conf"),
+    ("symlink", "apache/envvars", "/etc/apache2/envvars"),
+    ("symlink", "apache/sites-available", "/etc/apache2/sites-available"),
+    ("symlink", "apache/sites-enabled", "/etc/apache2/sites-enabled"),
+    ("symlink", "nginx/nginx.conf", "/etc/nginx/nginx.conf"),
+    ("symlink", "nginx/sites-available", "/etc/nginx/sites-available"),
+    ("symlink", "nginx/sites-enabled", "/etc/nginx/sites-enabled"),
+]
+data = json.load(open(sys.argv[1]))
+rows = data.get("system")
+if not rows:
+    rows = [{"type": t, "from": f, "to": to} for t, f, to in defaults]
+for link in rows:
+    typ = link.get("type", "symlink")
+    print(f"{typ}\t{link['from']}\t{link['to']}")
+PY
+
+	while IFS=$'\t' read -r typ from_rel to_abs; do
+		[[ -n "${typ:-}" ]] || continue
+		local from_sys="/etc/neuronix/configs/$from_rel"
+		local from_inc="$sys/$from_rel"
+		[[ -e "$from_inc" ]] || continue
+		local link_inc="$INCLUDES$to_abs"
+		mkdir -p "$(dirname "$link_inc")"
+		rm -rf "$link_inc"
+		# Absolute symlink so /etc paths resolve on the installed system
+		ln -s "$from_sys" "$link_inc"
+		_info "  system $to_abs → $from_sys"
+	done <"$sys_lines"
+	rm -f "$sys_lines"
+
+	# Package + enable hooks when site trees / confs are present
+	local hook_dir pkgs=()
+	hook_dir="$(cd "$INCLUDES/.." && pwd)/hooks/normal"
+	mkdir -p "$hook_dir"
+	[[ "$need_apache" -eq 1 ]] && pkgs+=(apache2)
+	[[ "$need_nginx" -eq 1 ]] && pkgs+=(nginx)
+	if ((${#pkgs[@]} > 0)); then
+		local pkg_list
+		pkg_list=$(printf '%s ' "${pkgs[@]}")
+		cat >"$hook_dir/9931-neuronix-web-servers.hook.chroot" <<HOOK
+#!/bin/bash
+# Install apache2/nginx when personalize configs include site trees.
+set -e
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y -qq ${pkg_list}
+HOOK
+		if [[ "$need_apache" -eq 1 ]]; then
+			cat >>"$hook_dir/9931-neuronix-web-servers.hook.chroot" <<'HOOK'
+systemctl enable apache2.service 2>/dev/null || true
+HOOK
+		fi
+		if [[ "$need_nginx" -eq 1 ]]; then
+			cat >>"$hook_dir/9931-neuronix-web-servers.hook.chroot" <<'HOOK'
+systemctl enable nginx.service 2>/dev/null || true
+HOOK
+		fi
+		chmod 0755 "$hook_dir/9931-neuronix-web-servers.hook.chroot"
+		_info "wrote web-servers hook (install: ${pkg_list})"
+	fi
+}
+
+# ---------------------------------------------------------------------------
+# configs → ~/configs + links.json mapping
+# Base: default/configs (stock desktop). Overlay: personalize/configs when present.
+# ---------------------------------------------------------------------------
+merge_configs() {
+	local default_src
+	default_src="$(cd "$SCRIPT_DIR/.." && pwd)/default/configs"
+	local pers_src=""
+	if [[ -d "${PERSONALIZE:-}" ]]; then
+		pers_src="$PERSONALIZE/configs"
+	fi
+
+	local have_default=0 have_pers=0
+	_has_dropin_content "$default_src" && have_default=1
+	[[ -n "$pers_src" ]] && _has_dropin_content "$pers_src" && have_pers=1
+	if [[ "$have_default" -eq 0 && "$have_pers" -eq 0 ]]; then
+		return 0
+	fi
+
+	local skel="$INCLUDES/etc/skel"
+	local dest="$skel/configs"
+	local map=""
+	if [[ -n "$pers_src" && -f "$pers_src/links.json" ]]; then
+		map="$pers_src/links.json"
+	elif [[ -f "$default_src/links.json" ]]; then
+		map="$default_src/links.json"
+	else
+		map="$DEFAULT_LINKS"
+	fi
+	if [[ ! -f "$map" ]]; then
+		_info "ERROR: no configs/links.json and no default map at $DEFAULT_LINKS" >&2
+		return 1
+	fi
+
+	_info "staging configs → etc/skel/configs (map: $(basename "$map"); default=$have_default personalize=$have_pers)"
+	mkdir -p "$skel"
+	rm -rf "$dest"
+	mkdir -p "$dest"
+
+	# Build skip set from JSON
+	local skip_args=()
+	mapfile -t skip_args < <(python3 - "$map" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1]))
+for s in data.get("skip", []):
+    print(s)
+print("links.json")
+PY
+	)
+
+	_deep_merge_dir() {
+		# Copy src into dest: overwrite same paths, keep dest-only siblings.
+		local src="$1" dest="$2"
+		mkdir -p "$dest"
+		local item base
+		shopt -s dotglob nullglob
+		for item in "$src"/*; do
+			base="$(basename "$item")"
+			_is_meta_name "$base" && continue
+			if [[ -d "$item" && ! -L "$item" ]]; then
+				_deep_merge_dir "$item" "$dest/$base"
+			else
+				rm -rf "$dest/$base"
+				cp -a "$item" "$dest/$base"
+			fi
+		done
+		shopt -u dotglob nullglob
+	}
+
+	_copy_configs_tree() {
+		local src="$1"
+		local skip_stubs="${2:-0}"
+		[[ -d "$src" ]] || return 0
+		shopt -s dotglob nullglob
+		local item base skip s
+		for item in "$src"/*; do
+			base="$(basename "$item")"
+			skip=0
+			for s in "${skip_args[@]}"; do
+				[[ "$base" == "$s" ]] && skip=1 && break
+			done
+			[[ "$skip" -eq 1 ]] && continue
+			_is_meta_name "$base" && continue
+			# Personalize stubs (.gitkeep-only) must not wipe stock default trees
+			if [[ "$skip_stubs" -eq 1 ]] && _is_stub_only "$item"; then
+				_info "  skip stub overlay configs/$base"
+				continue
+			fi
+			# Personalize overlay: deep-merge dirs so stock siblings (e.g. hyprland.conf) remain
+			if [[ "$skip_stubs" -eq 1 && -d "$item" && ! -L "$item" && -d "$dest/$base" ]]; then
+				_deep_merge_dir "$item" "$dest/$base"
+				_info "  deep-merge configs/$base"
+			else
+				rm -rf "$dest/$base"
+				cp -a "$item" "$dest/"
+			fi
+		done
+		shopt -u dotglob nullglob
+	}
+
+	[[ "$have_default" -eq 1 ]] && _copy_configs_tree "$default_src" 0
+	[[ "$have_pers" -eq 1 ]] && _copy_configs_tree "$pers_src" 1
+
+	# Keep a personalize configs git repo on the live/installed system as ~/configs/.git
+	# (dotglob already copies it; this pass forces a clean replace and covers .git files).
+	if [[ -n "$pers_src" && -e "$pers_src/.git" ]]; then
+		rm -rf "$dest/.git"
+		cp -a "$pers_src/.git" "$dest/.git"
+		_info "  copied configs/.git → etc/skel/configs/.git (user config repo)"
+	elif [[ -n "${PERSONALIZE:-}" && -e "$PERSONALIZE/.git" && ! -e "$dest/.git" ]]; then
+		# Fallback: repo rooted at personalize/ — only use when configs/.git is absent.
+		# Work tree must still make sense under ~/configs (e.g. repo tracks configs files).
+		rm -rf "$dest/.git"
+		cp -a "$PERSONALIZE/.git" "$dest/.git"
+		_info "  copied personalize/.git → etc/skel/configs/.git (fallback; prefer configs/.git)"
+	fi
+
+	# Apply link map (only when source exists under dest)
+	local map_lines
+	map_lines="$(mktemp)"
+	python3 - "$map" <<'PY' >"$map_lines"
+import json, sys
+data = json.load(open(sys.argv[1]))
+for link in data.get("links", []):
+    typ = link.get("type", "symlink")
+    print(f"{typ}\t{link['from']}\t{link['to']}")
+PY
+	while IFS=$'\t' read -r typ from_rel to_rel; do
+		[[ -n "${typ:-}" ]] || continue
+		local from_abs="$dest/$from_rel"
+		local to_abs="$skel/$to_rel"
+		[[ -e "$from_abs" ]] || continue
+		case "$typ" in
+		symlink)
+			_rel_symlink_abs "$to_abs" "$from_abs"
+			_info "  link ~/$to_rel → configs/$from_rel"
+			;;
+		copy)
+			mkdir -p "$(dirname "$to_abs")"
+			cp -a "$from_abs" "$to_abs"
+			chmod 0644 "$to_abs" 2>/dev/null || true
+			_info "  copy configs/$from_rel → ~/$to_rel"
+			;;
+		*)
+			_info "  skip unknown link type '$typ' for $from_rel"
+			;;
+		esac
+	done <"$map_lines"
+	rm -f "$map_lines"
+
+	# System web configs: prefer personalize tree when present, else staged dest / default
+	local sys_src="$dest"
+	[[ "$have_pers" -eq 1 ]] && sys_src="$pers_src"
+	_merge_system_web_configs "$sys_src" "$dest" "$map"
+
+	if [[ -d "$dest/ssh" ]]; then
+		local hook_dir
+		hook_dir="$(cd "$INCLUDES/.." && pwd)/hooks/normal"
+		mkdir -p "$hook_dir"
+		cat >"$hook_dir/9925-neuronix-personalize-ssh.hook.chroot" <<'HOOK'
+#!/bin/bash
+# Fix skel configs/ssh permissions (personalize drop-in).
+set -e
+SKEL_SSH=/etc/skel/configs/ssh
+if [[ -d "$SKEL_SSH" ]]; then
+	chmod 700 "$SKEL_SSH"
+	find "$SKEL_SSH" -type f \( -name 'id_*' ! -name '*.pub' \) -exec chmod 600 {} +
+	find "$SKEL_SSH" -type f -name '*.pub' -exec chmod 644 {} +
+	[[ -f "$SKEL_SSH/authorized_keys" ]] && chmod 600 "$SKEL_SSH/authorized_keys"
+	[[ -f "$SKEL_SSH/config" ]] && chmod 600 "$SKEL_SSH/config"
+	[[ -f "$SKEL_SSH/known_hosts" ]] && chmod 644 "$SKEL_SSH/known_hosts"
+fi
+HOOK
+		chmod 0755 "$hook_dir/9925-neuronix-personalize-ssh.hook.chroot"
+		_info "wrote ssh perms chroot hook"
+	fi
+}
+
+# ---------------------------------------------------------------------------
+# browser-extensions
+# ---------------------------------------------------------------------------
+merge_browser_extensions() {
+	local src="$PERSONALIZE/browser-extensions"
+	_has_dropin_content "$src" || return 0
+
+	local dest="$INCLUDES/usr/share/neuronix/browser-extensions"
+	_info "staging browser-extensions → usr/share/neuronix/browser-extensions"
+	mkdir -p "$dest"
+	local count=0
+	shopt -s nullglob
+	for ext in "$src"/*/; do
+		[[ -d "$ext" ]] || continue
+		local name
+		name="$(basename "$ext")"
+		[[ "$name" == .* ]] && continue
+		_is_meta_name "$name" && continue
+		if [[ ! -f "$ext/manifest.json" ]]; then
+			_info "skip $name (no manifest.json)"
+			continue
+		fi
+		rm -rf "$dest/$name"
+		cp -a "$ext" "$dest/$name"
+		count=$((count + 1))
+	done
+	shopt -u nullglob
+	_info "staged $count extension(s)"
+	[[ "$count" -gt 0 ]] || return 0
+
+	# Wrappers + desktops (overlay ships defaults; refresh from share when extensions stage)
+	local bin="$INCLUDES/usr/local/bin"
+	local apps="$INCLUDES/usr/share/applications"
+	mkdir -p "$bin" "$apps"
+
+	# Google Chrome wrapper (Chrome only — Chromium has neuronix-chromium)
+	cat >"$bin/neuronix-chrome" <<'WRAP'
+#!/usr/bin/env bash
+# Launch Google Chrome with Neuronix unpacked extensions (if staged).
+set -euo pipefail
+EXT_ROOT="/usr/share/neuronix/browser-extensions"
+LOAD_ARGS=()
+if [[ -d "$EXT_ROOT" ]]; then
+	shopt -s nullglob
+	for d in "$EXT_ROOT"/*/; do
+		[[ -f "$d/manifest.json" ]] || continue
+		LOAD_ARGS+=("$(realpath "$d")")
+	done
+	shopt -u nullglob
+fi
+CHROME=""
+for c in google-chrome-stable google-chrome; do
+	if command -v "$c" >/dev/null 2>&1; then
+		CHROME="$c"
+		break
+	fi
+done
+if [[ -z "$CHROME" ]]; then
+	echo "neuronix-chrome: Google Chrome not found in PATH" >&2
+	exit 1
+fi
+if [[ ${#LOAD_ARGS[@]} -gt 0 ]]; then
+	IFS=,
+	exec "$CHROME" --load-extension="${LOAD_ARGS[*]}" "$@"
+fi
+exec "$CHROME" "$@"
+WRAP
+	chmod 0755 "$bin/neuronix-chrome"
+
+	# Debian Chromium wrapper
+	cat >"$bin/neuronix-chromium" <<'WRAP'
+#!/usr/bin/env bash
+# Launch Debian Chromium with Neuronix unpacked extensions (if staged).
+set -euo pipefail
+EXT_ROOT="/usr/share/neuronix/browser-extensions"
+LOAD_ARGS=()
+if [[ -d "$EXT_ROOT" ]]; then
+	shopt -s nullglob
+	for d in "$EXT_ROOT"/*/; do
+		[[ -f "$d/manifest.json" ]] || continue
+		LOAD_ARGS+=("$(realpath "$d")")
+	done
+	shopt -u nullglob
+fi
+CHROME=""
+for c in chromium chromium-browser; do
+	if command -v "$c" >/dev/null 2>&1; then
+		CHROME="$c"
+		break
+	fi
+done
+if [[ -z "$CHROME" ]]; then
+	echo "neuronix-chromium: chromium not found in PATH" >&2
+	exit 1
+fi
+if [[ ${#LOAD_ARGS[@]} -gt 0 ]]; then
+	IFS=,
+	exec "$CHROME" --load-extension="${LOAD_ARGS[*]}" "$@"
+fi
+exec "$CHROME" "$@"
+WRAP
+	chmod 0755 "$bin/neuronix-chromium"
+
+	cat >"$apps/neuronix-chrome.desktop" <<'DESK'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Chrome
+Comment=Google Chrome with Neuronix extensions
+Exec=neuronix-chrome %U
+TryExec=neuronix-chrome
+Icon=google-chrome
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=Google-chrome
+DESK
+	cat >"$apps/neuronix-chromium.desktop" <<'DESK'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Chromium
+Comment=Chromium with Neuronix extensions
+Exec=neuronix-chromium %U
+TryExec=neuronix-chromium
+Icon=chromium
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=Chromium-browser
+DESK
+	# Shadow package desktops so menus / mime open via Neuronix wrappers
+	for desk_name in google-chrome.desktop google-chrome-stable.desktop; do
+		cat >"$apps/$desk_name" <<'DESK'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Chrome
+Comment=Google Chrome with Neuronix extensions
+Exec=neuronix-chrome %U
+TryExec=neuronix-chrome
+Icon=google-chrome
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=Google-chrome
+DESK
+	done
+	cat >"$apps/chromium.desktop" <<'DESK'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Chromium Web Browser
+Comment=Chromium with Neuronix extensions
+Exec=neuronix-chromium %U
+TryExec=neuronix-chromium
+Icon=chromium
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=Chromium-browser
+DESK
+
+	# Prefer Neuronix wrappers in skel mimeapps when present
+	local mime="$INCLUDES/etc/skel/.config/mimeapps.list"
+	if [[ -f "$mime" ]]; then
+		sed -i \
+			-e 's/google-chrome\.desktop/neuronix-chrome.desktop/g' \
+			-e 's/google-chrome-stable\.desktop/neuronix-chrome.desktop/g' \
+			-e 's/chromium\.desktop/neuronix-chromium.desktop/g' \
+			"$mime"
+	fi
+
+	# Registration helper (packs CRX + External Extensions when Chrome/Chromium is present)
+	local reg="$INCLUDES/usr/share/neuronix/register-chrome-extensions.sh"
+	mkdir -p "$(dirname "$reg")"
+	cp -a "$SCRIPT_DIR/register-chrome-extensions.sh" "$reg"
+	chmod 0755 "$reg"
+
+	# Chroot / post-chrome hook marker list of staged extensions
+	mkdir -p "$INCLUDES/usr/share/neuronix"
+	: >"$INCLUDES/usr/share/neuronix/browser-extensions.stamp"
+}
+
+# ---------------------------------------------------------------------------
+# services
+# ---------------------------------------------------------------------------
+_service_type() {
+	local unit="$1" dir="$2"
+	if [[ -f "$dir/TYPE" ]]; then
+		local t
+		t="$(tr -d '[:space:]' <"$dir/TYPE" | tr '[:upper:]' '[:lower:]')"
+		case "$t" in
+		system | user) echo "$t"; return 0 ;;
+		esac
+	fi
+	if grep -qiE '^WantedBy=.*(graphical-session|default\.target)' "$unit" 2>/dev/null; then
+		echo user
+		return 0
+	fi
+	if grep -qiE '^WantedBy=.*multi-user\.target' "$unit" 2>/dev/null; then
+		echo system
+		return 0
+	fi
+	if grep -qE '%h|graphical-session' "$unit" 2>/dev/null; then
+		echo user
+		return 0
+	fi
+	echo system
+}
+
+_adapt_unit() {
+	local unit_src="$1" unit_dst="$2" staged="$3" name="$4" stype="$5"
+	local tmp
+	tmp="$(mktemp)"
+	sed -E \
+		-e "s#/home/[^/]+/Dropbox/Devices/Services/${name}#${staged}#g" \
+		-e "s#%h/Dropbox/Devices/Services/${name}#${staged}#g" \
+		-e "s#__SCRIPT_DIR__#${staged}#g" \
+		"$unit_src" >"$tmp"
+	if [[ "$stype" == system ]]; then
+		# Drop developer User=<login> from personal drop-ins (keep root / dashed service accounts).
+		sed -i -E '/^User=root[[:space:]]*$/b; /^User=[a-z][a-z0-9]*[[:space:]]*$/d' "$tmp"
+	fi
+	if ! grep -qE '^WorkingDirectory=' "$tmp"; then
+		sed -i "/^\[Service\]/a WorkingDirectory=${staged}" "$tmp"
+	fi
+	mv "$tmp" "$unit_dst"
+}
+
+_enable_system_unit() {
+	local unit_name="$1" wanted_by="${2:-multi-user.target}"
+	local wants="$INCLUDES/etc/systemd/system/${wanted_by}.wants"
+	mkdir -p "$INCLUDES/etc/systemd/system" "$wants"
+	ln -sf "/etc/systemd/system/$unit_name" "$wants/$unit_name"
+}
+
+_enable_user_unit() {
+	local unit_name="$1" wanted_by="${2:-default.target}"
+	local wants="$INCLUDES/etc/skel/.config/systemd/user/${wanted_by}.wants"
+	mkdir -p "$INCLUDES/etc/skel/.config/systemd/user" "$wants"
+	ln -sf "../$unit_name" "$wants/$unit_name"
+}
+
+_fallback_enable_units() {
+	local staged="$1" runtime="$2" name="$3"
+	local units=("$staged"/*.service)
+	[[ -e "${units[0]:-}" ]] || {
+		_info "  skip enable $name (no install.sh and no *.service)"
+		return 0
+	}
+	local unit
+	for unit in "${units[@]}"; do
+		[[ -f "$unit" ]] || continue
+		local unit_name stype wanted adapted
+		unit_name="$(basename "$unit")"
+		stype="$(_service_type "$unit" "$staged")"
+		wanted="$(grep -iE '^WantedBy=' "$unit" | head -1 | cut -d= -f2- | tr -d '[:space:]' || true)"
+		[[ -z "$wanted" ]] && {
+			if [[ "$stype" == user ]]; then wanted=default.target; else wanted=multi-user.target; fi
+		}
+		adapted="$(mktemp)"
+		_adapt_unit "$unit" "$adapted" "$runtime" "$name" "$stype"
+		if [[ "$stype" == user ]]; then
+			mkdir -p "$INCLUDES/etc/skel/.config/systemd/user"
+			cp -a "$adapted" "$INCLUDES/etc/skel/.config/systemd/user/$unit_name"
+			_enable_user_unit "$unit_name" "$wanted"
+			_info "  fallback enabled user unit $unit_name"
+		else
+			mkdir -p "$INCLUDES/etc/systemd/system"
+			cp -a "$adapted" "$INCLUDES/etc/systemd/system/$unit_name"
+			_enable_system_unit "$unit_name" "$wanted"
+			_info "  fallback enabled system unit $unit_name"
+		fi
+		rm -f "$adapted"
+	done
+}
+
+merge_services() {
+	local src="$PERSONALIZE/services"
+	_has_dropin_content "$src" || return 0
+
+	local root="$INCLUDES/usr/local/lib/neuronix/services"
+	local runtime_root="/usr/local/lib/neuronix/services"
+	mkdir -p "$root"
+	_info "staging services → usr/local/lib/neuronix/services"
+
+	local hook_dir install_list
+	hook_dir="$(cd "$INCLUDES/.." && pwd)/hooks/normal"
+	install_list="$INCLUDES/usr/share/neuronix/personalize-services.list"
+	mkdir -p "$(dirname "$install_list")" "$hook_dir"
+	: >"$install_list"
+
+	shopt -s nullglob
+	for svc_dir in "$src"/*/; do
+		[[ -d "$svc_dir" ]] || continue
+		local name
+		name="$(basename "$svc_dir")"
+		[[ "$name" == .* ]] && continue
+		_is_meta_name "$name" && continue
+
+		local staged="$root/$name"
+		local runtime="$runtime_root/$name"
+		rm -rf "$staged"
+		cp -a "$svc_dir" "$staged"
+		chmod 0755 "$staged/install.sh" 2>/dev/null || true
+		_info "  service $name"
+
+		if [[ -f "$staged/install.sh" ]]; then
+			echo "$name" >>"$install_list"
+			_info "  will run install.sh via chroot hook"
+		else
+			_fallback_enable_units "$staged" "$runtime" "$name"
+		fi
+	done
+	shopt -u nullglob
+
+	if [[ -s "$install_list" ]]; then
+		cat >"$hook_dir/9930-neuronix-personalize-services.hook.chroot" <<'HOOK'
+#!/bin/bash
+# Run personalize service install.sh scripts inside the live-build chroot.
+set -e
+LIST=/usr/share/neuronix/personalize-services.list
+ROOT=/usr/local/lib/neuronix/services
+[[ -f "$LIST" ]] || exit 0
+while IFS= read -r name || [[ -n "$name" ]]; do
+	[[ -z "$name" ]] && continue
+	dir="$ROOT/$name"
+	[[ -x "$dir/install.sh" || -f "$dir/install.sh" ]] || continue
+	chmod +x "$dir/install.sh"
+	echo "[neuronix-services] installing $name"
+	(
+		cd "$dir"
+		export NEURONIX_SERVICE_ROOT="$dir"
+		export NEURONIX_SERVICE_NAME="$name"
+		./install.sh
+	)
+done <"$LIST"
+HOOK
+		chmod 0755 "$hook_dir/9930-neuronix-personalize-services.hook.chroot"
+		_info "wrote services install.sh chroot hook"
+	fi
+}
+
+# ---------------------------------------------------------------------------
+# gtk-apps — additional / override binaries on top of default/gtk-apps
+# ---------------------------------------------------------------------------
+merge_gtk_apps() {
+	local src="$PERSONALIZE/gtk-apps"
+	_has_dropin_content "$src" || return 0
+
+	local lib="$INCLUDES/usr/local/lib/neuronix/gtk-apps"
+	local bin="$INCLUDES/usr/local/bin"
+	local desk="$INCLUDES/usr/share/applications"
+	mkdir -p "$lib" "$bin" "$desk"
+	_info "staging personalize/gtk-apps → usr/local/lib/neuronix/gtk-apps (overlay)"
+
+	local count=0
+	shopt -s nullglob
+	if [[ -d "$src/bin" ]]; then
+		local f name
+		for f in "$src"/bin/*; do
+			[[ -f "$f" ]] || continue
+			name="$(basename "$f")"
+			cp -a "$f" "$lib/$name"
+			chmod 0755 "$lib/$name"
+			ln -sfn "../lib/neuronix/gtk-apps/$name" "$bin/$name"
+			count=$((count + 1))
+			_info "  bin $name"
+		done
+	fi
+	# Also accept loose binaries at gtk-apps/<name> (no bin/ subdir)
+	for f in "$src"/*; do
+		[[ -f "$f" ]] || continue
+		name="$(basename "$f")"
+		_is_meta_name "$name" && continue
+		case "$name" in
+		*.desktop | *.toml | *.json | *.md) continue ;;
+		esac
+		[[ -x "$f" || "$name" == gtk-* ]] || continue
+		cp -a "$f" "$lib/$name"
+		chmod 0755 "$lib/$name"
+		ln -sfn "../lib/neuronix/gtk-apps/$name" "$bin/$name"
+		count=$((count + 1))
+		_info "  bin $name (top-level)"
+	done
+	if [[ -d "$src/applications" ]]; then
+		local d
+		for d in "$src"/applications/*.desktop; do
+			[[ -f "$d" ]] || continue
+			cp -a "$d" "$desk/"
+			_info "  desktop $(basename "$d")"
+		done
+	fi
+	# Multi-file app payloads: apps/<name>/ → lib/apps/<name>/
+	if [[ -d "$src/apps" ]]; then
+		local appdir appname
+		mkdir -p "$lib/apps"
+		for appdir in "$src"/apps/*/; do
+			[[ -d "$appdir" ]] || continue
+			appname="$(basename "$appdir")"
+			[[ "$appname" == .* ]] && continue
+			_is_meta_name "$appname" && continue
+			rm -rf "$lib/apps/$appname"
+			cp -a "$appdir" "$lib/apps/$appname"
+			_info "  apps/$appname"
+		done
+	fi
+	shopt -u nullglob
+
+	if [[ -d "$src/gtk-theme" ]]; then
+		local theme_share="$INCLUDES/usr/share/neuronix/gtk-theme"
+		mkdir -p "$theme_share" "$lib/gtk-theme"
+		cp -a "$src/gtk-theme/." "$theme_share/"
+		cp -a "$src/gtk-theme/." "$lib/gtk-theme/"
+		_info "  overlaid gtk-theme/ (share + lib sibling)"
+	fi
+
+	if [[ -d "$src/skel-config" ]]; then
+		local skel_gtk="$INCLUDES/etc/skel/.config/gtk-apps"
+		mkdir -p "$skel_gtk"
+		cp -a "$src/skel-config/." "$skel_gtk/"
+		_info "  overlaid skel-config/ → etc/skel/.config/gtk-apps"
+	fi
+
+	_info "staged $count additional/override gtk-apps binary(ies)"
+}
+
+# ---------------------------------------------------------------------------
+# personalize/install/*.sh → Calamares Desktop hooks (e.g. Cursor via personalize only)
+# ---------------------------------------------------------------------------
+merge_personalize_install() {
+	local src="$PERSONALIZE/install"
+	[[ -d "$src" ]] || return 0
+
+	local dest="$INCLUDES/usr/share/neuronix/personalize-install"
+	local conf="$INCLUDES/etc/calamares/modules/contextualprocess_neuronix_desktop.conf"
+	mkdir -p "$dest"
+
+	local f base count=0
+	shopt -s nullglob
+	for f in "$src"/*.sh; do
+		base="$(basename "$f")"
+		_is_meta_name "$base" && continue
+		cp -a "$f" "$dest/$base"
+		chmod 0755 "$dest/$base"
+		count=$((count + 1))
+		_info "  install/$base → usr/share/neuronix/personalize-install/$base"
+
+		if [[ -f "$conf" ]] && ! grep -qF "personalize-install/$base" "$conf"; then
+			# Append after Chrome (or at end of desktop: command list) for Desktop profile.
+			python3 - "$conf" "/usr/share/neuronix/personalize-install/$base" <<'PY'
+import sys
+from pathlib import Path
+conf, cmd = Path(sys.argv[1]), sys.argv[2]
+text = conf.read_text()
+needle = '    - command: "/usr/share/neuronix/install-google-chrome.sh"\n'
+line = f'    - command: "{cmd}"\n'
+if line in text:
+    raise SystemExit(0)
+if needle in text:
+    text = text.replace(needle, needle + line, 1)
+else:
+    # Fallback: insert before server: key
+    marker = "  server:\n"
+    if marker not in text:
+        raise SystemExit(f"merge-personalize-install: cannot patch {conf}")
+    # Find last desktop command block — insert before server
+    text = text.replace(marker, line + marker, 1)
+conf.write_text(text)
+PY
+			_info "  Calamares Desktop += personalize-install/$base"
+		fi
+	done
+	shopt -u nullglob
+
+	if [[ "$count" -gt 0 ]]; then
+		_info "staged $count personalize install script(s) for Calamares Desktop"
+	fi
+}
+
+# ---------------------------------------------------------------------------
+# Entry
+# ---------------------------------------------------------------------------
+mkdir -p "$INCLUDES"
+# Stock default/configs always considered; personalize overlays when present.
+merge_configs
+if [[ ! -d "$PERSONALIZE" ]]; then
+	_info "no personalize/ at $PERSONALIZE — skipped personalize-only drop-ins"
+	_info "done"
+	exit 0
+fi
+
+merge_browser_extensions
+merge_services
+merge_gtk_apps
+merge_personalize_install
+_info "done"

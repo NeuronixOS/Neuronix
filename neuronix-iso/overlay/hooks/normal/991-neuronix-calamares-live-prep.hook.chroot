@@ -1,0 +1,8 @@
+#!/bin/sh
+# Enable live Calamares prep (DNS + welcome internet poll) on the ISO.
+set -e
+chmod 0755 /usr/local/sbin/neuronix-live-dns-fix \
+	/usr/local/sbin/neuronix-live-calamares-prep 2>/dev/null || true
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl enable neuronix-live-calamares-prep.service 2>/dev/null || true
+fi

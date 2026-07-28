@@ -1,0 +1,64 @@
+#!/bin/sh
+# Neuronix settings hub — modular Hyprland settings (no gnome-control-center).
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck disable=SC1091
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env
+fi
+
+_pick="$(
+	python3 - <<'PY'
+import os, sys
+sys.path.insert(0, "/usr/share/neuronix")
+from neuronix_choice_dialog import choose
+
+items = [
+    ("display", "Display", "Resolution, layout, and monitors"),
+    ("network", "Network", "Wi-Fi, VPN, and connections"),
+    ("sound", "Sound", "Speakers, microphones, and volume"),
+    ("bluetooth", "Bluetooth", "Pair and manage devices"),
+    ("appearance", "Appearance", "GTK theme and icons"),
+    ("background", "Background", "Desktop wallpaper"),
+    ("datetime", "Date & Time", "Clock format, calendar, timezone"),
+    ("keyboard", "Keyboard", "Edit Hyprland keyboard layout"),
+    ("power", "Power", "Sleep, battery, and power"),
+    ("printers", "Printers", "Add and manage printers"),
+    ("disks", "Disks", "Partition and format drives"),
+    ("advanced", "Advanced", "dconf-editor (GTK keys)"),
+]
+pick = choose(
+    "Neuronix Settings",
+    "Choose a category — each opens its own settings app.",
+    items,
+    width=540,
+    height=700,
+)
+if pick:
+    print(pick)
+PY
+)" || true
+
+[ -n "${_pick:-}" ] || exit 0
+
+case "${_pick}" in
+	display)     exec nwg-displays ;;
+	network)     exec nm-connection-editor ;;
+	sound)       exec pavucontrol ;;
+	bluetooth)   exec blueman-manager ;;
+	appearance)  exec nwg-look ;;
+	background)  exec neuronix-change-background ;;
+	datetime)    exec neuronix-datetime ;;
+	keyboard)    exec gtk-edit "${HOME}/.config/hypr/hyprland.conf" ;;
+	power)       exec neuronix-power-settings ;;
+	printers)    exec system-config-printer ;;
+	disks)       exec gparted ;;
+	advanced)    exec dconf-editor ;;
+	*)           exit 0 ;;
+esac

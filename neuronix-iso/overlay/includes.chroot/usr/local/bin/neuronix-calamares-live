@@ -1,0 +1,65 @@
+#!/bin/sh
+# Calamares on Hyprland live ISO — Wayland env, no xhost (X11-only in upstream wrapper).
+set -e
+
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck source=/usr/share/neuronix/neuronix-hyprland-session-env.sh
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env
+fi
+
+export QT_AUTO_SCREEN_SCALE_FACTOR=1
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland;xcb}"
+_uid=$(id -u)
+_runtime="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+_wayland="${WAYLAND_DISPLAY:-wayland-1}"
+_dbus="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${_runtime}/bus}"
+
+# VirtualBox (and similar) VMSVGA EGL breaks Qt Wayland as root:
+#   "The Wayland connection experienced a fatal error: Invalid argument"
+#   wl_surface.attach invalid → Calamares exits immediately.
+# Force software GL when running under a hypervisor so the installer stays up.
+_gl_soft=""
+if [ -r /sys/class/dmi/id/product_name ] \
+	&& grep -qiE 'VirtualBox|VMware|QEMU|KVM|Bochs|Hyper-V|Xen' /sys/class/dmi/id/product_name 2>/dev/null; then
+	_gl_soft="LIBGL_ALWAYS_SOFTWARE=1 QT_QUICK_BACKEND=software GALLIUM_DRIVER=llvmpipe"
+	# Prefer pure wayland+llvmpipe; wayland;xcb still hits broken EGL first on VBox.
+	export QT_QPA_PLATFORM=wayland
+elif [ -r /sys/class/dmi/id/sys_vendor ] \
+	&& grep -qiE 'innotek|VMware|QEMU|Xen|Microsoft Corporation' /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+	_gl_soft="LIBGL_ALWAYS_SOFTWARE=1 QT_QUICK_BACKEND=software GALLIUM_DRIVER=llvmpipe"
+	export QT_QPA_PLATFORM=wayland
+fi
+
+_run_env="WAYLAND_DISPLAY=${_wayland} XDG_RUNTIME_DIR=${_runtime} DBUS_SESSION_BUS_ADDRESS=${_dbus} QT_QPA_PLATFORM=${QT_QPA_PLATFORM} QT_AUTO_SCREEN_SCALE_FACTOR=1 XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-Hyprland} ${_gl_soft}"
+
+# DNS + welcome tweaks so Calamares can poll internet every 5s (Gamebian-style).
+if [ -x /usr/local/sbin/neuronix-live-calamares-prep ]; then
+	if sudo -n true 2>/dev/null; then
+		sudo -n /usr/local/sbin/neuronix-live-calamares-prep || true
+	else
+		pkexec /usr/local/sbin/neuronix-live-calamares-prep || true
+	fi
+fi
+
+_restore_fstab=0
+if [ -f /etc/fstab ] && [ ! -f /etc/fstab.orig.calamares ]; then
+	sudo mv /etc/fstab /etc/fstab.orig.calamares
+	_restore_fstab=1
+fi
+
+# pkexec + xhost fails on Hyprland; live user has passwordless sudo.
+if sudo -n true 2>/dev/null; then
+	# shellcheck disable=SC2086
+	sudo -n env ${_run_env} calamares "$@"
+	_ret=$?
+else
+	pkexec env ${_run_env} calamares "$@"
+	_ret=$?
+fi
+
+if [ "$_restore_fstab" -eq 1 ] && [ -f /etc/fstab.orig.calamares ]; then
+	sudo mv /etc/fstab.orig.calamares /etc/fstab
+fi
+
+exit "$_ret"

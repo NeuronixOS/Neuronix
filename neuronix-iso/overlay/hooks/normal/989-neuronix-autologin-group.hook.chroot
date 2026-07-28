@@ -1,0 +1,7 @@
+#!/bin/sh
+# Ensure LightDM autologin group exists (live user is added via bootappend user-default-groups).
+set -e
+if ! getent group autologin >/dev/null 2>&1; then
+	addgroup --system autologin 2>/dev/null || groupadd --system autologin
+fi
+exit 0

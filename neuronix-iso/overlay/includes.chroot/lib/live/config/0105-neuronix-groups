@@ -1,0 +1,64 @@
+#!/bin/sh
+# Neuronix: ensure live user can LightDM-autologin and run Hyprland (input/render).
+
+. /usr/lib/live/config.sh
+
+Cmdline ()
+{
+	for _PARAMETER in ${LIVE_CONFIG_CMDLINE}
+	do
+		case "${_PARAMETER}" in
+			live-config.username=*|username=*)
+				LIVE_USERNAME="${_PARAMETER#*username=}"
+				;;
+		esac
+	done
+}
+
+Init ()
+{
+	case "${LIVE_CONFIG_NOAUTOLOGIN}" in
+		true)
+			exit 0
+			;;
+	esac
+
+	if component_was_executed "neuronix-groups"
+	then
+		exit 0
+	fi
+
+	echo -n " neuronix-groups"
+}
+
+Config ()
+{
+	_user="${LIVE_USERNAME:-live}"
+
+	if ! getent group autologin >/dev/null 2>&1; then
+		addgroup --system autologin 2>/dev/null || groupadd --system autologin || true
+	fi
+
+	if getent passwd "${_user}" >/dev/null 2>&1; then
+		for _g in sudo autologin input render video; do
+			getent group "${_g}" >/dev/null 2>&1 || continue
+			usermod -a -G "${_g}" "${_user}" 2>/dev/null || true
+		done
+	fi
+
+	# Force immediate autologin (live-config's sed only touches commented lines in lightdm.conf).
+	mkdir -p /etc/lightdm/lightdm.conf.d
+	cat > /etc/lightdm/lightdm.conf.d/50-neuronix-live-autologin.conf <<EOF
+[Seat:*]
+autologin-user=${_user}
+autologin-user-timeout=0
+autologin-session=neuronix-hyprland
+user-session=neuronix-hyprland
+EOF
+
+	touch /var/lib/live/config/neuronix-groups
+}
+
+Cmdline
+Init
+Config

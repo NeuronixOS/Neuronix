@@ -1,0 +1,31 @@
+#!/bin/sh
+# Hyprland stack and linux-image-amd64 (~7.0.x) from trixie-backports.
+set -e
+
+_suite="$(. /etc/os-release 2>/dev/null && printf '%s' "${VERSION_CODENAME:-trixie}")"
+[ -n "${_suite}" ] || _suite="trixie"
+_backports="${_suite}-backports"
+
+if [ -f /etc/apt/sources.list ] && ! grep -qE "[[:space:]]${_backports}[[:space:]]" /etc/apt/sources.list 2>/dev/null; then
+	printf '\ndeb http://deb.debian.org/debian %s main contrib non-free non-free-firmware\n' "${_backports}" \
+		>>/etc/apt/sources.list
+	echo "[neuronix-backports] added ${_backports} to sources.list"
+fi
+
+if command -v apt-get >/dev/null 2>&1; then
+	apt-get update -qq 2>/dev/null || true
+	# Do not install hyprland-plugin-hyprbars from apt: backports Hyprland ABI
+	# (e.g. hyprland-abi-ff3b2cb on 0.55.x) often leads the packaged plugin
+	# (still built for an older abi-*). Hook 998 builds hyprbars against the
+	# ISO Hyprland instead.
+	DEBIAN_FRONTEND=noninteractive apt-get install -y -t "${_backports}" \
+		linux-image-amd64 linux-headers-amd64 \
+		hyprland hyprland-guiutils hyprpaper hyprpicker xdg-desktop-portal-hyprland \
+		ydotool \
+		|| {
+			echo "[neuronix-backports] WARNING: could not install kernel/Hyprland/ydotool from ${_backports}" >&2
+			exit 1
+		}
+fi
+
+exit 0

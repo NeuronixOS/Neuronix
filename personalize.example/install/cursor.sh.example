@@ -1,0 +1,4 @@
+#!/bin/sh
+# Copy to cursor.sh (executable) under private personalize/install/.
+set -eu
+exec /usr/share/neuronix/install-cursor.sh "$@"

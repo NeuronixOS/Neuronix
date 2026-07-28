@@ -1,0 +1,12 @@
+#!/bin/sh
+# Live ISO squashfs: Cursor from official apt repo (downloads.cursor.com).
+set -e
+if [ -x /usr/share/neuronix/install-cursor.sh ]; then
+	/usr/share/neuronix/install-cursor.sh
+elif [ -f /usr/share/neuronix/install-cursor.sh ]; then
+	chmod 0755 /usr/share/neuronix/install-cursor.sh
+	/usr/share/neuronix/install-cursor.sh
+else
+	echo "9945-neuronix-cursor: missing install-cursor.sh" >&2
+	exit 1
+fi

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Files
+Comment=Neuronix GTK4 file manager (gtk-files)
+Exec=gtk-files %F
+TryExec=gtk-files
+Icon=system-file-manager
+Terminal=false
+MimeType=inode/directory;inode/mount-point;x-directory/normal;
+Categories=System;FileManager;Core;Utility;
+StartupNotify=true
+StartupWMClass=org.linuxos.GtkFiles

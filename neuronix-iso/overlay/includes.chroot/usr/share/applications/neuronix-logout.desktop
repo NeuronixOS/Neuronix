@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Log Out
+Comment=End this session and return to the login screen
+Exec=neuronix-session-action logout
+Icon=system-log-out
+Terminal=false
+Categories=System;
+Keywords=logout;session;exit;sign out;

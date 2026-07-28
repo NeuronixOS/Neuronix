@@ -1,0 +1,21 @@
+[window]
+width = 1880
+height = 972
+sidebar_visible = true
+sidebar_width = 232
+terminal_width = 595
+
+[view]
+mode = "list"
+show_hidden = true
+sort_by = "name"
+sort_folders_first = true
+sort_reversed = false
+icon_size = 64
+thumbnail_size = "medium"
+
+[behavior]
+confirm_trash = true
+confirm_delete = true
+single_click = false
+open_folders_in_new_tab = false

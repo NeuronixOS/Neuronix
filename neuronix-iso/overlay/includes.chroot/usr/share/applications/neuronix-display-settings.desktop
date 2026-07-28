@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Display Settings
+Comment=Configure monitors, resolution, and layout
+Exec=nwg-displays
+Icon=preferences-desktop-display
+Terminal=false
+Categories=Settings;
+StartupNotify=true

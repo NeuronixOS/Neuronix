@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Reboot
+Comment=Restart the computer
+Exec=neuronix-session-action reboot
+Icon=system-reboot
+Terminal=false
+Categories=System;
+Keywords=reboot;restart;power;

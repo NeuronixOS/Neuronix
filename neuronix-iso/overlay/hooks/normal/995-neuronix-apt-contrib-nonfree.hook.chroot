@@ -1,0 +1,8 @@
+#!/bin/sh
+# Live ISO squashfs: ensure contrib + non-free are enabled for libretro packages.
+set -e
+if [ -f /usr/share/neuronix/ensure-apt-contrib-nonfree.sh ]; then
+	# shellcheck disable=SC1091
+	. /usr/share/neuronix/ensure-apt-contrib-nonfree.sh
+	ensure_apt_contrib_nonfree
+fi

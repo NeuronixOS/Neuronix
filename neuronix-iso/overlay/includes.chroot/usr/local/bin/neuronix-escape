@@ -1,0 +1,36 @@
+#!/bin/sh
+# Smart Escape for Neuronix Hyprland:
+#  - overview open → close it (and restore Waybar via neuronix-overview-toggle)
+#  - fuzzel open → dismiss the launcher
+#  - otherwise → forward Escape to the focused window (global bind would
+#    otherwise swallow Escape for every app)
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -d "${XDG_RUNTIME_DIR}/hypr" ]; then
+	HYPRLAND_INSTANCE_SIGNATURE="$(
+		find "${XDG_RUNTIME_DIR}/hypr" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | head -n1
+	)"
+	export HYPRLAND_INSTANCE_SIGNATURE
+fi
+
+MARKER="${XDG_RUNTIME_DIR}/neuronix-overview.open"
+
+if [ -f "${MARKER}" ]; then
+	exec neuronix-overview-toggle close
+fi
+
+if pgrep -x fuzzel >/dev/null 2>&1; then
+	pkill -x fuzzel >/dev/null 2>&1 || true
+	exit 0
+fi
+
+# Pass Escape through so apps (dialogs, vim, etc.) still receive it.
+if command -v hyprctl >/dev/null 2>&1; then
+	hyprctl dispatch sendshortcut ",Escape,activewindow" >/dev/null 2>&1 || true
+fi
+exit 0

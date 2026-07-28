@@ -1,0 +1,49 @@
+# Installed disk: gfx menu + wallpaper (same PNG as GRUB_BACKGROUND).
+desktop-image: "wallpaper.png"
+title-color: "#ffffff"
+title-font: "Unifont Regular 16"
+title-text: "Welcome to Neuronix"
+message-font: "Unifont Regular 16"
+terminal-font: "Unifont Regular 16"
+
++ label {
+	top = 100%-50
+	left = 0
+	width = 100%
+	height = 20
+	text = "@KEYMAP_SHORT@"
+	align = "center"
+	color = "#ffffff"
+	font = "Unifont Regular 16"
+}
+
++ boot_menu {
+	left = 8%
+	width = 84%
+	top = 50%
+	height = 48%-80
+	item_color = "#cfcfcf"
+	item_font = "Unifont Regular 16"
+	selected_item_color = "#ffffff"
+	selected_item_font = "Unifont Regular 16"
+	item_height = 20
+	item_padding = 0
+	item_spacing = 6
+	icon_width = 0
+	icon_heigh = 0
+	item_icon_space = 0
+}
+
++ progress_bar {
+	id = "__timeout__"
+	left = 12%
+	top = 100%-72
+	height = 16
+	width = 76%
+	font = "Unifont Regular 16"
+	text_color = "#000000"
+	fg_color = "#ffffff"
+	bg_color = "#5a5a5a"
+	border_color = "#ffffff"
+	text = "@TIMEOUT_NOTIFICATION_LONG@"
+}

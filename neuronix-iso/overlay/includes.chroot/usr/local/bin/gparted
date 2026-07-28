@@ -1,0 +1,29 @@
+#!/bin/sh
+# GParted on Hyprland — elevate via Neuronix root helper (DISPLAY rediscovered as root).
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+
+if [ -z "${DISPLAY:-}" ]; then
+	if [ -S /tmp/.X11-unix/X0 ]; then
+		DISPLAY=:0
+	elif [ -S /tmp/.X11-unix/X1 ]; then
+		DISPLAY=:1
+	else
+		DISPLAY=:0
+	fi
+fi
+export DISPLAY
+
+if pidof gpartedbin >/dev/null 2>&1; then
+	if command -v hyprctl >/dev/null 2>&1; then
+		hyprctl dispatch focuswindow "class:^(GParted)$" >/dev/null 2>&1 || true
+	fi
+	exit 0
+fi
+
+if command -v xhost >/dev/null 2>&1; then
+	xhost +SI:localuser:root >/dev/null 2>&1 || true
+fi
+
+exec pkexec /usr/local/libexec/neuronix-gparted "$@"

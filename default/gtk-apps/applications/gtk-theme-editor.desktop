@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Theme Editor
+Comment=Neuronix GTK suite color profile editor (gtk-theme-editor)
+Exec=gtk-theme-editor
+TryExec=gtk-theme-editor
+Icon=preferences-desktop-theme
+Terminal=false
+Categories=Settings;DesktopSettings;
+StartupNotify=true
+StartupWMClass=org.neuronix.GtkThemeEditor

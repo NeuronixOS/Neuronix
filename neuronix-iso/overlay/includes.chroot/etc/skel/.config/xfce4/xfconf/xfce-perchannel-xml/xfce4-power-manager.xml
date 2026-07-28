@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Neuronix defaults: never blank/sleep display; never auto-reduce brightness (AC or battery). -->
+<channel name="xfce4-power-manager" version="1.0">
+  <property name="xfce4-power-manager" type="empty">
+    <property name="power-button-action" type="uint" value="3"/>
+    <property name="dpms-enabled" type="bool" value="true"/>
+    <property name="dpms-on-ac-sleep" type="uint" value="0"/>
+    <property name="dpms-on-ac-off" type="uint" value="0"/>
+    <property name="dpms-on-battery-sleep" type="uint" value="0"/>
+    <property name="dpms-on-battery-off" type="uint" value="0"/>
+    <property name="blank-on-ac" type="int" value="0"/>
+    <property name="blank-on-battery" type="int" value="0"/>
+    <property name="inactivity-on-ac" type="uint" value="0"/>
+    <property name="inactivity-on-battery" type="uint" value="0"/>
+    <property name="brightness-on-ac" type="uint" value="0"/>
+    <property name="brightness-on-battery" type="uint" value="0"/>
+    <property name="brightness-inactivity-on-ac" type="uint" value="0"/>
+    <property name="brightness-inactivity-on-battery" type="uint" value="0"/>
+    <property name="brightness-level-on-ac" type="uint" value="100"/>
+    <property name="brightness-level-on-battery" type="uint" value="100"/>
+    <property name="general-notification" type="bool" value="true"/>
+    <property name="show-tray-icon" type="bool" value="false"/>
+  </property>
+</channel>

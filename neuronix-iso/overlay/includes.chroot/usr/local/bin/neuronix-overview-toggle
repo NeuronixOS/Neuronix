@@ -1,0 +1,109 @@
+#!/bin/sh
+# Toggle Hyprspace overview and park Waybar under the desktop strip so workspace
+# thumbnails sit above the top bar (not clipped underneath it).
+#
+# Close paths: Super again, Escape (neuronix-escape), or left-click empty desktop
+# (plugin:overview:exitOnClick → hide → this script's "sync").
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -d "${XDG_RUNTIME_DIR}/hypr" ]; then
+	HYPRLAND_INSTANCE_SIGNATURE="$(
+		find "${XDG_RUNTIME_DIR}/hypr" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | head -n1
+	)"
+	export HYPRLAND_INSTANCE_SIGNATURE
+fi
+
+command -v hyprctl >/dev/null 2>&1 || exit 0
+
+MARKER="${XDG_RUNTIME_DIR}/neuronix-overview.open"
+PANEL_H="${NEURONIX_OVERVIEW_PANEL_HEIGHT:-120}"
+WAYBAR_CFG="${HOME}/.config/waybar/config"
+WAYBAR_STYLE="${HOME}/.config/waybar/style.css"
+WAYBAR_OVR="${XDG_RUNTIME_DIR}/waybar-overview.json"
+
+_waybar_start() {
+	_mode="$1"
+	pkill -x waybar 2>/dev/null || true
+	sleep 0.12
+	if [ "${_mode}" = overview ] && [ -r "${WAYBAR_CFG}" ]; then
+		PANEL_H="${PANEL_H}" WAYBAR_CFG="${WAYBAR_CFG}" WAYBAR_OVR="${WAYBAR_OVR}" python3 - <<'PY'
+import json, os
+src, dst, h = os.environ["WAYBAR_CFG"], os.environ["WAYBAR_OVR"], int(os.environ["PANEL_H"])
+with open(src, encoding="utf-8") as f:
+    cfg = json.load(f)
+cfg["margin-top"] = h
+cfg["exclusive-zone"] = True
+with open(dst, "w", encoding="utf-8") as f:
+    json.dump(cfg, f, indent=2)
+    f.write("\n")
+PY
+		if [ -r "${WAYBAR_STYLE}" ]; then
+			waybar -c "${WAYBAR_OVR}" -s "${WAYBAR_STYLE}" >/dev/null 2>&1 &
+		else
+			waybar -c "${WAYBAR_OVR}" >/dev/null 2>&1 &
+		fi
+	else
+		waybar >/dev/null 2>&1 &
+	fi
+}
+
+_close_overview() {
+	# Drop marker first so Hyprspace hide→sync is a no-op (avoids double Waybar restart).
+	rm -f "${MARKER}"
+	hyprctl dispatch overview:close >/dev/null 2>&1 || true
+	_waybar_start normal
+}
+
+_open_overview() {
+	# Re-assert patched plugin + options every open. hyprpm reload can sneak an
+	# unpatched Hyprspace back in (black active thumb on Hyprland 0.55).
+	if [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
+		/usr/local/bin/neuronix-ensure-hyprspace >/dev/null 2>&1 || true
+	elif [ -x /usr/local/bin/neuronix-overview-defaults ]; then
+		/usr/local/bin/neuronix-overview-defaults >/dev/null 2>&1 || true
+	else
+		hyprctl keyword plugin:overview:panelHeight "${PANEL_H}" >/dev/null 2>&1 || true
+		hyprctl keyword plugin:overview:reservedArea 0 >/dev/null 2>&1 || true
+		hyprctl keyword plugin:overview:affectStrut false >/dev/null 2>&1 || true
+		hyprctl keyword plugin:overview:drawActiveWorkspace false >/dev/null 2>&1 || true
+		hyprctl keyword plugin:overview:overrideGaps false >/dev/null 2>&1 || true
+		hyprctl keyword plugin:overview:exitOnClick true >/dev/null 2>&1 || true
+		hyprctl keyword decoration:active_opacity 0.97 >/dev/null 2>&1 || true
+		hyprctl keyword decoration:inactive_opacity 0.97 >/dev/null 2>&1 || true
+	fi
+
+	touch "${MARKER}"
+	hyprctl dispatch overview:open >/dev/null 2>&1 || hyprctl dispatch overview:toggle >/dev/null 2>&1 || true
+	_waybar_start overview
+}
+
+case "${1:-}" in
+	sync)
+		# Invoked from patched Hyprspace hide() (exitOnClick / swipe / …).
+		[ -f "${MARKER}" ] || exit 0
+		rm -f "${MARKER}"
+		_waybar_start normal
+		;;
+	close | off | restore)
+		# No-op when overview is not open (normal Escape presses).
+		[ -f "${MARKER}" ] || exit 0
+		_close_overview
+		;;
+	open | on)
+		[ -f "${MARKER}" ] && exit 0
+		_open_overview
+		;;
+	*)
+		if [ -f "${MARKER}" ]; then
+			_close_overview
+		else
+			_open_overview
+		fi
+		;;
+esac
+exit 0

@@ -1,0 +1,116 @@
+#!/bin/sh
+# Build Hyprland plugins against the ISO Hyprland ABI and install .so files so
+# live sessions get titlebars (hyprbars) and Super→overview (Hyprspace) without
+# compiling at first boot. Packaged hyprland-plugin-hyprbars often lags the
+# backports Hyprland ABI and is not installable — build from source instead.
+#
+# hyprland-plugins main tracks the newest Hyprland; clone the matching vX.Y
+# tag so headers match hyprland-dev on the ISO.
+set -e
+
+PLUGIN_DIR=/usr/lib/x86_64-linux-gnu/hyprland/plugins
+HYPRBARS_SO="${PLUGIN_DIR}/libhyprbars.so"
+HYPRSPACE_SO="${PLUGIN_DIR}/Hyprspace.so"
+
+_suite="$(. /etc/os-release 2>/dev/null && printf '%s' "${VERSION_CODENAME:-trixie}")"
+[ -n "${_suite}" ] || _suite="trixie"
+_backports="${_suite}-backports"
+
+if ! command -v apt-get >/dev/null 2>&1; then
+	echo "[neuronix-hypr-plugins] skip: no apt-get" >&2
+	exit 0
+fi
+
+if ! command -v hyprctl >/dev/null 2>&1 && ! dpkg -s hyprland >/dev/null 2>&1; then
+	echo "[neuronix-hypr-plugins] skip: hyprland not installed yet" >&2
+	exit 0
+fi
+
+DEBIAN_FRONTEND=noninteractive apt-get install -y -t "${_backports}" \
+	hyprland-dev \
+	cmake g++ meson ninja-build pkg-config git patch \
+	libpixman-1-dev libpango1.0-dev libcairo2-dev \
+	libdrm-dev libinput-dev libudev-dev libwayland-dev libxkbcommon-dev \
+	|| {
+		echo "[neuronix-hypr-plugins] WARNING: could not install build deps from ${_backports}" >&2
+		exit 0
+	}
+
+# Map hyprland 0.55.2+ds-1~bpo13+1 → try v0.55.2, v0.55.0, v0.55
+_hl_ver="$(dpkg-query -W -f='${Version}' hyprland 2>/dev/null || true)"
+_hl_ver="$(printf '%s' "${_hl_ver}" | sed -E 's/^([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/')"
+_hl_mm="$(printf '%s' "${_hl_ver}" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')"
+
+_clone_hyprland_plugins() {
+	_dest="$1"
+	_tried=
+	for _tag in "v${_hl_ver}" "v${_hl_mm}.0" "v${_hl_mm}"; do
+		[ -n "${_tag}" ] && [ "${_tag}" != "v" ] && [ "${_tag}" != "v.0" ] || continue
+		case " ${_tried} " in
+			*" ${_tag} "*) continue ;;
+		esac
+		_tried="${_tried} ${_tag}"
+		echo "[neuronix-hypr-plugins] cloning hyprland-plugins ${_tag}…"
+		if git clone --depth 1 --branch "${_tag}" \
+			https://github.com/hyprwm/hyprland-plugins.git "${_dest}" 2>/dev/null; then
+			return 0
+		fi
+		rm -rf "${_dest}"
+	done
+	echo "[neuronix-hypr-plugins] WARNING: no matching hyprland-plugins tag for hyprland ${_hl_ver}; trying main" >&2
+	git clone --depth 1 https://github.com/hyprwm/hyprland-plugins.git "${_dest}" 2>/dev/null
+}
+
+_workdir="$(mktemp -d)"
+cleanup() { rm -rf "${_workdir}"; }
+trap cleanup EXIT
+
+mkdir -p "${PLUGIN_DIR}"
+
+# --- hyprbars (titlebar min/max/close) ---
+if _clone_hyprland_plugins "${_workdir}/hyprland-plugins"; then
+	cd "${_workdir}/hyprland-plugins/hyprbars"
+	if make all; then
+		# Debian package name; ensure helper looks for libhyprbars.so
+		install -m 0755 hyprbars.so "${HYPRBARS_SO}"
+		echo "[neuronix-hypr-plugins] installed ${HYPRBARS_SO}"
+	else
+		echo "[neuronix-hypr-plugins] WARNING: hyprbars build failed" >&2
+	fi
+else
+	echo "[neuronix-hypr-plugins] WARNING: hyprland-plugins clone failed (network?)" >&2
+fi
+
+# --- Hyprspace (workspace overview) ---
+# Neuronix patches (usr/share/neuronix/patches/hyprspace):
+#  - stub-render the active workspace (upstream leaves a grey tile when
+#    drawActiveWorkspace=false, which we need to avoid Hyprland 0.55 zoom).
+#    With decoration opacity 0.99, window textures can be stubbed while the
+#    real windows stay visible on the desktop under the strip.
+#  - on hide(), exec neuronix-overview-toggle sync so exitOnClick restores Waybar.
+#  - vertical scroll selects desktops anywhere in overview: left to 1, right
+#    creates/extends higher desktops (wraps back to 1 after 32).
+cd "${_workdir}"
+if git clone --depth 1 https://github.com/KZDKM/Hyprspace.git Hyprspace 2>/dev/null; then
+	cd Hyprspace
+	_hs_patchdir=/usr/share/neuronix/patches/hyprspace
+	if [ -d "${_hs_patchdir}" ]; then
+		for _p in "${_hs_patchdir}"/*.patch; do
+			[ -f "${_p}" ] || continue
+			echo "[neuronix-hypr-plugins] applying $(basename "${_p}")…"
+			if ! patch -p1 --forward --batch <"${_p}"; then
+				echo "[neuronix-hypr-plugins] WARNING: patch failed: ${_p}" >&2
+			fi
+		done
+	fi
+	if make all; then
+		install -m 0755 Hyprspace.so "${HYPRSPACE_SO}"
+		echo "[neuronix-hypr-plugins] installed ${HYPRSPACE_SO}"
+	else
+		echo "[neuronix-hypr-plugins] WARNING: Hyprspace build failed" >&2
+	fi
+else
+	echo "[neuronix-hypr-plugins] WARNING: Hyprspace clone failed (network?)" >&2
+fi
+
+exit 0

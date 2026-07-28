@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Configs
+Comment=Neuronix configs editor (gtk-configs)
+Exec=gtk-configs
+TryExec=gtk-configs
+Icon=preferences-system
+Terminal=false
+Categories=Settings;Utility;
+StartupNotify=true
+StartupWMClass=org.neuronix.GtkConfigs

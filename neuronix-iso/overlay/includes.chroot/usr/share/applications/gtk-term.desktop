@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Terminal
+Comment=Neuronix GTK4 terminal (gtk-term)
+Exec=gtk-term
+TryExec=gtk-term
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupNotify=true
+StartupWMClass=org.linuxos.GtkTerm
+X-TerminalArgExec=-e
+X-TerminalArgDir=--working-directory

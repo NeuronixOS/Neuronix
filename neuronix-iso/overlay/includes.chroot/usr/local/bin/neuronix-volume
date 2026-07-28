@@ -1,0 +1,21 @@
+#!/bin/sh
+# Volume change with SwayOSD bar + short feedback beep at the new level.
+# Usage: neuronix-volume +5 | -5 | mute-toggle | raise | lower
+set -eu
+arg="${1:-+5}"
+case "$arg" in
+mute | mute-toggle)
+	swayosd-client --output-volume mute-toggle
+	;;
+*)
+	swayosd-client --output-volume "$arg"
+	;;
+esac
+
+sound=/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga
+[ -f "$sound" ] || exit 0
+if command -v paplay >/dev/null 2>&1; then
+	paplay "$sound" >/dev/null 2>&1 &
+elif command -v pw-play >/dev/null 2>&1; then
+	pw-play "$sound" >/dev/null 2>&1 &
+fi

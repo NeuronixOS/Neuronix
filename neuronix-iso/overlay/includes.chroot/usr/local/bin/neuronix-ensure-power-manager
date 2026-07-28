@@ -1,0 +1,41 @@
+#!/bin/sh
+# Apply Neuronix xfce4-power-manager defaults (idempotent) and ensure the daemon is running.
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+command -v xfce4-power-manager >/dev/null 2>&1 || exit 0
+command -v xfconf-query >/dev/null 2>&1 || exit 0
+
+_set() {
+	_path="$1"
+	_type="$2"
+	_val="$3"
+	xfconf-query -c xfce4-power-manager -p "${_path}" -n -t "${_type}" -s "${_val}" 2>/dev/null \
+		|| xfconf-query -c xfce4-power-manager -p "${_path}" -t "${_type}" -s "${_val}" 2>/dev/null \
+		|| true
+}
+
+# 0 = Never for timeouts / “reduce after”
+_set /xfce4-power-manager/dpms-enabled bool true
+_set /xfce4-power-manager/dpms-on-ac-sleep uint 0
+_set /xfce4-power-manager/dpms-on-ac-off uint 0
+_set /xfce4-power-manager/dpms-on-battery-sleep uint 0
+_set /xfce4-power-manager/dpms-on-battery-off uint 0
+_set /xfce4-power-manager/blank-on-ac int 0
+_set /xfce4-power-manager/blank-on-battery int 0
+_set /xfce4-power-manager/inactivity-on-ac uint 0
+_set /xfce4-power-manager/inactivity-on-battery uint 0
+_set /xfce4-power-manager/brightness-on-ac uint 0
+_set /xfce4-power-manager/brightness-on-battery uint 0
+_set /xfce4-power-manager/brightness-inactivity-on-ac uint 0
+_set /xfce4-power-manager/brightness-inactivity-on-battery uint 0
+_set /xfce4-power-manager/brightness-level-on-ac uint 100
+_set /xfce4-power-manager/brightness-level-on-battery uint 100
+
+if ! pgrep -x xfce4-power-man >/dev/null 2>&1 && ! pgrep -f '[x]fce4-power-manager' >/dev/null 2>&1; then
+	xfce4-power-manager --daemon >/dev/null 2>&1 &
+fi

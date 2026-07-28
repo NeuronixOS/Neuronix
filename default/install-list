@@ -1,0 +1,158 @@
+# Neuronix install-list — bare minimum (committed under default/)
+# @manifest-format: 1
+#
+# Only what is required to:
+#   live     — boot the slim ISO into Hyprland + Calamares
+#   server   — after Server install: console + SSH + network (mostly live keepers)
+#   desktop  — after Desktop install: Hyprland session + settings hub tools
+#   installer — Calamares on the live ISO
+#
+# Everything else belongs in personalize/install-list (append-only).
+# See personalize.example/ — copy to personalize/ for a full workstation stack.
+#
+# Hook-only (not listed): google-chrome-stable / cursor — Desktop Calamares only.
+# Backports hook 997 + Calamares Desktop: Hyprland stack + ydotool.
+# Hook 998 builds hyprbars / Hyprspace against the ISO Hyprland ABI (apt plugin often lags).
+# Hook 998 prebuilds Hyprspace.so into the ISO (Super → overview on live).
+# Not on live (personalize only if you want them): audacity, blender, systemsettings.
+
+# --- live ---
+# Live-boot + base system (also kept after Server purge)
+live-boot # Live system initramfs hooks (required to mount squashfs)
+live-boot-initramfs-tools # Integrates live-boot into initramfs-tools
+live-config # Live system configuration scripts
+live-config-systemd # live-config systemd integration
+live-tools # Live system tools
+sudo # Provide limited super user privileges to specific users
+systemd-sysv # system and service manager - SysV compatibility symlinks
+linux-image-amd64 # Kernel image (upgraded to trixie-backports ~7.0.x via hook 997)
+network-manager # network management framework (daemon and userspace tools)
+bluez # Bluetooth tools and daemons
+bluetooth # Bluetooth support (metapackage)
+iproute2 # networking and traffic control tools
+curl # command line tool for transferring data with URL syntax
+ca-certificates # Common CA certificates
+openssh-client # secure shell (SSH) client — remote login tooling
+openssh-server # secure shell (SSH) server — enabled on live + after install (ssh.socket)
+ssh # Meta package / convenience alias for OpenSSH client tools
+# Live remote login: user "live" / password LB_LIVE_USER_PASSWORD (default: live)
+# Installed remote login: Calamares user + password; sshprep runs neuronix-enable-ssh
+rsync # fast, versatile, remote (and local) file-copying tool
+vim # Vi IMproved - enhanced vi editor
+wget # retrieves files from the web
+gnupg # GNU privacy guard - a free PGP replacement
+gzip # GNU compression utilities
+hostname # utility to set/show the host name or domain name
+grep # GNU grep, egrep and fgrep
+debconf # Debian configuration management system
+rsyslog # reliable system and kernel logging daemon
+fontconfig # generic font configuration library - support binaries
+fonts-cascadia-code # Cascadia Code monospace (gtk-edit default editor font)
+zip # Archiver for .zip files
+gdisk # GPT fdisk text-mode partitioning tool
+dconf-cli # simple configuration storage system - utilities
+cron # Vixie cron — user crontab from default|personalize/configs/crontab/crontab.conf
+btop # Resource monitor (htop-like TUI)
+hwinfo # Hardware detection / probing
+nmap # Network exploration and security auditing
+rename # Perl-based bulk file rename utility
+telnet # Telnet client
+tree # Recursive directory listing as a tree
+traceroute # Trace network path to a host
+whois # Client for the whois directory service
+
+# Display manager + Hyprland chrome (purged on Server)
+lightdm # simple display manager
+lightdm-gtk-greeter # simple display manager (GTK+ greeter)
+desktop-base # common files for the Debian Desktop
+waybar # Hyprland status bar (Wayland)
+xwayland # XWayland server for X11 apps on Hyprland
+x11-xserver-utils # xhost (needed for pkexec GUIs like GParted on XWayland)
+fonts-font-awesome # iconic font for Waybar
+fuzzel # Application launcher (Wayland)
+mako-notifier # Lightweight notification daemon for Wayland
+pipewire # audio and video processing engine multimedia server
+pipewire-pulse # PipeWire PulseAudio daemon
+wireplumber # modular session / policy manager for PipeWire
+pavucontrol # PulseAudio / PipeWire volume control (Waybar + settings)
+swayosd # On-screen volume / brightness / mute OSD (swayosd-server + client)
+sound-theme-freedesktop # System sounds (audio-volume-change beep for neuronix-volume)
+pulseaudio-utils # paplay for volume-change feedback beep
+mate-polkit # MATE polkit agent (Neuronix starts it with GDK_BACKEND=x11 — native Wayland dialog is blank on Hyprland)
+
+gnome-keyring # Session keyring service
+libpam-gnome-keyring # PAM module to unlock the keyring upon login
+zenity # GTK dialog boxes (Neuronix settings hub menus)
+libnotify-bin # sends desktop notifications
+wl-clipboard # Wayland clipboard copy/paste CLI
+xdg-desktop-portal # Desktop integration portal for sandboxed apps (Flatpak)
+xdg-desktop-portal-gtk # GTK portal backend for xdg-desktop-portal
+nm-connection-editor # NetworkManager connection editor (settings hub)
+python3-gi # Python 3 bindings for gobject-introspection
+gir1.2-gtklayershell-0.1 # Python/GTK layer-shell bindings (calendar / settings)
+libgtk-layer-shell0 # Wayland layer-shell library
+gir1.2-nm-1.0 # GObject introspection data for libnm
+papirus-icon-theme # Default icon theme (Papirus); folders recolored yellow in hook 999
+adwaita-icon-theme # Fallback icons for apps that expect Adwaita names
+libgtk-4-1 # GTK4 runtime for Neuronix gtk-apps (default/gtk-apps)
+gir1.2-gtk-4.0 # GTK4 GObject introspection (Python gtk-colors / suite apps)
+libvte-2.91-gtk4-0 # VTE GTK4 widget (gtk-term)
+libgtksourceview-5-0 # GtkSourceView 5 for gtk-edit syntax highlighting
+# Daily apps: gtk-term / gtk-files / gtk-edit (staged from default/gtk-apps)
+# Keep foot/thunar/mousepad as emergency fallbacks if binaries missing
+foot # Fallback Wayland terminal
+firefox-esr # Live-session browser (Desktop may add Chrome via Calamares)
+thunar # Fallback file manager
+gvfs # userspace virtual filesystem - GIO module
+gvfs-backends # userspace virtual filesystem - backends
+mousepad # Fallback text editor
+xfce4-power-manager # Power, sleep, and battery settings
+brightnessctl # Backlight brightness control from keybinds
+
+# --- server ---
+# Bare Server profile needs no extra apt packages beyond live keepers
+# (NM, SSH, vim, cron, …). Add tools via personalize/install-list # --- server ---.
+# Live GUI + Hyprland runtime are purged; desktop skel/gtk-apps cleared by
+# neuronix-apply-server-profile.sh.
+
+# --- desktop ---
+# Hyprland session as shipped (keybinds + settings hub + hyprpm plugins)
+grim # Wayland screenshot utility (Print / Super+Shift+S)
+slurp # Region selector for grim screenshots
+cmake # Build hyprpm plugins (hyprbars, Hyprspace)
+g++ # C++ compiler for hyprpm plugins
+meson # Build system used by hyprpm plugin builds
+ninja-build # Ninja backend for meson / hyprpm
+patch # Apply Neuronix Hyprspace patches in hook 998
+hyprland-dev # Hyprland headers for hyprpm plugins
+libpixman-1-dev # pixman headers required to compile hyprpm plugins
+libpango1.0-dev # pangocairo headers required to compile Hyprspace
+libcairo2-dev # Cairo headers (pangocairo) for hyprpm plugins
+nwg-displays # Monitor layout (settings hub Display)
+nwg-look # GTK theme/icons/cursors (settings hub Appearance)
+xsettingsd # Xsettings daemon (nwg-look exports ~/.config/xsettingsd/)
+gparted # Partition editor (settings hub Disks)
+baobab # Disk usage analyzer (GUI)
+gdebi # Install .deb packages with dependency resolution (GUI)
+hardinfo # System information and benchmarks (GUI)
+synaptic # Graphical package manager
+blueman # Bluetooth manager GUI (settings hub Bluetooth)
+imv # Wayland image viewer (mimeapps default)
+mpv # Lightweight media player (mimeapps default for video/audio)
+chromium # Debian Chromium (neuronix-chromium loads personalize browser-extensions)
+gnome-snapshot # Webcam photo/video (Cheese successor; Recommends: libcamera-ipa, libspa-0.2-libcamera)
+zathura # Minimalist document viewer
+zathura-pdf-poppler # PDF support for zathura via poppler
+gvfs-fuse # userspace virtual filesystem - fuse server
+dconf-editor # GTK keys (settings hub Advanced)
+system-config-printer # Printers (settings hub)
+mediainfo # command-line utility for reading information from audio/video files
+x265 # H.265/HEVC video stream encoder
+ffmpeg # Tools for transcoding, streaming and playing of multimedia files
+flatpak # Application deployment framework (Flathub remote enabled at build)
+libreoffice # office productivity suite (Writer, Calc, Impress, Draw, Base, Math)
+
+# --- installer ---
+calamares # Graphical distro installer (live ISO only; removed after install)
+calamares-settings-debian # Debian Calamares module configuration
+qml-module-qtquick-controls2 # Qt Quick controls for Calamares UI

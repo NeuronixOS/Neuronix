@@ -1,0 +1,15 @@
+--- a/src/Render.cpp
++++ b/src/Render.cpp
+@@ -286,10 +286,8 @@
+             else {
+                 renderRect(curWorkspaceBox, Config::workspaceActiveBackground);
+             }
+-            if (!Config::drawActiveWorkspace) {
+-                curWorkspaceRectOffsetX += workspaceBoxW + (Config::workspaceMargin * owner->m_scale);
+-                continue;
+-            }
++            // Neuronix: still stub-render the active workspace (upstream leaves a grey tile).
++
+         }
+         else {
+             if (Config::workspaceBorderSize >= 1 && Config::workspaceInactiveBorder.a > 0) {

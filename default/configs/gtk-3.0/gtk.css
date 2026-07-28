@@ -1,0 +1,11 @@
+/* Neuronix: inner padding for GTK3 dialogs (complements Hyprland outer gaps). */
+
+dialog .dialog-vbox,
+messagedialog .dialog-vbox {
+  margin: 12px 14px 14px 14px;
+}
+
+dialog treeview,
+dialog list {
+  padding: 4px 6px;
+}

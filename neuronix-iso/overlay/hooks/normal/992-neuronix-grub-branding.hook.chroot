@@ -1,0 +1,29 @@
+#!/bin/sh
+set -e
+
+WALL=/usr/share/neuronix/branding/grub/wallpaper.png
+CER_GRUB=/usr/share/desktop-base/ceratopsian-theme/grub
+
+if [ -f "$WALL" ]; then
+	mkdir -p "$CER_GRUB"
+	cp -a "$WALL" "$CER_GRUB/grub-16x9.png"
+	[ -f /usr/share/neuronix/branding/grub-4x3.png ] \
+		&& cp -a /usr/share/neuronix/branding/grub-4x3.png "$CER_GRUB/grub-4x3.png" || true
+fi
+
+# Prefer Debian 13 ceratopsian (stable) over testing hard-hat artwork.
+if [ -d /usr/share/desktop-base/ceratopsian-theme ] && command -v update-alternatives >/dev/null 2>&1; then
+	update-alternatives --set desktop-theme /usr/share/desktop-base/ceratopsian-theme 2>/dev/null || true
+fi
+
+# Drop stale testing/unstable desktop-base symlinks if present.
+for _bad in /usr/share/desktop-base/active-theme /usr/share/desktop-base/homeworld-theme \
+	/usr/share/desktop-base/hardhat-theme /usr/share/desktop-base/spacefun-theme; do
+	[ -L "$_bad" ] || continue
+	_target="$(readlink "$_bad" 2>/dev/null || true)"
+	case "$_target" in
+		*hardhat*|*hard-hat*|*homeworld*|*testing*) rm -f "$_bad" ;;
+	esac
+done
+
+exit 0

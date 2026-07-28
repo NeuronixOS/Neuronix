@@ -1,0 +1,30 @@
+#!/bin/sh
+# Live ISO: host keys, password auth, ssh.socket (Debian trixie / OpenSSH 10).
+# Live user: username=live password from LB_LIVE_USER_PASSWORD (default: live).
+set -e
+rm -f /etc/ssh/sshd_not_to_be_run
+
+/usr/bin/ssh-keygen -A
+
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/50-neuronix.conf <<'EOF'
+# Neuronix SSH — password + pubkey auth for live user and installed user.
+PasswordAuthentication yes
+KbdInteractiveAuthentication yes
+PubkeyAuthentication yes
+EOF
+chmod 644 /etc/ssh/sshd_config.d/50-neuronix.conf
+rm -f /etc/ssh/sshd_config.d/50-neuronix-live.conf
+
+mkdir -p /run/sshd
+chmod 0755 /run/sshd
+/usr/sbin/sshd -t
+
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl disable ssh.service 2>/dev/null || true
+	rm -f /etc/systemd/system/multi-user.target.wants/ssh.service
+	systemctl enable ssh.socket 2>/dev/null || true
+	systemctl enable neuronix-sshd-live-prep.service 2>/dev/null || true
+fi
+
+chmod 0755 /usr/local/sbin/neuronix-sshd-live-prep 2>/dev/null || true

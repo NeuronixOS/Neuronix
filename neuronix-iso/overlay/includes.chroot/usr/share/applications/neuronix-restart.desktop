@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Restart Desktop
+Comment=Restart Openbox and the panel without rebooting
+Exec=neuronix-session-action restart
+Icon=view-refresh
+Terminal=false
+Categories=System;
+Keywords=restart;reload;session;desktop;

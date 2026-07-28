@@ -1,0 +1,74 @@
+[
+  {
+    "id": "custom-monokai",
+    "name": "Monokai",
+    "foreground": "#f8f8f2",
+    "background": "#272822",
+    "palette": [
+      "#272822",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#66d9ef",
+      "#ae81ff",
+      "#a1efe4",
+      "#f8f8f2",
+      "#75715e",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#66d9ef",
+      "#ae81ff",
+      "#a1efe4",
+      "#f9f8f5"
+    ]
+  },
+  {
+    "id": "custom-ayu-dark",
+    "name": "Ayu Dark",
+    "foreground": "#b3b1ad",
+    "background": "#2e2d2e",
+    "palette": [
+      "#01060e",
+      "#ea6c73",
+      "#91b362",
+      "#f9af4f",
+      "#53bdfa",
+      "#fae994",
+      "#90e1c6",
+      "#c7c7c7",
+      "#686868",
+      "#f07178",
+      "#c2d94c",
+      "#ffb454",
+      "#59c2ff",
+      "#ffee99",
+      "#95e6cb",
+      "#ffffff"
+    ]
+  },
+  {
+    "id": "custom-monokai-2",
+    "name": "Monokai",
+    "foreground": "#f8f8f2",
+    "background": "#272822",
+    "palette": [
+      "#272822",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#66d9ef",
+      "#ae81ff",
+      "#a1efe4",
+      "#f8f8f2",
+      "#75715e",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#66d9ef",
+      "#ae81ff",
+      "#a1efe4",
+      "#f9f8f5"
+    ]
+  }
+]

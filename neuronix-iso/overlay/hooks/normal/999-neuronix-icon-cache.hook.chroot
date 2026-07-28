@@ -1,0 +1,29 @@
+#!/bin/sh
+set -e
+
+# Default Papirus folder color to manila yellow (live + installed).
+if [ -x /usr/local/bin/papirus-folders ] && [ -d /usr/share/icons/Papirus ]; then
+	for _theme in Papirus Papirus-Dark Papirus-Light; do
+		[ -d "/usr/share/icons/${_theme}" ] || continue
+		/usr/local/bin/papirus-folders -C yellow -t "${_theme}" -u 2>/dev/null \
+			|| /usr/local/bin/papirus-folders -C yellow -t "${_theme}" 2>/dev/null \
+			|| true
+	done
+fi
+
+for _theme in Papirus Papirus-Dark Papirus-Light; do
+	_dir="/usr/share/icons/${_theme}"
+	if [ -d "${_dir}" ] && command -v gtk-update-icon-cache >/dev/null 2>&1; then
+		gtk-update-icon-cache -f "${_dir}" 2>/dev/null || true
+	fi
+done
+chmod 0644 /usr/share/neuronix/neuronix-hyprland-session-env.sh 2>/dev/null || true
+chmod 0644 /usr/share/neuronix/neuronix-wallpaper-hyprpaper.sh 2>/dev/null || true
+chmod 0644 /usr/share/neuronix/neuronix-session-log.sh 2>/dev/null || true
+chmod 0755 /usr/local/bin/neuronix-settings /usr/local/bin/neuronix-x11-app /usr/local/bin/neuronix-launch /usr/local/bin/neuronix-fuzzel /usr/local/bin/neuronix-escape /usr/local/bin/neuronix-overview-toggle /usr/local/bin/neuronix-overview-defaults /usr/local/bin/neuronix-calamares-live /usr/local/bin/papirus-folders 2>/dev/null || true
+chmod 0755 /usr/local/bin/neuronix-ensure-hyprspace /usr/local/bin/neuronix-ensure-hyprbars 2>/dev/null || true
+chmod 0755 /usr/share/neuronix/neuronix-hyprland-session.sh 2>/dev/null || true
+chmod 0755 /usr/share/neuronix/neuronix-hyprland-session-start.sh 2>/dev/null || true
+chmod 0644 /usr/share/wayland-sessions/neuronix-hyprland.desktop 2>/dev/null || true
+
+exit 0

@@ -1,0 +1,13 @@
+[Unit]
+Description=Neuronix live Calamares prep (DNS, welcome internet poll)
+DefaultDependencies=no
+After=NetworkManager.service systemd-resolved.service
+Before=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/neuronix-live-calamares-prep
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

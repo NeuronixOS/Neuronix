@@ -1,0 +1,50 @@
+#!/bin/sh
+# Re-apply Neuronix boot splash after lb binary (Debian SVG hard-hat wins if we do not).
+set -e
+
+SRC_GRUB="config/bootloaders/grub-pc"
+SRC_ISO="config/bootloaders/isolinux"
+[ -f "${SRC_GRUB}/splash.png" ] || exit 0
+
+_apply_grub_dir() {
+	_d="$1"
+	[ -d "${_d}" ] || return 0
+	mkdir -p "${_d}/live-theme"
+	cp -a "${SRC_GRUB}/splash.png" "${_d}/splash.png"
+	if [ -s "${SRC_GRUB}/live-theme/theme.txt" ]; then
+		cp -a "${SRC_GRUB}/live-theme/theme.txt" "${_d}/live-theme/theme.txt"
+	fi
+	if [ -f "${SRC_GRUB}/theme.cfg" ]; then
+		cp -a "${SRC_GRUB}/theme.cfg" "${_d}/theme.cfg"
+	fi
+	rm -f "${_d}/splash.svg" "${_d}/desktop-grub.png" "${_d}/debian-theme.png" 2>/dev/null || true
+}
+
+_apply_isolinux_dir() {
+	_d="$1"
+	[ -d "${_d}" ] || return 0
+	[ -f "${SRC_ISO}/splash.png" ] || return 0
+	cp -a "${SRC_ISO}/splash.png" "${_d}/splash.png"
+	rm -f "${_d}/splash.svg" 2>/dev/null || true
+}
+
+# GRUB (UEFI and BIOS-grub paths)
+find . -type f -name 'grub.cfg' 2>/dev/null | while read -r _cfg; do
+	_apply_grub_dir "$(dirname "${_cfg}")"
+done
+for _d in binary/boot/grub binary/EFI/boot/grub binary/EFI/debian/grub binary/efi/boot/grub; do
+	_apply_grub_dir "${_d}"
+done
+
+# BIOS isolinux/syslinux (hard-hat screenshot is usually this path)
+for _d in binary/isolinux binary/syslinux binary/boot/extlinux; do
+	_apply_isolinux_dir "${_d}"
+done
+
+# Refuse empty theme — rebuild would show Debian fallback menu
+if [ -f binary/boot/grub/live-theme/theme.txt ] && ! [ -s binary/boot/grub/live-theme/theme.txt ]; then
+	echo "991-neuronix-grub-branding: ERROR empty binary/boot/grub/live-theme/theme.txt" >&2
+	exit 1
+fi
+
+exit 0

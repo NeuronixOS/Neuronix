@@ -1,0 +1,5 @@
+# GTK 2 (legacy / X11 apps) — kept in sync with gtk-3.0/settings.ini via nwg-look
+gtk-theme-name="Adwaita-dark"
+gtk-icon-theme-name="Papirus"
+gtk-font-name="Sans 11"
+gtk-cursor-theme-name="Adwaita"

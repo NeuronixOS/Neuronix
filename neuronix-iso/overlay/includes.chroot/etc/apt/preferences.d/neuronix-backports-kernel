@@ -1,0 +1,16 @@
+# Prefer trixie-backports for kernel packages (~7.0.x)
+Package: linux-image-*
+Pin: release a=stable-backports
+Pin-Priority: 500
+
+Package: linux-headers-*
+Pin: release a=stable-backports
+Pin-Priority: 500
+
+Package: linux-image-amd64
+Pin: release a=stable-backports
+Pin-Priority: 500
+
+Package: linux-headers-amd64
+Pin: release a=stable-backports
+Pin-Priority: 500

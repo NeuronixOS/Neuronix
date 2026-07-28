@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Neuronix (Hyprland)
+Comment=Neuronix Wayland desktop
+Exec=/usr/share/neuronix/neuronix-hyprland-session.sh
+Type=Application
+DesktopNames=Hyprland

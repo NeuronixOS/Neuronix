@@ -1,0 +1,12 @@
+#!/bin/sh
+# Live ISO: empty /etc/resolv.conf breaks Calamares internet check (QNetwork DNS lookup).
+# Run as root (systemd) or with sudo.
+set -e
+if [ -f /run/systemd/resolve/stub-resolv.conf ]; then
+	ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+elif [ ! -s /etc/resolv.conf ] && command -v nmcli >/dev/null 2>&1; then
+	_dns="$(nmcli -t -f IP4.DNS dev show 2>/dev/null | head -1 | cut -d: -f2)"
+	if [ -n "${_dns:-}" ]; then
+		printf 'nameserver %s\n' "$_dns" > /etc/resolv.conf
+	fi
+fi

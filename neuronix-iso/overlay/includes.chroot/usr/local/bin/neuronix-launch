@@ -1,0 +1,8 @@
+#!/bin/sh
+# Launch a command with full Neuronix Hyprland session environment.
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck source=/usr/share/neuronix/neuronix-hyprland-session-env.sh
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env
+fi
+exec "$@"

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Fuzzel with Neuronix session env so menu-launched apps inherit GSK_RENDERER etc.
+exec /usr/local/bin/neuronix-launch fuzzel "$@"

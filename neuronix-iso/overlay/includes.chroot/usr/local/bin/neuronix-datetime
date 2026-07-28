@@ -1,0 +1,168 @@
+#!/bin/sh
+# Date & time helper for waybar clock clicks (calendar, 12/24h, set clock, timezone).
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck disable=SC1091
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env
+fi
+
+WAYBAR_CONF="${HOME}/.config/waybar/config"
+PREF_DIR="${HOME}/.config/neuronix"
+PREF_FILE="${PREF_DIR}/clock-format"
+
+_current_fmt() {
+	if [ -f "${PREF_FILE}" ]; then
+		read -r _f <"${PREF_FILE}" || _f=12
+		printf '%s' "${_f}"
+		return
+	fi
+	printf '12'
+}
+
+_apply_waybar_format() {
+	_mode="$1"
+	mkdir -p "${PREF_DIR}"
+	printf '%s\n' "${_mode}" >"${PREF_FILE}"
+	[ -f "${WAYBAR_CONF}" ] || return 0
+	if [ "${_mode}" = "24" ]; then
+		_fmt='{:%a %b %d  %H:%M}'
+	else
+		_fmt='{:%a %b %d  %I:%M %p}'
+	fi
+	python3 - "${WAYBAR_CONF}" "${_fmt}" <<'PY'
+import json, sys
+path, fmt = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as f:
+    cfg = json.load(f)
+clock = cfg.setdefault("clock", {})
+clock["format"] = fmt
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(cfg, f, indent=2)
+    f.write("\n")
+PY
+	if pgrep -x waybar >/dev/null 2>&1; then
+		pkill -USR2 -x waybar 2>/dev/null || {
+			pkill -x waybar 2>/dev/null || true
+			sleep 0.2
+			waybar &
+		}
+	fi
+}
+
+_show_calendar() {
+	if command -v neuronix-calendar >/dev/null 2>&1; then
+		neuronix-calendar || true
+		return 0
+	fi
+	_picked="$(zenity --calendar --title="Calendar" --text="Today is $(date '+%A, %B %d %Y')" 2>/dev/null)" || return 0
+	[ -n "${_picked}" ] && notify-send -a Neuronix -t 4000 "Calendar" "Selected: ${_picked}" 2>/dev/null || true
+}
+
+_set_datetime() {
+	_date="$(zenity --calendar --title="Set date" --text="Choose the system date:" 2>/dev/null)" || return 0
+	[ -n "${_date}" ] || return 0
+	_time="$(zenity --entry --title="Set time" --text="Enter time as HH:MM (24-hour):" --entry-text="$(date '+%H:%M')" 2>/dev/null)" || return 0
+	[ -n "${_time}" ] || return 0
+	_iso="$(date -d "${_date} ${_time}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" || {
+		zenity --error --text="Could not parse date/time:\n${_date} ${_time}" 2>/dev/null || true
+		return 1
+	}
+	if pkexec timedatectl set-time "${_iso}"; then
+		notify-send -a Neuronix -t 4000 "Date & time" "Set to ${_iso}" 2>/dev/null || true
+	else
+		zenity --error --text="Failed to set system time (need admin rights)." 2>/dev/null || true
+	fi
+}
+
+_set_timezone() {
+	_cur="$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)"
+	_tz="$(
+		timedatectl list-timezones 2>/dev/null | zenity --list \
+			--title="Time zone" \
+			--text="Current: ${_cur}\nSelect a time zone:" \
+			--column="Timezone" \
+			--width=480 --height=520 \
+			2>/dev/null
+	)" || return 0
+	[ -n "${_tz}" ] || return 0
+	if pkexec timedatectl set-timezone "${_tz}"; then
+		notify-send -a Neuronix -t 4000 "Time zone" "Set to ${_tz}" 2>/dev/null || true
+	else
+		zenity --error --text="Failed to set time zone (need admin rights)." 2>/dev/null || true
+	fi
+}
+
+_show_menu() {
+	_cur_fmt="$(_current_fmt)"
+	_clock_now="$(date '+%A, %B %d %Y  %I:%M %p')"
+	_tz_now="$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)"
+	if [ "${_cur_fmt}" = "24" ]; then
+		_toggle_id="fmt12"
+		_toggle_label="Use 12-hour clock"
+		_toggle_desc="Switch the waybar clock to AM/PM"
+	else
+		_toggle_id="fmt24"
+		_toggle_label="Use 24-hour clock"
+		_toggle_desc="Switch the waybar clock to 24-hour time"
+	fi
+
+	_pick="$(
+		NEURONIX_TOGGLE_ID="${_toggle_id}" \
+		NEURONIX_TOGGLE_LABEL="${_toggle_label}" \
+		NEURONIX_TOGGLE_DESC="${_toggle_desc}" \
+		NEURONIX_CLOCK_NOW="${_clock_now}" \
+		NEURONIX_TZ_NOW="${_tz_now}" \
+		python3 - <<'PY'
+import os, sys
+sys.path.insert(0, "/usr/share/neuronix")
+from neuronix_choice_dialog import choose
+
+items = [
+    ("calendar", "Calendar", "Pick a date on the calendar"),
+    (
+        os.environ["NEURONIX_TOGGLE_ID"],
+        os.environ["NEURONIX_TOGGLE_LABEL"],
+        os.environ["NEURONIX_TOGGLE_DESC"],
+    ),
+    ("setclock", "Set date & time", "Change the system clock (admin)"),
+    ("timezone", "Time zone", "Change the system time zone (admin)"),
+]
+pick = choose(
+    "Date & Time",
+    f"{os.environ['NEURONIX_CLOCK_NOW']}\nTimezone: {os.environ['NEURONIX_TZ_NOW']}",
+    items,
+    width=520,
+    height=560,
+)
+if pick:
+    print(pick)
+PY
+	)" || true
+
+	[ -n "${_pick:-}" ] || exit 0
+
+	case "${_pick}" in
+		calendar) _show_calendar ;;
+		fmt12) _apply_waybar_format 12 ;;
+		fmt24) _apply_waybar_format 24 ;;
+		setclock) _set_datetime ;;
+		timezone) _set_timezone ;;
+		*) exit 0 ;;
+	esac
+}
+
+case "${1:-menu}" in
+	calendar) _show_calendar ;;
+	menu|"") _show_menu ;;
+	*)
+		echo "Usage: neuronix-datetime [calendar|menu]" >&2
+		exit 1
+		;;
+esac

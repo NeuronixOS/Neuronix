@@ -1,0 +1,40 @@
+{
+  "skip": [
+    "links.json",
+    "apache",
+    "nginx",
+    "crontab"
+  ],
+  "links": [
+    { "from": "bashrc", "to": ".bashrc", "type": "symlink" },
+    { "from": "bash_profile", "to": ".bash_profile", "type": "symlink" },
+    { "from": "vimrc", "to": ".vimrc", "type": "symlink" },
+    { "from": "ssh", "to": ".ssh", "type": "symlink" },
+    { "from": "ssh/profile", "to": ".profile", "type": "symlink" },
+    { "from": "file-templates", "to": "Templates", "type": "symlink" },
+    { "from": "gtk-apps", "to": ".config/gtk-apps", "type": "symlink" },
+    { "from": "hypr", "to": ".config/hypr", "type": "symlink" },
+    { "from": "waybar", "to": ".config/waybar", "type": "symlink" },
+    { "from": "fuzzel", "to": ".config/fuzzel", "type": "symlink" },
+    { "from": "mako", "to": ".config/mako", "type": "symlink" },
+    { "from": "gtk-3.0", "to": ".config/gtk-3.0", "type": "symlink" },
+    { "from": "gtk-4.0", "to": ".config/gtk-4.0", "type": "symlink" },
+    { "from": "gtkrc-2.0", "to": ".gtkrc-2.0", "type": "symlink" },
+    { "from": "icons/default", "to": ".icons/default", "type": "symlink" },
+    { "from": "xsettingsd", "to": ".config/xsettingsd", "type": "symlink" },
+    { "from": "mimeapps.list", "to": ".config/mimeapps.list", "type": "symlink" },
+    { "from": "xdg-terminals.list", "to": ".config/xdg-terminals.list", "type": "symlink" },
+    { "from": "gnome-xdg-terminals.list", "to": ".config/gnome-xdg-terminals.list", "type": "symlink" }
+  ],
+  "system": [
+    { "from": "hosts", "to": "/etc/hosts", "type": "symlink" },
+    { "from": "htpasswd", "to": "/etc/apache2/.htpasswd", "type": "symlink" },
+    { "from": "apache/apache2.conf", "to": "/etc/apache2/apache2.conf", "type": "symlink" },
+    { "from": "apache/envvars", "to": "/etc/apache2/envvars", "type": "symlink" },
+    { "from": "apache/sites-available", "to": "/etc/apache2/sites-available", "type": "symlink" },
+    { "from": "apache/sites-enabled", "to": "/etc/apache2/sites-enabled", "type": "symlink" },
+    { "from": "nginx/nginx.conf", "to": "/etc/nginx/nginx.conf", "type": "symlink" },
+    { "from": "nginx/sites-available", "to": "/etc/nginx/sites-available", "type": "symlink" },
+    { "from": "nginx/sites-enabled", "to": "/etc/nginx/sites-enabled", "type": "symlink" }
+  ]
+}

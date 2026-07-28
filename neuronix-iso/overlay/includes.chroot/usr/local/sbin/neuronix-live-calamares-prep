@@ -1,0 +1,32 @@
+#!/bin/sh
+# Live ISO: DNS + Calamares welcome tweaks so the installer can poll for internet.
+#
+# Stock Calamares ModuleManager re-runs requirements every 5 seconds while any
+# *mandatory* check fails (CountdownWaitingWidget on the welcome page). We need:
+#   - working DNS (otherwise QNetwork lookups never succeed after Wi‑Fi connects)
+#   - no live "storage" check (requiredStorage measures the overlay, not the disk)
+set -e
+
+if ! grep -qw boot=live /proc/cmdline 2>/dev/null; then
+	exit 0
+fi
+
+# DNS — empty /etc/resolv.conf breaks Calamares internet check.
+if [ -x /usr/local/sbin/neuronix-live-dns-fix ]; then
+	/usr/local/sbin/neuronix-live-dns-fix
+fi
+
+# Welcome: keep ram + internet mandatory; drop storage on live (same as Gamebian).
+_welcome=/etc/calamares/modules/welcome.conf
+if [ -f "$_welcome" ]; then
+	sed -i '/^[[:space:]]*- storage[[:space:]]*$/d' "$_welcome"
+	sed -i '/^[[:space:]]*requiredStorage:/d' "$_welcome"
+fi
+
+# Wired network on VirtualBox etc. (NM "unmanaged" blocklist).
+if [ -f /usr/lib/NetworkManager/conf.d/10-globally-managed-devices.conf ]; then
+	rm -f /usr/lib/NetworkManager/conf.d/10-globally-managed-devices.conf
+	systemctl reload NetworkManager 2>/dev/null || true
+fi
+
+exit 0

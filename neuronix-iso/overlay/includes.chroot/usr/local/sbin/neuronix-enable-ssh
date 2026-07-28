@@ -1,0 +1,37 @@
+#!/bin/sh
+# Ensure OpenSSH is ready for remote login (live ISO + Calamares-installed target).
+# Enables password auth for the live user and the Calamares-created user.
+set -eu
+
+rm -f /etc/ssh/sshd_not_to_be_run
+
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/50-neuronix.conf <<'EOF'
+# Neuronix SSH — password + pubkey auth for live user and installed user.
+PasswordAuthentication yes
+KbdInteractiveAuthentication yes
+PubkeyAuthentication yes
+EOF
+chmod 644 /etc/ssh/sshd_config.d/50-neuronix.conf
+rm -f /etc/ssh/sshd_config.d/50-neuronix-live.conf
+
+if command -v ssh-keygen >/dev/null 2>&1; then
+	ssh-keygen -A
+fi
+
+# Calamares chroot has an empty /run; sshd -t requires the privsep dir.
+mkdir -p /run/sshd
+chmod 0755 /run/sshd
+
+if command -v sshd >/dev/null 2>&1; then
+	sshd -t
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+	# Debian trixie+: prefer socket activation (avoid enabling both).
+	systemctl disable ssh.service 2>/dev/null || true
+	rm -f /etc/systemd/system/multi-user.target.wants/ssh.service
+	systemctl enable ssh.socket 2>/dev/null || systemctl enable ssh.service 2>/dev/null || true
+fi
+
+exit 0

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Calculator
+Comment=Neuronix GTK4 calculator (gtk-calc)
+Exec=gtk-calc
+TryExec=gtk-calc
+Icon=accessories-calculator
+Terminal=false
+Categories=Utility;Calculator;
+StartupNotify=true
+StartupWMClass=org.linuxos.GtkCalc

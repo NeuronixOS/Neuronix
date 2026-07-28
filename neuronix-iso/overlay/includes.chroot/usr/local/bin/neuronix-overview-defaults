@@ -1,0 +1,69 @@
+#!/bin/sh
+# Force Hyprspace overview defaults that prevent the Hyprland 0.55 black-zoom /
+# strut-crushed layout. Plugin upstream defaults are the opposite; apply after
+# the plugin loads (and again whenever overview opens).
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -d "${XDG_RUNTIME_DIR}/hypr" ]; then
+	HYPRLAND_INSTANCE_SIGNATURE="$(
+		find "${XDG_RUNTIME_DIR}/hypr" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | head -n1
+	)"
+	export HYPRLAND_INSTANCE_SIGNATURE
+fi
+
+command -v hyprctl >/dev/null 2>&1 || exit 0
+
+# Wait briefly for Hyprspace to finish loading on session start.
+i=0
+while [ "$i" -lt 50 ]; do
+	if hyprctl plugin list 2>/dev/null | grep -qi Hyprspace; then
+		break
+	fi
+	i=$((i + 1))
+	sleep 0.1
+done
+
+PANEL_H="${NEURONIX_OVERVIEW_PANEL_HEIGHT:-120}"
+
+# Layout — never fullscreen-zoom the active desktop into a black tile.
+hyprctl keyword plugin:overview:drawActiveWorkspace false >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:affectStrut false >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:overrideGaps false >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:disableBlur true >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:reservedArea 0 >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:panelHeight "${PANEL_H}" >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:workspaceMargin 6 >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:centerAligned true >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:exitOnClick true >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:exitOnSwitch false >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:exitKey "" >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:showNewWorkspace true >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:showEmptyWorkspace true >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:autoScroll true >/dev/null 2>&1 || true
+
+# Layers — keep hyprpaper visible in empty thumbs; hide waybar/overlay chrome in stubs.
+# hideRealLayers must stay false: true fills the desk under the strip with panelColor
+# (near-black) and looks like a broken black overview on every Super press.
+hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:hideTopLayers true >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:hideOverlayLayers true >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
+
+# Transparent workspace fills so wallpaper / stubs show (not solid black panels).
+hyprctl keyword plugin:overview:workspaceActiveBackground "rgba(00000000)" >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:workspaceInactiveBackground "rgba(00000000)" >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:panelColor "rgba(0a0a0aee)" >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:panelBorderColor "rgba(505050aa)" >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:workspaceActiveBorder "rgba(ffffffff)" >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:workspaceInactiveBorder "rgba(444444ff)" >/dev/null 2>&1 || true
+
+# Must be < 1.0 or Hyprland 0.55 cannot stub window textures → black tiles.
+# 0.97 is slightly safer than 0.99 when floats/rules push opacity back up.
+hyprctl keyword decoration:active_opacity 0.97 >/dev/null 2>&1 || true
+hyprctl keyword decoration:inactive_opacity 0.97 >/dev/null 2>&1 || true
+
+exit 0

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Compat name used by Debian synaptic.desktop (Exec=synaptic-pkexec).
+exec /usr/local/bin/synaptic "$@"

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Prefer Neuronix gtk-term as Debian x-terminal-emulator.
+set -e
+LAUNCHER=/usr/local/bin/gtk-term-launch.sh
+if [ -x "$LAUNCHER" ] && command -v update-alternatives >/dev/null 2>&1; then
+	update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator \
+		"$LAUNCHER" 100 || true
+	update-alternatives --set x-terminal-emulator "$LAUNCHER" || true
+	echo "[neuronix] x-terminal-emulator → $LAUNCHER"
+fi
+if command -v update-desktop-database >/dev/null 2>&1; then
+	update-desktop-database /usr/share/applications 2>/dev/null || true
+fi

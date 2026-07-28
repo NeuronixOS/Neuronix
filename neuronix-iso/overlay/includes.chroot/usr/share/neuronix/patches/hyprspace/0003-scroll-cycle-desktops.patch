@@ -1,0 +1,54 @@
+diff --git a/src/Input.cpp b/src/Input.cpp
+index 177adcd..bb8505b 100644
+--- a/src/Input.cpp
++++ b/src/Input.cpp
+@@ -87,30 +87,30 @@ bool CHyprspaceWidget::axisEvent(double delta, wl_pointer_axis axis, Vector2D co
+     CBox widgetBox = {owner->m_position.x, owner->m_position.y - curYOffset->value(), owner->m_transformedSize.x, (Config::panelHeight + Config::reservedArea) * owner->m_scale};
+     if (Config::onBottom) widgetBox = {owner->m_position.x, owner->m_position.y + owner->m_transformedSize.y - ((Config::panelHeight + Config::reservedArea) * owner->m_scale) + curYOffset->value(), owner->m_transformedSize.x, (Config::panelHeight + Config::reservedArea) * owner->m_scale};
+ 
+-    // scroll through panel if cursor is on it
++    // Neuronix: mousewheel on the strip pans tiles (mice rarely emit HORIZONTAL).
+     if (widgetBox.containsPoint(coords * getOwner()->m_scale)) {
+-        // only horizontal scroll pans the panel; ignore vertical scroll here
+-        if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL)
++        if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL || axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
+             *workspaceScrollOffset = workspaceScrollOffset->goal() - delta * 2;
+     }
+-    // otherwise, scroll to switch active workspace (vertical scroll only)
+-    else if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
++    // Vertical wheel (strip or desktop) selects desktops — create next as needed.
++    // isEmpty=false so Hyprland does not GC the new desk next frame (that made
++    // scroll appear stuck at the last persistent workspace, usually #4).
++    // Left stops at workspace 1; past the hard cap, wrap back to 1.
++    if (Config::autoScroll && axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
++        const int cur = owner->m_activeWorkspace ? (int)owner->m_activeWorkspace->m_id : 1;
++        constexpr int kMaxWorkspace = 32;
++        int next = cur;
+         if (delta < 0) {
+-            SWorkspaceIDName wsIDName = getWorkspaceIDNameFromString("r-1");
+-            if (g_pCompositor->getWorkspaceByID(wsIDName.id) == nullptr) {
+-                auto newWorkspace = g_pCompositor->createNewWorkspace(wsIDName.id, ownerID);
+-                (void)newWorkspace;
+-            }
+-            getOwner()->changeWorkspace(wsIDName.id);
+-        }
+-        else {
+-            SWorkspaceIDName wsIDName = getWorkspaceIDNameFromString("r+1");
+-            if (g_pCompositor->getWorkspaceByID(wsIDName.id) == nullptr) {
+-                auto newWorkspace = g_pCompositor->createNewWorkspace(wsIDName.id, ownerID);
+-                (void)newWorkspace;
+-            }
+-            getOwner()->changeWorkspace(wsIDName.id);
++            next = (cur <= 1) ? 1 : cur - 1;
++        } else {
++            next = cur + 1;
++            if (next > kMaxWorkspace)
++                next = 1;
+         }
++        if (g_pCompositor->getWorkspaceByID(next) == nullptr)
++            (void)g_pCompositor->createNewWorkspace(next, ownerID, "", false);
++        owner->changeWorkspace(next);
++        updateLayout();
+     }
+ 
+     return false;

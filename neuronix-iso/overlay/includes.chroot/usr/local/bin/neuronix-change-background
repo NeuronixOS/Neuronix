@@ -1,0 +1,64 @@
+#!/bin/sh
+# Set desktop wallpaper via hyprpaper (picker uses /usr/share/backgrounds/neuronix-installed).
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+# Only one picker at a time (bindn can retrigger while zenity is open).
+_lockdir="${XDG_RUNTIME_DIR}/neuronix-change-background.lock"
+if ! mkdir "${_lockdir}" 2>/dev/null; then
+	exit 0
+fi
+trap 'rmdir "${_lockdir}" 2>/dev/null || true' EXIT INT TERM HUP
+
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck disable=SC1091
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env
+fi
+
+if [ -r /usr/share/neuronix/neuronix-wallpaper-hyprpaper.sh ]; then
+	# shellcheck disable=SC1091
+	. /usr/share/neuronix/neuronix-wallpaper-hyprpaper.sh
+else
+	echo "neuronix-change-background: missing neuronix-wallpaper-hyprpaper.sh" >&2
+	exit 1
+fi
+
+WALLPAPER_DIR="${WALLPAPER_DIR:-/usr/share/backgrounds/neuronix-installed}"
+
+_pick_from_dir() {
+	[ -d "${WALLPAPER_DIR}" ] || return 1
+	command -v zenity >/dev/null 2>&1 || return 1
+	# File chooser opens on the Neuronix wallpaper folder (images from images/installed).
+	_chosen="$(
+		zenity --file-selection \
+			--title="Choose background" \
+			--filename="${WALLPAPER_DIR}/" \
+			--file-filter="Images | *.png *.jpg *.jpeg *.webp *.PNG *.JPG *.JPEG *.WEBP" \
+			--file-filter="All files | *" \
+			2>/dev/null
+	)" || return 1
+	[ -n "${_chosen}" ] && printf '%s' "${_chosen}"
+}
+
+_chosen=""
+if [ -n "${1:-}" ]; then
+	_chosen="$(neuronix_wallpaper_resolve "$1")"
+else
+	_chosen="$(_pick_from_dir)" || _chosen=""
+fi
+
+[ -n "${_chosen}" ] || exit 0
+[ -r "${_chosen}" ] || exit 1
+
+if ! neuronix_wallpaper_set "${_chosen}"; then
+	exit 1
+fi
+
+if command -v notify-send >/dev/null 2>&1; then
+	notify-send -a Neuronix -t 2500 "Desktop background" \
+		"Wallpaper: $(neuronix_wallpaper_label "${_chosen}")" 2>/dev/null || true
+fi

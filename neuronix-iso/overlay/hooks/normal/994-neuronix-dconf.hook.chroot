@@ -1,0 +1,6 @@
+#!/bin/sh
+# Compile /etc/dconf/db/local from overlay keyfiles (Mousepad defaults, etc.).
+set -e
+if command -v dconf >/dev/null 2>&1; then
+	dconf update
+fi

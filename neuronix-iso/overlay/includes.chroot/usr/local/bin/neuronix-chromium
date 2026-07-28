@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Launch Debian Chromium with Neuronix unpacked extensions (if staged).
+set -euo pipefail
+EXT_ROOT="/usr/share/neuronix/browser-extensions"
+LOAD_ARGS=()
+if [[ -d "$EXT_ROOT" ]]; then
+	shopt -s nullglob
+	for d in "$EXT_ROOT"/*/; do
+		[[ -f "$d/manifest.json" ]] || continue
+		LOAD_ARGS+=("$(realpath "$d")")
+	done
+	shopt -u nullglob
+fi
+CHROME=""
+for c in chromium chromium-browser; do
+	if command -v "$c" >/dev/null 2>&1; then
+		CHROME="$c"
+		break
+	fi
+done
+if [[ -z "$CHROME" ]]; then
+	echo "neuronix-chromium: chromium not found in PATH" >&2
+	exit 1
+fi
+if [[ ${#LOAD_ARGS[@]} -gt 0 ]]; then
+	IFS=,
+	exec "$CHROME" --load-extension="${LOAD_ARGS[*]}" "$@"
+fi
+exec "$CHROME" "$@"

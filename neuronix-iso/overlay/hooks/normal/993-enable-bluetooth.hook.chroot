@@ -1,0 +1,13 @@
+#!/bin/sh
+# Start bluetoothd on boot (Blueman / org.bluez). Preset the systemd symlink in the squashfs;
+# Calamares services-systemd also enables bluetooth.service on the installed target.
+set -e
+UNIT="/lib/systemd/system/bluetooth.service"
+if [ ! -f "${UNIT}" ]; then
+	UNIT="/usr/lib/systemd/system/bluetooth.service"
+fi
+if [ ! -f "${UNIT}" ]; then
+	exit 0
+fi
+mkdir -p /etc/systemd/system/multi-user.target.wants
+ln -sf "${UNIT}" /etc/systemd/system/multi-user.target.wants/bluetooth.service

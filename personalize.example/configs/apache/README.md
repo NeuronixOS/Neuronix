@@ -1,7 +1,8 @@
 # personalize/configs/apache/
 
-Apache2 configs (personalize-only — not under `default/configs/`). Symlinked to
-`/etc/apache2/*` via `links.json` `system` map; staged under `/etc/neuronix/configs/apache/`.
+Apache2 configs (personalize-only — not under `default/configs/`). Files live under
+`~/configs/apache/`; the `links.json` `system` map makes `/etc/apache2/*` →
+`~/configs/apache/*` via `neuronix-link-system-configs.sh`.
 Presence of site trees triggers the chroot hook to apt-install **apache2**.
 
 Also list `apache2` under `personalize/install-list` `# --- server ---` if you want

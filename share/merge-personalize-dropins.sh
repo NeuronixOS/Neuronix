@@ -3,6 +3,7 @@
 # Usage: merge-personalize-dropins.sh <includes.chroot> <personalize_root>
 #
 #   configs/             → etc/skel/configs + links from configs/links.json
+#                          system rows → /etc/* → ~/configs/* (neuronix-link-system-configs.sh)
 #   browser-extensions/  → usr/share/neuronix/browser-extensions + Chrome registration
 #   services/            → usr/local/lib/neuronix/services + install.sh (preferred)
 #   gtk-apps/            → overlay onto usr/local/lib/neuronix/gtk-apps (+ bin + desktops)
@@ -85,7 +86,9 @@ _rel_symlink_abs() {
 	ln -s "$rel" "$link"
 }
 
-# Stage system web configs under /etc/neuronix/configs and symlink into /etc
+# System paths (/etc/hosts, apache, nginx, …) symlink into the primary user's
+# ~/configs tree (single git-managed source). Map is applied by
+# neuronix-link-system-configs.sh after the user home exists (chroot + Calamares).
 _merge_system_web_configs() {
 	local src="$1" dest="$2" map="$3"
 
@@ -95,28 +98,18 @@ _merge_system_web_configs() {
 	[[ -f "$dest/apache/apache2.conf" ]] && need_apache=1
 	[[ -f "$dest/nginx/nginx.conf" ]] && need_nginx=1
 
-	if [[ "$need_apache" -eq 0 && "$need_nginx" -eq 0 && ! -e "$dest/hosts" && ! -e "$dest/htpasswd" ]]; then
-		return 0
+	local has_system=0
+	[[ "$need_apache" -eq 1 || "$need_nginx" -eq 1 || -e "$dest/hosts" || -e "$dest/htpasswd" ]] && has_system=1
+	if [[ "$has_system" -eq 0 ]] && python3 -c 'import json,sys; raise SystemExit(0 if json.load(open(sys.argv[1])).get("system") else 1)' "$map" 2>/dev/null; then
+		has_system=1
 	fi
+	[[ "$has_system" -eq 1 ]] || return 0
 
-	local sys="$INCLUDES/etc/neuronix/configs"
-	mkdir -p "$sys"
-	if [[ "$need_apache" -eq 1 ]]; then
-		rm -rf "$sys/apache"
-		cp -a "$dest/apache" "$sys/apache"
-	fi
-	if [[ "$need_nginx" -eq 1 ]]; then
-		rm -rf "$sys/nginx"
-		cp -a "$dest/nginx" "$sys/nginx"
-	fi
-	[[ -e "$dest/hosts" ]] && cp -a "$dest/hosts" "$sys/hosts"
-	[[ -e "$dest/htpasswd" ]] && cp -a "$dest/htpasswd" "$sys/htpasswd"
-
-	# Default system map (overridable via links.json "system" array)
-	local sys_lines
-	sys_lines="$(mktemp)"
-	python3 - "$map" <<'PY' >"$sys_lines"
-import json, sys
+	# Persist system link map for neuronix-link-system-configs.sh
+	local map_out="$INCLUDES/etc/neuronix/system-config-links.tsv"
+	mkdir -p "$(dirname "$map_out")"
+	python3 - "$map" "$dest" <<'PY' >"$map_out"
+import json, sys, os
 defaults = [
     ("symlink", "hosts", "/etc/hosts"),
     ("symlink", "htpasswd", "/etc/apache2/.htpasswd"),
@@ -129,29 +122,22 @@ defaults = [
     ("symlink", "nginx/sites-enabled", "/etc/nginx/sites-enabled"),
 ]
 data = json.load(open(sys.argv[1]))
+dest = sys.argv[2]
 rows = data.get("system")
 if not rows:
     rows = [{"type": t, "from": f, "to": to} for t, f, to in defaults]
+print("# type\tfrom_rel (under ~/configs)\tto_abs")
 for link in rows:
     typ = link.get("type", "symlink")
-    print(f"{typ}\t{link['from']}\t{link['to']}")
+    frm = link["from"]
+    to = link["to"]
+    # Only emit rows whose source exists in the staged ~/configs tree
+    if os.path.lexists(os.path.join(dest, frm)):
+        print(f"{typ}\t{frm}\t{to}")
 PY
+	_info "wrote system config link map → etc/neuronix/system-config-links.tsv"
 
-	while IFS=$'\t' read -r typ from_rel to_abs; do
-		[[ -n "${typ:-}" ]] || continue
-		local from_sys="/etc/neuronix/configs/$from_rel"
-		local from_inc="$sys/$from_rel"
-		[[ -e "$from_inc" ]] || continue
-		local link_inc="$INCLUDES$to_abs"
-		mkdir -p "$(dirname "$link_inc")"
-		rm -rf "$link_inc"
-		# Absolute symlink so /etc paths resolve on the installed system
-		ln -s "$from_sys" "$link_inc"
-		_info "  system $to_abs → $from_sys"
-	done <"$sys_lines"
-	rm -f "$sys_lines"
-
-	# Package + enable hooks when site trees / confs are present
+	# Package + enable hooks when site trees / confs are present; re-link after apt
 	local hook_dir pkgs=()
 	hook_dir="$(cd "$INCLUDES/.." && pwd)/hooks/normal"
 	mkdir -p "$hook_dir"
@@ -163,6 +149,7 @@ PY
 		cat >"$hook_dir/9931-neuronix-web-servers.hook.chroot" <<HOOK
 #!/bin/bash
 # Install apache2/nginx when personalize configs include site trees.
+# Then point /etc at the live user's ~/configs (git-managed source of truth).
 set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
@@ -178,8 +165,24 @@ HOOK
 systemctl enable nginx.service 2>/dev/null || true
 HOOK
 		fi
+		cat >>"$hook_dir/9931-neuronix-web-servers.hook.chroot" <<'HOOK'
+if [[ -x /usr/local/sbin/neuronix-link-system-configs.sh ]]; then
+	/usr/local/sbin/neuronix-link-system-configs.sh || true
+fi
+HOOK
 		chmod 0755 "$hook_dir/9931-neuronix-web-servers.hook.chroot"
 		_info "wrote web-servers hook (install: ${pkg_list})"
+	else
+		# hosts-only (or other system rows): still re-link once user home exists
+		cat >"$hook_dir/9932-neuronix-link-system-configs.hook.chroot" <<'HOOK'
+#!/bin/bash
+set -e
+if [[ -x /usr/local/sbin/neuronix-link-system-configs.sh ]]; then
+	/usr/local/sbin/neuronix-link-system-configs.sh || true
+fi
+HOOK
+		chmod 0755 "$hook_dir/9932-neuronix-link-system-configs.hook.chroot"
+		_info "wrote system-config link chroot hook"
 	fi
 }
 

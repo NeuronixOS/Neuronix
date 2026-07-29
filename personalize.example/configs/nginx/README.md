@@ -1,7 +1,8 @@
 # personalize/configs/nginx/
 
-Nginx configs (personalize-only). Symlinked to `/etc/nginx/*` via `links.json`
-`system` map. Presence of site trees triggers apt-install of **nginx**.
+Nginx configs (personalize-only). Files live under `~/configs/nginx/`; the
+`links.json` `system` map makes `/etc/nginx/*` → `~/configs/nginx/*` via
+`neuronix-link-system-configs.sh`. Presence of site trees triggers apt-install of **nginx**.
 
 ## Example layout
 

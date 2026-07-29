@@ -87,7 +87,12 @@ Web server trees are **personalize-only**. See
 [`configs/apache/README.md`](configs/apache/README.md) and
 [`configs/nginx/README.md`](configs/nginx/README.md).
 
-| `/etc/…` | `configs/…` |
+Everything listed below also lives under **`~/configs`** (git-friendly). After
+user creation, `neuronix-link-system-configs.sh` makes `/etc/...` a symlink
+**into** that tree (e.g. `/etc/apache2/sites-enabled` →
+`~/configs/apache/sites-enabled`).
+
+| `/etc/…` | `~/configs/…` |
 |----------|-------------|
 | `/etc/hosts` | `hosts` |
 | `/etc/apache2/.htpasswd` | `htpasswd` |

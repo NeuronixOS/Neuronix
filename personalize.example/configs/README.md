@@ -1,7 +1,8 @@
 # personalize/configs/
 
 Managed home + system configs. Everything here (except `links.json` `skip` entries)
-is copied to `~/configs` on the ISO; `links.json` then symlinks home/system paths.
+is copied to `~/configs` on the ISO. `links.json` `links` create home symlinks;
+`system` rows make `/etc/...` → `~/configs/...` (via `neuronix-link-system-configs.sh`).
 
 This example tree is **stub-only** (READMEs). Copy real files into your private
 `../personalize/configs/` — merge skips stub dirs so stock `default/configs/` is kept.

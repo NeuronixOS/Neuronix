@@ -260,6 +260,8 @@ Drop files using the same layout as `default/`:
 | `images/icons/` | `menu-icon.png` or `.jpg` — greeter / Waybar avatar |
 | `metadata/debian.env` | Sourced **after** `default/metadata/debian.env` (e.g. rename product / hostname) |
 | `metadata/debian.distro.conf` | Replaces staged `/etc/neuronix/distro.conf` when present |
+| `install/*.sh` | Calamares **Desktop** (root): after Chrome; same basename overrides `default/install/` |
+| `hooks/*.sh` | First Hyprland login (user, once): overrides `default/hooks/`; see `neuronix-run-user-hooks.sh` |
 
 Any path present under `personalize/` wins over `default/`.
 

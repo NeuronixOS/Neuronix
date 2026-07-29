@@ -1,17 +1,20 @@
-# Example gtk-apps drop-in (do not ship empty stubs as real apps)
+# personalize/gtk-apps/
 
 Additional GTK binaries layered **on top of** committed `default/gtk-apps/`.
+Same-named files replace defaults. Suite settings still belong under
+`configs/gtk-apps/` (→ `~/.config/gtk-apps`).
+
+## Example layout
 
 ```text
-personalize/gtk-apps/
-  bin/                 # preferred — executables → /usr/local/bin/<name>
-  applications/        # *.desktop → /usr/share/applications/
-  apps/<name>/         # optional multi-file payloads (bin/<name> wrappers launch these)
-  gtk-theme/           # optional overlay of /usr/share/neuronix/gtk-theme/
-  skel-config/         # optional files → ~/.config/gtk-apps/ (skel)
+gtk-apps/
+  bin/my-tool                 # → /usr/local/lib/neuronix/gtk-apps/my-tool
+                              #   + /usr/local/bin/my-tool symlink
+  applications/my-tool.desktop
+  apps/my-tool/               # optional multi-file payload
+    my-tool                   # real binary/script
+  gtk-theme/                  # optional overlay of /usr/share/neuronix/gtk-theme/
+  skel-config/                # optional → etc/skel/.config/gtk-apps/
 ```
 
-Same layout as `default/gtk-apps/` (plus optional `apps/`). Same-named binaries **replace** the default.
-Suite settings still belong under `configs/gtk-apps/` (→ `~/.config/gtk-apps`).
-
-See `../README.md` § gtk-apps/.
+See subfolder READMEs for file examples.

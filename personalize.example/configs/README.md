@@ -1,10 +1,39 @@
+# personalize/configs/
+
+Managed home + system configs. Everything here (except `links.json` `skip` entries)
+is copied to `~/configs` on the ISO; `links.json` then symlinks home/system paths.
+
+This example tree is **stub-only** (READMEs). Copy real files into your private
+`../personalize/configs/` — merge skips stub dirs so stock `default/configs/` is kept.
+
+## Example layout
+
+```text
+configs/
+  links.json                 # REQUIRED when customizing destinations
+  bashrc
+  bash_profile
+  vimrc
+  ssh/
+  file-templates/
+  gtk-apps/
+  hypr/binds-personal.conf
+  waybar/{config,style.css}
+  fuzzel/fuzzel.ini
+  mako/config
+  gtk-3.0/  gtk-4.0/  gtkrc-2.0
+  icons/default/
+  xsettingsd/xsettingsd.conf
+  crontab/crontab.conf       # skipped from ~/configs copy
+  apache/  nginx/  hosts  htpasswd
+  secrets/github-token       # private only
+```
+
+## Example `links.json`
+
+```json
 {
-  "skip": [
-    "links.json",
-    "apache",
-    "nginx",
-    "crontab"
-  ],
+  "skip": ["links.json", "apache", "nginx", "crontab"],
   "links": [
     { "from": "bashrc", "to": ".bashrc", "type": "symlink" },
     { "from": "bash_profile", "to": ".bash_profile", "type": "symlink" },
@@ -21,10 +50,7 @@
     { "from": "gtk-4.0", "to": ".config/gtk-4.0", "type": "symlink" },
     { "from": "gtkrc-2.0", "to": ".gtkrc-2.0", "type": "symlink" },
     { "from": "icons/default", "to": ".icons/default", "type": "symlink" },
-    { "from": "xsettingsd", "to": ".config/xsettingsd", "type": "symlink" },
-    { "from": "mimeapps.list", "to": ".config/mimeapps.list", "type": "symlink" },
-    { "from": "xdg-terminals.list", "to": ".config/xdg-terminals.list", "type": "symlink" },
-    { "from": "gnome-xdg-terminals.list", "to": ".config/gnome-xdg-terminals.list", "type": "symlink" }
+    { "from": "xsettingsd", "to": ".config/xsettingsd", "type": "symlink" }
   ],
   "system": [
     { "from": "hosts", "to": "/etc/hosts", "type": "symlink" },
@@ -38,3 +64,7 @@
     { "from": "nginx/sites-enabled", "to": "/etc/nginx/sites-enabled", "type": "symlink" }
   ]
 }
+```
+
+If `links.json` is missing, the build uses `share/configs-links.default.json`.
+See each subdirectory README for file-level examples.

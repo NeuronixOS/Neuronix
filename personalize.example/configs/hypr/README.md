@@ -1,21 +1,14 @@
-# Hyprland personalize overlay
+# personalize/configs/hypr/
 
-Stock session config lives in `Neuronix/Build/default/configs/hypr/`
-(`hyprland.conf`, `hyprpaper.conf`, …).
+Stock session config lives in `default/configs/hypr/`. Deep-merge overlays
+same-named files only — **do not** replace `hyprland.conf` unless you want a full fork.
 
-**Do not replace `hyprland.conf` here** unless you intend a full fork.
+Stock `hyprland.conf` ends with `source = ./binds-personal.conf`. Put extra binds here.
 
-To add machine-specific keybinds:
-
-1. Put binds in `binds-personal.conf` (stock `hyprland.conf` ends with
-   `source = ./binds-personal.conf`).
-2. Deep-merge keeps default siblings — only same-named files are overwritten.
-
-Example (private `personalize/configs/hypr/binds-personal.conf`):
+## Example `binds-personal.conf`
 
 ```conf
-bind = CTRL ALT, J, exec, neuronix-launch gtk-files /home/you/SORT
+# Optional personalize binds (sourced by stock hyprland.conf)
+bind = CTRL ALT, J, exec, neuronix-launch gtk-files /home/$USER/SORT
+bind = CTRL ALT, T, exec, gtk-term
 ```
-
-Secrets (tokens, etc.) go under `configs/secrets/` and land at
-`~/configs/secrets/` after merge — not under `hypr/`.

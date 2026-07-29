@@ -192,3 +192,8 @@ if grep -qw boot=live /proc/cmdline 2>/dev/null; then
 		fi
 	fi
 fi
+
+# First-login personalize/default user hooks (skip live; once per user).
+if [ -x /usr/share/neuronix/neuronix-run-user-hooks.sh ]; then
+	/usr/share/neuronix/neuronix-run-user-hooks.sh &
+fi

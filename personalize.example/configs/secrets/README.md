@@ -1,10 +1,19 @@
-# secrets/ (reference — empty in example)
+# personalize/configs/secrets/
 
-Private files merge to `~/configs/secrets/`.
+Private files merge to `~/configs/secrets/`. **Never** put real tokens in
+`personalize.example/` — only in private `personalize/configs/secrets/`.
+
+## Example files
 
 ```text
-secrets/github-token    # single-line token for personal binds (e.g. Ctrl+Alt+U)
+secrets/
+  github-token          # single-line token (e.g. for a Hypr bind)
 ```
 
-Copy `github-token.example` → `github-token` in your **private** `personalize/configs/secrets/`.
-Do not store real secrets in this example tree.
+## Example `github-token`
+
+```text
+ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+One secret per file; no trailing commentary required.

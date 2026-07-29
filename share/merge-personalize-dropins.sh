@@ -6,6 +6,8 @@
 #   browser-extensions/  → usr/share/neuronix/browser-extensions + Chrome registration
 #   services/            → usr/local/lib/neuronix/services + install.sh (preferred)
 #   gtk-apps/            → overlay onto usr/local/lib/neuronix/gtk-apps (+ bin + desktops)
+#   install/*.sh         → usr/share/neuronix/personalize-install (default then personalize)
+#   hooks/*.sh           → usr/share/neuronix/user-hooks (default then personalize)
 set -euo pipefail
 
 INCLUDES="${1:?usage: merge-personalize-dropins.sh <includes.chroot> <personalize_root>}"
@@ -792,29 +794,39 @@ merge_gtk_apps() {
 }
 
 # ---------------------------------------------------------------------------
-# personalize/install/*.sh → Calamares Desktop hooks (e.g. Cursor via personalize only)
+# default/{install,hooks} + personalize/{install,hooks}: default first, same
+# basename in personalize clobbers. *.example / meta names skipped.
 # ---------------------------------------------------------------------------
-merge_personalize_install() {
-	local src="$PERSONALIZE/install"
-	[[ -d "$src" ]] || return 0
+_repo_default_root() {
+	# share/ → Build/
+	cd "$SCRIPT_DIR/.." && pwd
+}
 
-	local dest="$INCLUDES/usr/share/neuronix/personalize-install"
-	local conf="$INCLUDES/etc/calamares/modules/contextualprocess_neuronix_desktop.conf"
-	mkdir -p "$dest"
-
-	local f base count=0
+# Copy *.sh from src_dir into dest_dir (overwrite). Sets COPY_SH_COUNT.
+_copy_sh_scripts() {
+	local src_dir="$1" dest_dir="$2" label="$3"
+	local f base n=0
+	COPY_SH_COUNT=0
+	[[ -d "$src_dir" ]] || return 0
+	mkdir -p "$dest_dir"
 	shopt -s nullglob
-	for f in "$src"/*.sh; do
+	for f in "$src_dir"/*.sh; do
 		base="$(basename "$f")"
 		_is_meta_name "$base" && continue
-		cp -a "$f" "$dest/$base"
-		chmod 0755 "$dest/$base"
-		count=$((count + 1))
-		_info "  install/$base → usr/share/neuronix/personalize-install/$base"
+		cp -a "$f" "$dest_dir/$base"
+		chmod 0755 "$dest_dir/$base"
+		n=$((n + 1))
+		_info "  $label/$base → ${dest_dir#"$INCLUDES"/}/$base"
+	done
+	shopt -u nullglob
+	COPY_SH_COUNT=$n
+}
 
-		if [[ -f "$conf" ]] && ! grep -qF "personalize-install/$base" "$conf"; then
-			# Append after Chrome (or at end of desktop: command list) for Desktop profile.
-			python3 - "$conf" "/usr/share/neuronix/personalize-install/$base" <<'PY'
+_calamares_append_install_cmd() {
+	local conf="$1" cmd="$2" base="$3"
+	[[ -f "$conf" ]] || return 0
+	grep -qF "personalize-install/$base" "$conf" 2>/dev/null && return 0
+	python3 - "$conf" "$cmd" <<'PY'
 import sys
 from pathlib import Path
 conf, cmd = Path(sys.argv[1]), sys.argv[2]
@@ -826,21 +838,73 @@ if line in text:
 if needle in text:
     text = text.replace(needle, needle + line, 1)
 else:
-    # Fallback: insert before server: key
     marker = "  server:\n"
     if marker not in text:
-        raise SystemExit(f"merge-personalize-install: cannot patch {conf}")
-    # Find last desktop command block — insert before server
+        raise SystemExit(f"merge-install-scripts: cannot patch {conf}")
     text = text.replace(marker, line + marker, 1)
 conf.write_text(text)
 PY
-			_info "  Calamares Desktop += personalize-install/$base"
-		fi
-	done
-	shopt -u nullglob
+	_info "  Calamares Desktop += personalize-install/$base"
+}
 
-	if [[ "$count" -gt 0 ]]; then
-		_info "staged $count personalize install script(s) for Calamares Desktop"
+# Calamares Desktop: /usr/share/neuronix/personalize-install/*.sh
+merge_install_scripts() {
+	local default_root pers_root dest conf
+	default_root="$(_repo_default_root)/default/install"
+	pers_root=""
+	[[ -d "${PERSONALIZE:-}" ]] && pers_root="$PERSONALIZE/install"
+	dest="$INCLUDES/usr/share/neuronix/personalize-install"
+	conf="$INCLUDES/etc/calamares/modules/contextualprocess_neuronix_desktop.conf"
+
+	mkdir -p "$dest"
+	local n_def=0 n_pers=0
+	_copy_sh_scripts "$default_root" "$dest" "default/install"
+	n_def=$COPY_SH_COUNT
+	if [[ -n "$pers_root" ]]; then
+		_copy_sh_scripts "$pers_root" "$dest" "personalize/install"
+		n_pers=$COPY_SH_COUNT
+	fi
+
+	# Wire every staged script into Calamares Desktop (sorted).
+	local f base count=0
+	local -a staged=()
+	shopt -s nullglob
+	staged=("$dest"/*.sh)
+	shopt -u nullglob
+	if ((${#staged[@]} > 0)); then
+		mapfile -t staged < <(printf '%s\n' "${staged[@]}" | sort)
+		for f in "${staged[@]}"; do
+			[[ -f "$f" ]] || continue
+			base="$(basename "$f")"
+			_calamares_append_install_cmd "$conf" "/usr/share/neuronix/personalize-install/$base" "$base"
+			count=$((count + 1))
+		done
+	fi
+
+	if [[ "$n_def" -gt 0 || "$n_pers" -gt 0 || "$count" -gt 0 ]]; then
+		_info "staged install scripts (default=$n_def personalize=$n_pers calamares=$count)"
+	fi
+}
+
+# First-login user hooks: /usr/share/neuronix/user-hooks/*.sh
+merge_user_hooks() {
+	local default_root pers_root dest
+	default_root="$(_repo_default_root)/default/hooks"
+	pers_root=""
+	[[ -d "${PERSONALIZE:-}" ]] && pers_root="$PERSONALIZE/hooks"
+	dest="$INCLUDES/usr/share/neuronix/user-hooks"
+
+	mkdir -p "$dest"
+	local n_def=0 n_pers=0
+	_copy_sh_scripts "$default_root" "$dest" "default/hooks"
+	n_def=$COPY_SH_COUNT
+	if [[ -n "$pers_root" ]]; then
+		_copy_sh_scripts "$pers_root" "$dest" "personalize/hooks"
+		n_pers=$COPY_SH_COUNT
+	fi
+
+	if [[ "$n_def" -gt 0 || "$n_pers" -gt 0 ]]; then
+		_info "staged user-hooks (default=$n_def personalize=$n_pers)"
 	fi
 }
 
@@ -850,6 +914,9 @@ PY
 mkdir -p "$INCLUDES"
 # Stock default/configs always considered; personalize overlays when present.
 merge_configs
+# install/ + hooks/ merge default even without personalize/
+merge_install_scripts
+merge_user_hooks
 if [[ ! -d "$PERSONALIZE" ]]; then
 	_info "no personalize/ at $PERSONALIZE — skipped personalize-only drop-ins"
 	_info "done"
@@ -859,5 +926,4 @@ fi
 merge_browser_extensions
 merge_services
 merge_gtk_apps
-merge_personalize_install
 _info "done"

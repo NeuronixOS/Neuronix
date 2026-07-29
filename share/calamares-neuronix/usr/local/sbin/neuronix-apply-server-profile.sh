@@ -101,6 +101,9 @@ rm -f /usr/local/bin/neuronix-settings \
 	/usr/local/bin/neuronix-power-settings \
 	/usr/local/bin/neuronix-ensure-power-manager \
 	/usr/local/bin/neuronix-ensure-hyprspace \
+	/usr/local/bin/neuronix-fix-hyprspace-now \
+	/usr/local/bin/neuronix-overview-defaults \
+	/usr/local/bin/neuronix-overview-toggle \
 	/usr/local/bin/neuronix-ensure-hyprbars \
 	/usr/local/bin/neuronix-session-action 2>/dev/null || true
 

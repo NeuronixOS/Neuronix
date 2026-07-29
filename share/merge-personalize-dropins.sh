@@ -689,23 +689,34 @@ merge_services() {
 		cat >"$hook_dir/9930-neuronix-personalize-services.hook.chroot" <<'HOOK'
 #!/bin/bash
 # Run personalize service install.sh scripts inside the live-build chroot.
-set -e
+# Continue after a single service failure so one bad installer does not abort the ISO.
+set -u
 LIST=/usr/share/neuronix/personalize-services.list
 ROOT=/usr/local/lib/neuronix/services
 [[ -f "$LIST" ]] || exit 0
+failed=0
 while IFS= read -r name || [[ -n "$name" ]]; do
 	[[ -z "$name" ]] && continue
 	dir="$ROOT/$name"
 	[[ -x "$dir/install.sh" || -f "$dir/install.sh" ]] || continue
 	chmod +x "$dir/install.sh"
 	echo "[neuronix-services] installing $name"
-	(
+	if (
 		cd "$dir"
 		export NEURONIX_SERVICE_ROOT="$dir"
 		export NEURONIX_SERVICE_NAME="$name"
 		./install.sh
-	)
+	); then
+		echo "[neuronix-services] $name OK"
+	else
+		echo "[neuronix-services] ERROR: $name install.sh failed" >&2
+		failed=1
+	fi
 done <"$LIST"
+if [[ "$failed" -ne 0 ]]; then
+	echo "[neuronix-services] one or more install.sh scripts failed" >&2
+	exit 1
+fi
 HOOK
 		chmod 0755 "$hook_dir/9930-neuronix-personalize-services.hook.chroot"
 		_info "wrote services install.sh chroot hook"
@@ -778,12 +789,14 @@ merge_gtk_apps() {
 	fi
 	shopt -u nullglob
 
-	if [[ -d "$src/gtk-theme" ]]; then
+	if [[ -d "$src/gtk-theme" ]] && ! _is_stub_only "$src/gtk-theme"; then
 		local theme_share="$INCLUDES/usr/share/neuronix/gtk-theme"
 		mkdir -p "$theme_share" "$lib/gtk-theme"
 		cp -a "$src/gtk-theme/." "$theme_share/"
 		cp -a "$src/gtk-theme/." "$lib/gtk-theme/"
 		_info "  overlaid gtk-theme/ (share + lib sibling)"
+	elif [[ -d "$src/gtk-theme" ]]; then
+		_info "  skip stub gtk-theme/ overlay"
 	fi
 
 	if [[ -d "$src/skel-config" ]]; then

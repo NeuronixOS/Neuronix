@@ -4,6 +4,9 @@
 #
 # Close paths: Super again, Escape (neuronix-escape), or left-click empty desktop
 # (plugin:overview:exitOnClick → hide → this script's "sync").
+#
+# Every open re-asserts anti-black settings and revives hyprpaper if it died
+# (plugin reload / overview races leave a solid black desk under the strip).
 set -eu
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
@@ -25,6 +28,16 @@ PANEL_H="${NEURONIX_OVERVIEW_PANEL_HEIGHT:-120}"
 WAYBAR_CFG="${HOME}/.config/waybar/config"
 WAYBAR_STYLE="${HOME}/.config/waybar/style.css"
 WAYBAR_OVR="${XDG_RUNTIME_DIR}/waybar-overview.json"
+
+_ensure_hyprpaper() {
+	if pgrep -x hyprpaper >/dev/null 2>&1; then
+		return 0
+	fi
+	# Overview / plugin reload can kill hyprpaper → solid black desk under the strip.
+	command -v hyprpaper >/dev/null 2>&1 || return 0
+	nohup hyprpaper >/dev/null 2>&1 &
+	sleep 0.15
+}
 
 _waybar_start() {
 	_mode="$1"
@@ -52,16 +65,10 @@ PY
 	fi
 }
 
-_close_overview() {
-	# Drop marker first so Hyprspace hide→sync is a no-op (avoids double Waybar restart).
-	rm -f "${MARKER}"
-	hyprctl dispatch overview:close >/dev/null 2>&1 || true
-	_waybar_start normal
-}
-
-_open_overview() {
-	# Re-assert patched plugin + options every open. hyprpm reload can sneak an
-	# unpatched Hyprspace back in (black active thumb on Hyprland 0.55).
+_prepare_overview() {
+	# On Super: re-assert patched plugin + defaults + revive hyprpaper.
+	# Full unload/reload (neuronix-fix-hyprspace-now) runs at login; doing it
+	# on every open is slow and can itself kill hyprpaper.
 	if [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
 		/usr/local/bin/neuronix-ensure-hyprspace >/dev/null 2>&1 || true
 	elif [ -x /usr/local/bin/neuronix-overview-defaults ]; then
@@ -76,10 +83,26 @@ _open_overview() {
 		hyprctl keyword decoration:active_opacity 0.97 >/dev/null 2>&1 || true
 		hyprctl keyword decoration:inactive_opacity 0.97 >/dev/null 2>&1 || true
 	fi
+	# Always force the known black-desk killers off right before open.
+	hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
+	hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
+	_ensure_hyprpaper
+}
 
+_close_overview() {
+	# Drop marker first so Hyprspace hide→sync is a no-op (avoids double Waybar restart).
+	rm -f "${MARKER}"
+	hyprctl dispatch overview:close >/dev/null 2>&1 || true
+	_waybar_start normal
+	_ensure_hyprpaper
+}
+
+_open_overview() {
+	_prepare_overview
 	touch "${MARKER}"
 	hyprctl dispatch overview:open >/dev/null 2>&1 || hyprctl dispatch overview:toggle >/dev/null 2>&1 || true
 	_waybar_start overview
+	_ensure_hyprpaper
 }
 
 case "${1:-}" in
@@ -88,6 +111,7 @@ case "${1:-}" in
 		[ -f "${MARKER}" ] || exit 0
 		rm -f "${MARKER}"
 		_waybar_start normal
+		_ensure_hyprpaper
 		;;
 	close | off | restore)
 		# No-op when overview is not open (normal Escape presses).

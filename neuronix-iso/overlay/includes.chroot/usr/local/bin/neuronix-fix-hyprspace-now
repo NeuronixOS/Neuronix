@@ -1,0 +1,86 @@
+#!/bin/sh
+# Force-reload ISO-patched Hyprspace and revive hyprpaper.
+# Used on login (session-start), delayed exec-once, and manual recovery:
+#   neuronix-fix-hyprspace-now
+#
+# Black overview on Hyprland 0.55 is usually:
+#   1) hideRealLayers=true (paints near-black panelColor over the desk), or
+#   2) hyprpaper dead (desk under the strip is solid black), or
+#   3) unpatched Hyprspace.so loaded via hyprpm race.
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -d "${XDG_RUNTIME_DIR}/hypr" ]; then
+	HYPRLAND_INSTANCE_SIGNATURE="$(
+		find "${XDG_RUNTIME_DIR}/hypr" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | head -n1
+	)"
+	export HYPRLAND_INSTANCE_SIGNATURE
+fi
+
+# Prefer compositor-exported WAYLAND_DISPLAY; fall back for SSH/manual runs.
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+	for _w in wayland-1 wayland-0; do
+		if [ -S "${XDG_RUNTIME_DIR}/${_w}" ]; then
+			export WAYLAND_DISPLAY="${_w}"
+			break
+		fi
+	done
+fi
+
+command -v hyprctl >/dev/null 2>&1 || exit 0
+hyprctl version >/dev/null 2>&1 || exit 0
+
+PLUGIN_SO="/usr/lib/x86_64-linux-gnu/hyprland/plugins/Hyprspace.so"
+
+_ensure_hyprpaper() {
+	command -v hyprpaper >/dev/null 2>&1 || return 0
+	if pgrep -x hyprpaper >/dev/null 2>&1; then
+		return 0
+	fi
+	# Plugin unload/reload can kill hyprpaper → solid black desk under overview.
+	nohup hyprpaper >/dev/null 2>&1 &
+	sleep 0.2
+}
+
+if [ -f "${PLUGIN_SO}" ]; then
+	hyprctl plugin unload "${PLUGIN_SO}" >/dev/null 2>&1 || true
+	# Drop any hyprpm copies that raced in.
+	if [ -d "${HOME}/.local/share/hyprpm" ]; then
+		find "${HOME}/.local/share/hyprpm" -name 'Hyprspace.so' 2>/dev/null | while read -r _f; do
+			[ -f "${_f}" ] || continue
+			hyprctl plugin unload "${_f}" >/dev/null 2>&1 || true
+		done
+	fi
+	# Opacity must be < 1.0 before load or stubs stay black on 0.55.
+	hyprctl keyword decoration:active_opacity 0.97 >/dev/null 2>&1 || true
+	hyprctl keyword decoration:inactive_opacity 0.97 >/dev/null 2>&1 || true
+	hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
+elif [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
+	/usr/local/bin/neuronix-ensure-hyprspace >/dev/null 2>&1 || true
+fi
+
+if [ -x /usr/local/bin/neuronix-overview-defaults ]; then
+	/usr/local/bin/neuronix-overview-defaults >/dev/null 2>&1 || true
+fi
+
+# Re-force the known black-desk killers after defaults.
+hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
+hyprctl keyword plugin:overview:drawActiveWorkspace false >/dev/null 2>&1 || true
+hyprctl keyword decoration:active_opacity 0.97 >/dev/null 2>&1 || true
+hyprctl keyword decoration:inactive_opacity 0.97 >/dev/null 2>&1 || true
+
+_ensure_hyprpaper
+
+if [ "${1:-}" != "-q" ] && [ "${1:-}" != "--quiet" ]; then
+	echo "OK — press Super to test."
+	echo "  hideRealLayers=$(hyprctl -j getoption plugin:overview:hideRealLayers 2>/dev/null)"
+	echo "  drawActiveWorkspace=$(hyprctl -j getoption plugin:overview:drawActiveWorkspace 2>/dev/null)"
+	echo "  active_opacity=$(hyprctl getoption decoration:active_opacity 2>/dev/null | tr '\n' ' ')"
+	echo "  hyprpaper=$(pgrep -x hyprpaper >/dev/null 2>&1 && echo running || echo DEAD)"
+fi
+exit 0

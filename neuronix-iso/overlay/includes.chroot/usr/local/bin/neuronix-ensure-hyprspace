@@ -2,13 +2,38 @@
 # Ensure the ISO-patched Hyprspace is loaded (not an unpatched hyprpm build).
 # Upstream Hyprspace + drawActiveWorkspace=false leaves a black/grey active tile
 # on Hyprland 0.55; our .so stub-renders that workspace instead.
+#
+# Runs from hyprland.conf exec-once, session-start, and every Super overview open.
+# Retries + delayed re-apply beat hyprpm reload races that reintroduce black tiles.
 set -eu
 
 MARKER="${HOME}/.config/hypr/.neuronix-hyprspace-ok"
 PLUGIN_SO="/usr/lib/x86_64-linux-gnu/hyprland/plugins/Hyprspace.so"
 mkdir -p "${HOME}/.config/hypr"
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -d "${XDG_RUNTIME_DIR}/hypr" ]; then
+	HYPRLAND_INSTANCE_SIGNATURE="$(
+		find "${XDG_RUNTIME_DIR}/hypr" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | head -n1
+	)"
+	export HYPRLAND_INSTANCE_SIGNATURE
+fi
+
 command -v hyprctl >/dev/null 2>&1 || exit 0
+
+# Wait until hyprctl can talk to this session (login race).
+_w=0
+while [ "${_w}" -lt 50 ]; do
+	if hyprctl version >/dev/null 2>&1; then
+		break
+	fi
+	_w=$((_w + 1))
+	sleep 0.1
+done
+hyprctl version >/dev/null 2>&1 || exit 0
 
 _loaded() {
 	hyprctl plugin list 2>/dev/null | grep -qi Hyprspace
@@ -17,16 +42,7 @@ _loaded() {
 _unload_all_hyprspace() {
 	# Drop every loaded Hyprspace copy (ISO path or hyprpm cache) so the patched
 	# ISO build always wins — hyprpm reload can race and reintroduce black tiles.
-	hyprctl plugin list 2>/dev/null | awk '
-		BEGIN { want=0 }
-		/^Plugin / { want=0 }
-		/Hyprspace/ { want=1 }
-		want && /Handle:/ {
-			# no path in list — unload by known paths below
-		}
-	' >/dev/null 2>&1 || true
 	hyprctl plugin unload "${PLUGIN_SO}" >/dev/null 2>&1 || true
-	# Common hyprpm install locations
 	for _p in \
 		"${HOME}/.local/share/hyprpm/"*/Hyprspace/Hyprspace.so \
 		"${HOME}/.local/share/hyprpm/"*/hyprspace/Hyprspace.so \
@@ -44,22 +60,49 @@ _load_iso_plugin() {
 	_loaded
 }
 
+_ensure_hyprpaper() {
+	# Plugin unload/reload can kill hyprpaper → solid black desk under overview.
+	command -v hyprpaper >/dev/null 2>&1 || return 0
+	if pgrep -x hyprpaper >/dev/null 2>&1; then
+		return 0
+	fi
+	nohup hyprpaper >/dev/null 2>&1 &
+	sleep 0.15
+}
+
 _apply_defaults() {
 	if [ -x /usr/local/bin/neuronix-overview-defaults ]; then
 		/usr/local/bin/neuronix-overview-defaults >/dev/null 2>&1 || true
 	fi
+	# Always re-assert the black-desk killers after any defaults pass.
+	hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
+	hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
+	_ensure_hyprpaper
+}
+
+_ensure_once() {
+	if _load_iso_plugin; then
+		touch "${MARKER}"
+		_apply_defaults
+		return 0
+	fi
+	if _loaded; then
+		touch "${MARKER}"
+		_apply_defaults
+		return 0
+	fi
+	return 1
 }
 
 # Prefer ISO patched .so every time (even if something else already loaded).
-if _load_iso_plugin; then
-	touch "${MARKER}"
-	_apply_defaults
-	exit 0
-fi
-
-if _loaded; then
-	touch "${MARKER}"
-	_apply_defaults
+if _ensure_once; then
+	# Delayed re-assert: hyprpm reload -n often finishes after the first pass.
+	(
+		sleep 2
+		_ensure_once || true
+		sleep 3
+		_ensure_once || true
+	) >/dev/null 2>&1 &
 	exit 0
 fi
 

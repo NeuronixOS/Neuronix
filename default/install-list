@@ -98,6 +98,12 @@ libgtk-4-1 # GTK4 runtime for Neuronix gtk-apps (default/gtk-apps)
 gir1.2-gtk-4.0 # GTK4 GObject introspection (Python gtk-colors / suite apps)
 libvte-2.91-gtk4-0 # VTE GTK4 widget (gtk-term)
 libgtksourceview-5-0 # GtkSourceView 5 for gtk-edit syntax highlighting
+gir1.2-gtksource-5 # GtkSourceView 5 GObject introspection (gtk-meld / Python)
+gir1.2-adw-1 # libadwaita GObject introspection (gtk-worktimezone)
+python3-google-auth # Google auth for gtk-meetings calendar import
+python3-google-auth-httplib2 # Google auth HTTP transport
+python3-google-auth-oauthlib # Google OAuth for gtk-meetings
+python3-googleapi # Google API client for gtk-meetings
 # Daily apps: gtk-term / gtk-files / gtk-edit (staged from default/gtk-apps)
 # Keep foot/thunar/mousepad as emergency fallbacks if binaries missing
 foot # Fallback Wayland terminal

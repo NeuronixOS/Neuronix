@@ -137,6 +137,34 @@ else
 	_fail=$((_fail + 1))
 fi
 
+_check "neuronix-fix-hyprspace-now" "$OVERLAY/usr/local/bin/neuronix-fix-hyprspace-now"
+_check "neuronix-overview-toggle" "$OVERLAY/usr/local/bin/neuronix-overview-toggle"
+_check "neuronix-overview-defaults" "$OVERLAY/usr/local/bin/neuronix-overview-defaults"
+
+if grep -q 'neuronix-fix-hyprspace-now' "$OVERLAY/etc/skel/.config/hypr/hyprland.conf" 2>/dev/null; then
+	echo "  OK  hyprland.conf delayed neuronix-fix-hyprspace-now"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  neuronix-fix-hyprspace-now in hyprland.conf"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'neuronix-fix-hyprspace-now' "$OVERLAY/usr/share/neuronix/neuronix-hyprland-session-start.sh" 2>/dev/null; then
+	echo "  OK  session-start runs neuronix-fix-hyprspace-now"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  neuronix-fix-hyprspace-now in session-start"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q '_ensure_hyprpaper' "$OVERLAY/usr/local/bin/neuronix-overview-toggle" 2>/dev/null; then
+	echo "  OK  overview-toggle revives hyprpaper"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  hyprpaper revive in overview-toggle"
+	_fail=$((_fail + 1))
+fi
+
 if grep -q 'overview:toggle' "$OVERLAY/etc/skel/.config/hypr/hyprland.conf" 2>/dev/null; then
 	echo "  OK  Super → overview:toggle (Hyprspace)"
 	_ok=$((_ok + 1))

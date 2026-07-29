@@ -140,9 +140,35 @@ if [ -x /usr/local/bin/neuronix-ensure-hyprbars ]; then
 	/usr/local/bin/neuronix-ensure-hyprbars &
 fi
 
-# Workspace overview (Hyprspace)
-if [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
-	/usr/local/bin/neuronix-ensure-hyprspace &
+# Workspace overview (Hyprspace) — every login: wait for hyprctl, force-reload
+# the ISO-patched .so, re-apply anti-black defaults, and revive hyprpaper if the
+# plugin unload killed it. Delayed retries beat hyprpm / late plugin races.
+if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ] || [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
+	(
+		_i=0
+		while [ "${_i}" -lt 30 ]; do
+			if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
+				break
+			fi
+			_i=$((_i + 1))
+			sleep 0.2
+		done
+		if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ]; then
+			/usr/local/bin/neuronix-fix-hyprspace-now -q || true
+		else
+			/usr/local/bin/neuronix-ensure-hyprspace || true
+		fi
+		sleep 2
+		if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ]; then
+			/usr/local/bin/neuronix-fix-hyprspace-now -q || true
+		else
+			/usr/local/bin/neuronix-ensure-hyprspace || true
+		fi
+		# Final hyprpaper check — unload races sometimes leave wallpaper dead.
+		if command -v hyprpaper >/dev/null 2>&1 && ! pgrep -x hyprpaper >/dev/null 2>&1; then
+			hyprpaper >/dev/null 2>&1 &
+		fi
+	) &
 fi
 
 # Prefer GNOME agent when present; mate-polkit on native Wayland often shows a

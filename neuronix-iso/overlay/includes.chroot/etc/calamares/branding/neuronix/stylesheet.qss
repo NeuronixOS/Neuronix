@@ -1,0 +1,342 @@
+/*
+ * Neuronix Calamares — dark theme matching neuronix-installed (black/grey).
+ */
+
+#mainApp {
+    background-color: #151515;
+    color: #ebebeb;
+}
+
+#backgroundWidget {
+    background-color: #151515;
+    background-image: none;
+}
+
+#viewManager,
+#viewManagerStack {
+    background-color: #151515;
+}
+
+#viewManagerStack > QWidget {
+    background-color: #151515;
+}
+
+#viewManager + QWidget {
+    background-color: #151515;
+}
+
+#viewManager QScrollArea,
+#viewManager QScrollArea > QWidget > QWidget {
+    background-color: #151515;
+    border: none;
+}
+
+#scrollAreaWidgetContents {
+    background-color: #151515;
+}
+
+#viewManager QFrame,
+#viewManager QGroupBox,
+#viewManager QSplitter::handle {
+    background-color: #151515;
+}
+
+#viewManager QAbstractItemView {
+    background-color: #202020;
+    alternate-background-color: #1a1a1a;
+    color: #ebebeb;
+    selection-background-color: #3a3a3a;
+    selection-color: #ffffff;
+}
+
+#viewManager QComboBox,
+#viewManager QLineEdit,
+#viewManager QSpinBox,
+#viewManager QDoubleSpinBox {
+    background-color: #202020;
+    color: #ebebeb;
+    border: 1px solid #2a2a2a;
+}
+
+#viewManager QComboBox QAbstractItemView {
+    background-color: #202020;
+    color: #ebebeb;
+    selection-background-color: #3a3a3a;
+    selection-color: #ffffff;
+    outline: 0;
+}
+
+#viewManager QComboBox QAbstractItemView::item {
+    padding: 2px;
+    color: #ebebeb;
+}
+
+#viewManager QComboBox QAbstractItemView::item:selected {
+    background-color: #3a3a3a;
+    color: #ffffff;
+}
+
+#viewManager QComboBox QAbstractItemView::item:hover {
+    background-color: #2d2d2d;
+    color: #ebebeb;
+}
+
+#viewManager QMenu {
+    background-color: #202020;
+    color: #ebebeb;
+    border: 1px solid #2a2a2a;
+}
+
+#viewManager QMenu::item:selected {
+    background-color: #3a3a3a;
+    color: #ffffff;
+}
+
+#viewManager QMenu::item:!selected:hover {
+    background-color: #2d2d2d;
+    color: #ebebeb;
+}
+
+#viewManager QTextEdit,
+#viewManager QPlainTextEdit,
+#viewManager QTextBrowser {
+    background-color: #202020;
+    color: #ebebeb;
+}
+
+#viewManager QCheckBox,
+#viewManager QRadioButton {
+    background-color: #151515;
+    color: #ebebeb;
+}
+
+#viewManager QLabel {
+    background-color: transparent;
+    color: #ebebeb;
+}
+
+#viewManager QTabWidget::pane {
+    background-color: #151515;
+    border: 1px solid #2a2a2a;
+}
+
+#viewManager QProgressBar {
+    background-color: #202020;
+    border: 1px solid #2a2a2a;
+    color: #ebebeb;
+}
+
+#viewManager QProgressBar::chunk {
+    background-color: #3a3a3a;
+}
+
+/* Install progress slideshow (QQuickWidget host) */
+QQuickWidget {
+    background-color: #151515;
+}
+
+#viewManager QQuickWidget {
+    background-color: #151515;
+}
+
+#viewManager QLabel#progressLabel,
+#viewManager QLabel#progressStatus {
+    background-color: transparent;
+    color: #ebebeb;
+}
+
+/* Install step: slideshow host + "Toggle log" toolbar (QToolButton, not QPushButton) */
+#slideshow {
+    background-color: #151515;
+    color: #ebebeb;
+}
+
+#slideshow QTabWidget,
+#slideshow QTabWidget::pane,
+#slideshow QStackedWidget {
+    background-color: #151515;
+    border: none;
+}
+
+#slideshow QToolBar {
+    background-color: transparent;
+    border: none;
+    spacing: 4px;
+    color: #ffffff;
+}
+
+#slideshow QToolButton {
+    background-color: transparent;
+    border: none;
+    color: #ffffff;
+    padding: 4px 8px;
+}
+
+#slideshow QToolButton:hover,
+#slideshow QToolButton:checked,
+#slideshow QToolButton:pressed {
+    background-color: #2d2d2d;
+    color: #ffffff;
+}
+
+#slideshow QPlainTextEdit,
+#slideshow QTextEdit {
+    background-color: #1a1a1a;
+    color: #ebebeb;
+    border: 1px solid #2a2a2a;
+    selection-background-color: #3a3a3a;
+    selection-color: #ffffff;
+}
+
+#exec-message {
+    background-color: transparent;
+    color: #ebebeb;
+}
+
+#exec-progress {
+    background-color: #202020;
+    border: 1px solid #2a2a2a;
+    color: #ebebeb;
+    text-align: center;
+}
+
+#exec-progress::chunk {
+    background-color: #3a3a3a;
+}
+
+/* Sidebar About / Debug under the logo (default palette is black on dark bg) */
+QPushButton#aboutButton,
+QPushButton#debugButton {
+    background-color: transparent;
+    border: none;
+    color: #ffffff;
+}
+
+QPushButton#aboutButton:hover,
+QPushButton#debugButton:hover,
+QPushButton#aboutButton:checked,
+QPushButton#debugButton:checked {
+    color: #ffffff;
+    background-color: #2d2d2d;
+}
+
+/* Welcome-page requirements spinner ("Gathering system information…")
+ * and countdown recheck widget — painted from palette().text() */
+WaitingWidget,
+CountdownWaitingWidget,
+WaitingSpinnerWidget {
+    color: #ffffff;
+    background-color: transparent;
+}
+
+#requirementsChecker,
+#requirementsChecker QLabel {
+    background-color: transparent;
+    color: #ebebeb;
+}
+
+QPushButton#view-button-back,
+QPushButton#view-button-next,
+QPushButton#view-button-cancel {
+    background-color: #2d2d2d;
+    color: #ebebeb;
+    border: 1px solid #2a2a2a;
+    padding: 6px 14px;
+}
+
+QPushButton#view-button-back:hover,
+QPushButton#view-button-next:hover,
+QPushButton#view-button-cancel:hover {
+    background-color: #3a3a3a;
+    border: 1px solid #4a4a4a;
+}
+
+QPushButton#view-button-back:disabled,
+QPushButton#view-button-next:disabled,
+QPushButton#view-button-cancel:disabled {
+    background-color: #1a1a1a;
+    color: #888888;
+    border: 1px solid #2a2a2a;
+}
+
+/* Welcome: expanding logo host + language combo not full-bleed */
+QLabel#welcomeLogo {
+    padding: 6px;
+    qproperty-alignment: AlignHCenter | AlignVCenter;
+}
+
+QComboBox#languageWidget {
+    min-height: 30px;
+    min-width: 240px;
+    max-width: 340px;
+    padding: 4px 12px;
+    font-size: 13px;
+}
+
+#welcomeWidget QComboBox,
+#welcome QComboBox,
+#viewManager QComboBox {
+    min-height: 30px;
+    padding: 4px 12px;
+    font-size: 13px;
+}
+
+#welcomeWidget QLabel,
+#welcome QLabel {
+    padding: 2px 0;
+}
+
+/* Install type (packagechooser): list + screenshot balance */
+QListView#products {
+    background-color: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 8px;
+    outline: 0;
+    min-width: 200px;
+}
+
+QListView#products::item {
+    background-color: #202020;
+    color: #ebebeb;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    margin: 4px 2px;
+    padding: 10px 12px;
+    min-height: 36px;
+}
+
+QListView#products::item:selected {
+    background-color: #333333;
+    border: 1px solid #777777;
+    color: #ffffff;
+}
+
+QListView#products::item:hover {
+    background-color: #2a2a2a;
+}
+
+QLabel#productName {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    padding: 4px 0 8px 0;
+}
+
+QLabel#productDescription {
+    color: #c8c8c8;
+    padding: 8px 4px 4px 4px;
+}
+
+FixedAspectRatioLabel#productScreenshot,
+QLabel#productScreenshot {
+    padding: 8px;
+    max-height: 320px;
+}
+
+/* Sidebar step list: a bit more air */
+#sidebarApp QListWidget::item,
+#sidebar QListWidget::item {
+    padding: 8px 10px;
+    margin: 1px 0;
+}

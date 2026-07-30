@@ -1,0 +1,44 @@
+---
+componentName: neuronix
+welcomeStyleCalamares: true
+# Compact welcome-hero + expanding logo fills the pane without crushing the language row.
+welcomeExpandingLogo: true
+windowExpanding: normal
+windowSize: 920px,620px
+windowPlacement: center
+
+strings:
+    productName:         Neuronix
+    shortProductName:    Neuronix
+    version:             ""
+    shortVersion:        ""
+    versionedName:       Neuronix
+    shortVersionedName:  Neuronix
+    bootloaderEntryName: Neuronix
+    productUrl:          https://neuronix.local/
+    supportUrl:          https://neuronix.local/
+    knownIssuesUrl:      https://neuronix.local/
+    releaseNotesUrl:     https://neuronix.local/
+    donateUrl:           https://neuronix.local/
+
+sidebar: widget
+navigation: widget
+
+# Image files are produced by merge-calamares-neuronix.sh from Build/images/:
+#   calamares/welcome-hero (or image cropped) -> welcome.png: Welcome pane
+#   calamares/image.png    -> slide1.png: install slideshow (may include progress copy)
+#   user-login.png         -> neuronix-logo.png: sidebar + window icon
+images:
+    productLogo:         "neuronix-logo.png"
+    productIcon:         "neuronix-logo.png"
+    productWelcome:      "welcome.png"
+
+slideshow:               "show.qml"
+
+style:
+    SidebarBackground:         "#1a1a1a"
+    SidebarText:               "#c8c8c8"
+    SidebarTextCurrent:        "#ffffff"
+    SidebarBackgroundCurrent:  "#333333"
+
+slideshowAPI: 2

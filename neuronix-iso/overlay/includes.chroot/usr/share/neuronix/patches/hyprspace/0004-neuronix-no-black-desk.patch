@@ -1,0 +1,35 @@
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -36,7 +36,8 @@
+ bool Config::hideTopLayers = false;
+ bool Config::hideOverlayLayers = false;
+ bool Config::drawActiveWorkspace = true;
+-bool Config::hideRealLayers = true;
++// Neuronix: upstream default true paints a solid black desk under the strip on 0.55.
++bool Config::hideRealLayers = false;
+ bool Config::affectStrut = true;
+ 
+ bool Config::overrideGaps = true;
+@@ -510,7 +511,7 @@
+     HyprlandAPI::addConfigValue(pHandle, "plugin:overview:hideTopLayers", Hyprlang::INT{0});
+     HyprlandAPI::addConfigValue(pHandle, "plugin:overview:hideOverlayLayers", Hyprlang::INT{0});
+     HyprlandAPI::addConfigValue(pHandle, "plugin:overview:drawActiveWorkspace", Hyprlang::INT{1});
+-    HyprlandAPI::addConfigValue(pHandle, "plugin:overview:hideRealLayers", Hyprlang::INT{1});
++    HyprlandAPI::addConfigValue(pHandle, "plugin:overview:hideRealLayers", Hyprlang::INT{0});
+     HyprlandAPI::addConfigValue(pHandle, "plugin:overview:affectStrut", Hyprlang::INT{1});
+ 
+     HyprlandAPI::addConfigValue(pHandle, "plugin:overview:overrideGaps", Hyprlang::INT{1});
+--- a/src/Overview.cpp
++++ b/src/Overview.cpp
+@@ -49,7 +49,10 @@
+ 
+     // hide top and overlay layers
+     // FIXME: ensure input is disabled for hidden layers
+-    if (oLayerAlpha.empty() && Config::hideRealLayers) {
++    // Neuronix: never fade real layers on show(). Mid-session plugin reload can
++    // leave Config::hideRealLayers true even when hyprland.conf says false, and
++    // the near-black panelColor then reads as a broken solid-black overview.
++    if (false && oLayerAlpha.empty() && Config::hideRealLayers) {
+         for (auto& ls : owner->m_layerSurfaceLayers[2]) {
+             //ls->startAnimation(false);
+             oLayerAlpha.emplace_back(std::make_tuple(ls.lock(), ls->m_alpha->goal()));

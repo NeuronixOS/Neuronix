@@ -123,6 +123,8 @@ fi
 
 waybar &
 mako &
+# Ensure common XDG dirs exist (screenshots → ~/Pictures, recordings → ~/Videos).
+mkdir -p "${HOME}/Pictures" "${HOME}/Videos" "${HOME}/Downloads" "${HOME}/Documents" 2>/dev/null || true
 # Volume / brightness OSD (binds use swayosd-client)
 if command -v swayosd-server >/dev/null 2>&1; then
 	swayosd-server &
@@ -140,9 +142,9 @@ if [ -x /usr/local/bin/neuronix-ensure-hyprbars ]; then
 	/usr/local/bin/neuronix-ensure-hyprbars &
 fi
 
-# Workspace overview (Hyprspace) — every login: wait for hyprctl, force-reload
-# the ISO-patched .so, re-apply anti-black defaults, and revive hyprpaper if the
-# plugin unload killed it. Delayed retries beat hyprpm / late plugin races.
+# Workspace overview (Hyprspace) — every login: soft ensure (NO unload/reload;
+# that resets upstream hideRealLayers=true and leaves Super black). Apply
+# defaults + revive hyprpaper. Delayed retries beat late plugin races.
 if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ] || [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
 	(
 		_i=0
@@ -153,6 +155,7 @@ if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ] || [ -x /usr/local/bin/neuro
 			_i=$((_i + 1))
 			sleep 0.2
 		done
+		# Soft only — never --force on login.
 		if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ]; then
 			/usr/local/bin/neuronix-fix-hyprspace-now -q || true
 		else
@@ -164,7 +167,6 @@ if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ] || [ -x /usr/local/bin/neuro
 		else
 			/usr/local/bin/neuronix-ensure-hyprspace || true
 		fi
-		# Final hyprpaper check — unload races sometimes leave wallpaper dead.
 		if command -v hyprpaper >/dev/null 2>&1 && ! pgrep -x hyprpaper >/dev/null 2>&1; then
 			hyprpaper >/dev/null 2>&1 &
 		fi

@@ -66,13 +66,13 @@ PY
 }
 
 _prepare_overview() {
-	# On Super: re-assert patched plugin + defaults + revive hyprpaper.
-	# Full unload/reload (neuronix-fix-hyprspace-now) runs at login; doing it
-	# on every open is slow and can itself kill hyprpaper.
-	if [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
-		/usr/local/bin/neuronix-ensure-hyprspace >/dev/null 2>&1 || true
-	elif [ -x /usr/local/bin/neuronix-overview-defaults ]; then
+	# On Super: only re-assert options + revive hyprpaper.
+	# Do NOT unload/reload the plugin here — that kills hyprpaper and leaves a
+	# solid black desk under the strip. Full reload is login / fix-hyprspace-now.
+	if [ -x /usr/local/bin/neuronix-overview-defaults ]; then
 		/usr/local/bin/neuronix-overview-defaults >/dev/null 2>&1 || true
+	elif [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
+		/usr/local/bin/neuronix-ensure-hyprspace >/dev/null 2>&1 || true
 	else
 		hyprctl keyword plugin:overview:panelHeight "${PANEL_H}" >/dev/null 2>&1 || true
 		hyprctl keyword plugin:overview:reservedArea 0 >/dev/null 2>&1 || true
@@ -83,9 +83,19 @@ _prepare_overview() {
 		hyprctl keyword decoration:active_opacity 0.97 >/dev/null 2>&1 || true
 		hyprctl keyword decoration:inactive_opacity 0.97 >/dev/null 2>&1 || true
 	fi
-	# Always force the known black-desk killers off right before open.
 	hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
 	hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
+	_ensure_hyprpaper
+}
+
+_reassert_anti_black() {
+	# Must also run AFTER overview:open — Hyprspace applies layer state at show
+	# time; pre-open keywords alone leave a solid black desk under the strip.
+	hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
+	hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
+	hyprctl keyword plugin:overview:drawActiveWorkspace false >/dev/null 2>&1 || true
+	hyprctl keyword decoration:active_opacity 0.85 >/dev/null 2>&1 || true
+	hyprctl keyword decoration:inactive_opacity 0.85 >/dev/null 2>&1 || true
 	_ensure_hyprpaper
 }
 
@@ -101,8 +111,25 @@ _open_overview() {
 	_prepare_overview
 	touch "${MARKER}"
 	hyprctl dispatch overview:open >/dev/null 2>&1 || hyprctl dispatch overview:toggle >/dev/null 2>&1 || true
+	# Critical: re-assert after open (pre-open alone races → black desk).
+	_reassert_anti_black
 	_waybar_start overview
 	_ensure_hyprpaper
+	_reassert_anti_black
+	# Delayed passes beat waybar restart / plugin settle races.
+	(
+		sleep 0.2
+		hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
+		hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
+		hyprctl keyword decoration:active_opacity 0.85 >/dev/null 2>&1 || true
+		hyprctl keyword decoration:inactive_opacity 0.85 >/dev/null 2>&1 || true
+		if ! pgrep -x hyprpaper >/dev/null 2>&1 && command -v hyprpaper >/dev/null 2>&1; then
+			nohup hyprpaper >/dev/null 2>&1 &
+		fi
+		sleep 0.4
+		hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
+		hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
+	) >/dev/null 2>&1 &
 }
 
 case "${1:-}" in

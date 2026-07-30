@@ -53,11 +53,11 @@ _unload_all_hyprspace() {
 	done
 }
 
-_load_iso_plugin() {
-	[ -f "${PLUGIN_SO}" ] || return 1
-	_unload_all_hyprspace
-	hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
-	_loaded
+_iso_plugin_loaded() {
+	# True when Hyprspace is loaded from the ISO path (handle line alone is not enough).
+	hyprctl plugin list 2>/dev/null | grep -qi Hyprspace || return 1
+	# If a hyprpm copy is also present we still force ISO reload below.
+	return 0
 }
 
 _ensure_hyprpaper() {
@@ -68,6 +68,14 @@ _ensure_hyprpaper() {
 	fi
 	nohup hyprpaper >/dev/null 2>&1 &
 	sleep 0.15
+}
+
+_load_iso_plugin() {
+	[ -f "${PLUGIN_SO}" ] || return 1
+	_unload_all_hyprspace
+	hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
+	_ensure_hyprpaper
+	_loaded
 }
 
 _apply_defaults() {
@@ -81,12 +89,14 @@ _apply_defaults() {
 }
 
 _ensure_once() {
-	if _load_iso_plugin; then
+	# Soft path: already loaded → only re-apply defaults (do NOT unload/reload —
+	# that kills hyprpaper and makes Super overview flash solid black).
+	if _loaded; then
 		touch "${MARKER}"
 		_apply_defaults
 		return 0
 	fi
-	if _loaded; then
+	if _load_iso_plugin; then
 		touch "${MARKER}"
 		_apply_defaults
 		return 0

@@ -90,6 +90,8 @@ fi
 #  - on hide(), exec neuronix-overview-toggle sync so exitOnClick restores Waybar.
 #  - vertical scroll selects desktops anywhere in overview: left to 1, right
 #    creates/extends higher desktops (wraps back to 1 after 32).
+#  - default hideRealLayers=false and never fade real layers on show()
+#    (upstream default true → solid black desk under the strip on 0.55).
 cd "${_workdir}"
 if git clone --depth 1 https://github.com/KZDKM/Hyprspace.git Hyprspace 2>/dev/null; then
 	cd Hyprspace
@@ -107,10 +109,19 @@ if git clone --depth 1 https://github.com/KZDKM/Hyprspace.git Hyprspace 2>/dev/n
 		install -m 0755 Hyprspace.so "${HYPRSPACE_SO}"
 		echo "[neuronix-hypr-plugins] installed ${HYPRSPACE_SO}"
 	else
-		echo "[neuronix-hypr-plugins] WARNING: Hyprspace build failed" >&2
+		# Keep prebuilt overlay .so if present (patched Neuronix build).
+		if [ -f "${HYPRSPACE_SO}" ]; then
+			echo "[neuronix-hypr-plugins] WARNING: Hyprspace build failed; keeping existing ${HYPRSPACE_SO}" >&2
+		else
+			echo "[neuronix-hypr-plugins] WARNING: Hyprspace build failed" >&2
+		fi
 	fi
 else
-	echo "[neuronix-hypr-plugins] WARNING: Hyprspace clone failed (network?)" >&2
+	if [ -f "${HYPRSPACE_SO}" ]; then
+		echo "[neuronix-hypr-plugins] WARNING: Hyprspace clone failed; keeping existing ${HYPRSPACE_SO}" >&2
+	else
+		echo "[neuronix-hypr-plugins] WARNING: Hyprspace clone failed (network?)" >&2
+	fi
 fi
 
 exit 0

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Install Neuronix
+GenericName=Calamares Installer
+Exec=neuronix-calamares-live
+Comment=Installer for Neuronix Live
+Keywords=calamares;system;install;neuronix;installer
+Icon=neuronix-console
+Terminal=false
+Categories=Qt;System;
+StartupWMClass=calamares
+StartupNotify=True

@@ -1,13 +1,19 @@
 #!/bin/sh
-# Force-reload ISO-patched Hyprspace and revive hyprpaper.
-# Used on login (session-start), delayed exec-once, and manual recovery:
-#   neuronix-fix-hyprspace-now
+# Apply Hyprspace anti-black settings. Safe to run from SSH or a local terminal.
 #
-# Black overview on Hyprland 0.55 is usually:
-#   1) hideRealLayers=true (paints near-black panelColor over the desk), or
-#   2) hyprpaper dead (desk under the strip is solid black), or
-#   3) unpatched Hyprspace.so loaded via hyprpm race.
+# Default is SOFT: do NOT unload/reload the plugin (that resets upstream
+# hideRealLayers=true and is what made "manual fix" leave Super broken).
+# Use --force to unload/reload the ISO-patched .so.
 set -eu
+
+FORCE=0
+QUIET=0
+for _a in "$@"; do
+	case "$_a" in
+		-f|--force) FORCE=1 ;;
+		-q|--quiet) QUIET=1 ;;
+	esac
+done
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
 _uid="$(id -u)"
@@ -21,7 +27,6 @@ if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -d "${XDG_RUNTIME_DIR}/hypr" ]
 	export HYPRLAND_INSTANCE_SIGNATURE
 fi
 
-# Prefer compositor-exported WAYLAND_DISPLAY; fall back for SSH/manual runs.
 if [ -z "${WAYLAND_DISPLAY:-}" ]; then
 	for _w in wayland-1 wayland-0; do
 		if [ -S "${XDG_RUNTIME_DIR}/${_w}" ]; then
@@ -32,7 +37,11 @@ if [ -z "${WAYLAND_DISPLAY:-}" ]; then
 fi
 
 command -v hyprctl >/dev/null 2>&1 || exit 0
-hyprctl version >/dev/null 2>&1 || exit 0
+hyprctl version >/dev/null 2>&1 || {
+	echo "hyprctl cannot talk to Hyprland (missing WAYLAND_DISPLAY / HIS?)." >&2
+	echo "From SSH, this script sets them automatically; if it still fails, Hyprland is not running." >&2
+	exit 1
+}
 
 PLUGIN_SO="/usr/lib/x86_64-linux-gnu/hyprland/plugins/Hyprspace.so"
 
@@ -41,46 +50,52 @@ _ensure_hyprpaper() {
 	if pgrep -x hyprpaper >/dev/null 2>&1; then
 		return 0
 	fi
-	# Plugin unload/reload can kill hyprpaper → solid black desk under overview.
 	nohup hyprpaper >/dev/null 2>&1 &
 	sleep 0.2
 }
 
-if [ -f "${PLUGIN_SO}" ]; then
+_apply_keywords() {
+	if [ -x /usr/local/bin/neuronix-overview-defaults ]; then
+		/usr/local/bin/neuronix-overview-defaults >/dev/null 2>&1 || true
+	fi
+	hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
+	hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
+	hyprctl keyword plugin:overview:drawActiveWorkspace false >/dev/null 2>&1 || true
+	hyprctl keyword decoration:active_opacity 0.97 >/dev/null 2>&1 || true
+	hyprctl keyword decoration:inactive_opacity 0.97 >/dev/null 2>&1 || true
+	_ensure_hyprpaper
+}
+
+if [ "${FORCE}" -eq 1 ] && [ -f "${PLUGIN_SO}" ]; then
 	hyprctl plugin unload "${PLUGIN_SO}" >/dev/null 2>&1 || true
-	# Drop any hyprpm copies that raced in.
 	if [ -d "${HOME}/.local/share/hyprpm" ]; then
 		find "${HOME}/.local/share/hyprpm" -name 'Hyprspace.so' 2>/dev/null | while read -r _f; do
 			[ -f "${_f}" ] || continue
 			hyprctl plugin unload "${_f}" >/dev/null 2>&1 || true
 		done
 	fi
-	# Opacity must be < 1.0 before load or stubs stay black on 0.55.
 	hyprctl keyword decoration:active_opacity 0.97 >/dev/null 2>&1 || true
 	hyprctl keyword decoration:inactive_opacity 0.97 >/dev/null 2>&1 || true
 	hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
-elif [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
-	/usr/local/bin/neuronix-ensure-hyprspace >/dev/null 2>&1 || true
 fi
 
-if [ -x /usr/local/bin/neuronix-overview-defaults ]; then
-	/usr/local/bin/neuronix-overview-defaults >/dev/null 2>&1 || true
+# Soft path: if missing, load once (no unload).
+if ! hyprctl plugin list 2>/dev/null | grep -qi Hyprspace; then
+	if [ -f "${PLUGIN_SO}" ]; then
+		hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
+	elif [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
+		/usr/local/bin/neuronix-ensure-hyprspace >/dev/null 2>&1 || true
+	fi
 fi
 
-# Re-force the known black-desk killers after defaults.
-hyprctl keyword plugin:overview:hideRealLayers false >/dev/null 2>&1 || true
-hyprctl keyword plugin:overview:hideBackgroundLayers false >/dev/null 2>&1 || true
-hyprctl keyword plugin:overview:drawActiveWorkspace false >/dev/null 2>&1 || true
-hyprctl keyword decoration:active_opacity 0.97 >/dev/null 2>&1 || true
-hyprctl keyword decoration:inactive_opacity 0.97 >/dev/null 2>&1 || true
+_apply_keywords
 
-_ensure_hyprpaper
-
-if [ "${1:-}" != "-q" ] && [ "${1:-}" != "--quiet" ]; then
+if [ "${QUIET}" -eq 0 ]; then
 	echo "OK — press Super to test."
 	echo "  hideRealLayers=$(hyprctl -j getoption plugin:overview:hideRealLayers 2>/dev/null)"
 	echo "  drawActiveWorkspace=$(hyprctl -j getoption plugin:overview:drawActiveWorkspace 2>/dev/null)"
 	echo "  active_opacity=$(hyprctl getoption decoration:active_opacity 2>/dev/null | tr '\n' ' ')"
 	echo "  hyprpaper=$(pgrep -x hyprpaper >/dev/null 2>&1 && echo running || echo DEAD)"
+	echo "  (soft fix; use: neuronix-fix-hyprspace-now --force  to reload .so)"
 fi
 exit 0

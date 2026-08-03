@@ -218,9 +218,22 @@ if [[ -d "$_gtk_apps/bin" ]]; then
     cp -a "$_gtk_apps/gtk-theme/." "$_theme_share/"
   fi
 
+  # gtk-sync installer payload next to gtk-files (Setup Sync sidebar).
+  # gtk-files resolves suite_script via …/gtk-apps/gtk-sync/{install,uninstall}.sh
+  if [[ -d "$_gtk_apps/gtk-sync" && -f "$_gtk_apps/gtk-sync/install.sh" ]]; then
+    rm -rf "$_gtk_lib/gtk-sync"
+    cp -a "$_gtk_apps/gtk-sync" "$_gtk_lib/gtk-sync"
+    chmod 0755 "$_gtk_lib/gtk-sync/install.sh" "$_gtk_lib/gtk-sync/uninstall.sh" 2>/dev/null || true
+    [[ -x "$_gtk_lib/gtk-sync/target/release/gtk-sync" ]] && \
+      chmod 0755 "$_gtk_lib/gtk-sync/target/release/gtk-sync"
+    [[ -x "$_gtk_lib/gtk-sync/target/release/gtk-sync-client" ]] && \
+      chmod 0755 "$_gtk_lib/gtk-sync/target/release/gtk-sync-client"
+    echo "Staged gtk-sync installer next to gtk-files"
+  fi
+
   # Stock gtk-apps theme.toml lives in default/configs/gtk-apps/ (→ ~/configs via merge).
   # Do not write ~/.config/gtk-apps here; merge-personalize-dropins creates the symlink.
-  echo "Staged default/gtk-apps (suite + gtk-theme-editor + gtk-theme data + MIME defaults) into includes.chroot"
+  echo "Staged default/gtk-apps (suite + gtk-theme-editor + gtk-theme data + gtk-sync + MIME defaults) into includes.chroot"
 fi
 
 # crontab.conf: personalize/configs/crontab wins over default/configs/crontab → /usr/share/neuronix/crontab.conf
@@ -232,6 +245,7 @@ if [[ -n "${_crontab:-}" ]]; then
 fi
 
 # Personalize drop-ins: browser-extensions / configs / services / gtk-apps
+# (default/configs + default/services merge even without personalize/)
 _merge_dropins="$REPO_ROOT/share/merge-personalize-dropins.sh"
 if [[ -x "$_merge_dropins" || -f "$_merge_dropins" ]]; then
   chmod +x "$_merge_dropins"

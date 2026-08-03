@@ -719,6 +719,7 @@ Keep these consistent together:
 | `default/images/`, `default/metadata/` | Stock branding and build/runtime identity |
 | `personalize.example/` | Template for gitignored `personalize/` (packages, branding, drop-ins) |
 | `default/gtk-apps/` | Core GTK daily-app binaries staged into the ISO |
+| `default/services/` | Stock services (e.g. gtksync Waybar); personalize/services overlays |
 | `personalize/gtk-apps/` | Optional extra/override GTK binaries (same layout) |
 | `default/configs/crontab/crontab.conf` | Stock blank user crontab (comments only) |
 | `personalize/configs/crontab/crontab.conf` | Optional override installed for the default user |

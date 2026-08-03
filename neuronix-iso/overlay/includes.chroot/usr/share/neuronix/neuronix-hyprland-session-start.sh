@@ -142,6 +142,14 @@ if [ -x /usr/local/bin/neuronix-ensure-hyprbars ]; then
 	/usr/local/bin/neuronix-ensure-hyprbars &
 fi
 
+# Match hyprbars colors to the active GTK suite theme (theme.toml)
+if [ -f /usr/share/neuronix/gtk-theme/python/gtk_theme.py ]; then
+	(
+		export PYTHONPATH="/usr/share/neuronix/gtk-theme/python${PYTHONPATH:+:$PYTHONPATH}"
+		python3 -c "from gtk_theme import sync_hyprbars; sync_hyprbars()" >/dev/null 2>&1 || true
+	) &
+fi
+
 # Workspace overview (Hyprspace) — every login: soft ensure (NO unload/reload;
 # that resets upstream hideRealLayers=true and leaves Super black). Apply
 # defaults + revive hyprpaper. Delayed retries beat late plugin races.

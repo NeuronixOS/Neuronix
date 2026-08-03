@@ -3,7 +3,8 @@
     "links.json",
     "apache",
     "nginx",
-    "crontab"
+    "crontab",
+    "www"
   ],
   "links": [
     { "from": "bashrc", "to": ".bashrc", "type": "symlink" },
@@ -24,7 +25,9 @@
     { "from": "xsettingsd", "to": ".config/xsettingsd", "type": "symlink" },
     { "from": "mimeapps.list", "to": ".config/mimeapps.list", "type": "symlink" },
     { "from": "xdg-terminals.list", "to": ".config/xdg-terminals.list", "type": "symlink" },
-    { "from": "gnome-xdg-terminals.list", "to": ".config/gnome-xdg-terminals.list", "type": "symlink" }
+    { "from": "gnome-xdg-terminals.list", "to": ".config/gnome-xdg-terminals.list", "type": "symlink" },
+    { "from": "notes", "to": "Notes", "type": "copy" },
+    { "from": "/var/www", "to": "www", "type": "abs_symlink" }
   ],
   "system": [
     { "from": "hosts", "to": "/etc/hosts", "type": "symlink" },

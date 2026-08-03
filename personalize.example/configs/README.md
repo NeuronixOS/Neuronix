@@ -1,8 +1,13 @@
 # personalize/configs/
 
 Managed home + system configs. Everything here (except `links.json` `skip` entries)
-is copied to `~/configs` on the ISO. `links.json` `links` create home symlinks;
-`system` rows make `/etc/...` → `~/configs/...` (via `neuronix-link-system-configs.sh`).
+is copied to `~/configs` on the ISO. `links.json` `links` create home symlinks
+(or copies); `system` rows make `/etc/...` → `~/configs/...`
+(via `neuronix-link-system-configs.sh`).
+
+Special folders:
+- `www/` — skipped from `~/configs`; contents installed to `/var/www`; `~/www` → `/var/www`
+- `notes/` — copied to `~/Notes`
 
 This example tree is **stub-only** (READMEs). Copy real files into your private
 `../personalize/configs/` — merge skips stub dirs so stock `default/configs/` is kept.
@@ -27,6 +32,8 @@ configs/
   xsettingsd/xsettingsd.conf
   crontab/crontab.conf       # skipped from ~/configs copy
   apache/  nginx/  hosts  htpasswd
+  www/                       # skipped → /var/www; ~/www → /var/www
+  notes/                     # copied to ~/Notes (post-install checklists)
   secrets/github-token       # private only
 ```
 
@@ -34,7 +41,7 @@ configs/
 
 ```json
 {
-  "skip": ["links.json", "apache", "nginx", "crontab"],
+  "skip": ["links.json", "apache", "nginx", "crontab", "www"],
   "links": [
     { "from": "bashrc", "to": ".bashrc", "type": "symlink" },
     { "from": "bash_profile", "to": ".bash_profile", "type": "symlink" },
@@ -51,7 +58,9 @@ configs/
     { "from": "gtk-4.0", "to": ".config/gtk-4.0", "type": "symlink" },
     { "from": "gtkrc-2.0", "to": ".gtkrc-2.0", "type": "symlink" },
     { "from": "icons/default", "to": ".icons/default", "type": "symlink" },
-    { "from": "xsettingsd", "to": ".config/xsettingsd", "type": "symlink" }
+    { "from": "xsettingsd", "to": ".config/xsettingsd", "type": "symlink" },
+    { "from": "notes", "to": "Notes", "type": "copy" },
+    { "from": "/var/www", "to": "www", "type": "abs_symlink" }
   ],
   "system": [
     { "from": "hosts", "to": "/etc/hosts", "type": "symlink" },

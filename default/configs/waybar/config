@@ -11,6 +11,7 @@
     "hyprland/window"
   ],
   "modules-right": [
+    "custom/gtk-sync",
     "pulseaudio",
     "network",
     "cpu",
@@ -23,6 +24,15 @@
     "format": "\uf0c9",
     "tooltip": "Applications",
     "on-click": "fuzzel"
+  },
+  "custom/gtk-sync": {
+    "exec": "gtk-sync-status",
+    "return-type": "json",
+    "interval": 3,
+    "format": "{}",
+    "tooltip": true,
+    "on-click": "gtk-sync-menu",
+    "on-click-right": "gtk-sync-status"
   },
   "hyprland/workspaces": {
     "format": "{id}",

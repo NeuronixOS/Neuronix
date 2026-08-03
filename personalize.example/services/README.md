@@ -4,6 +4,9 @@ Drop-in services. Each `<ServiceName>/` is copied to
 `/usr/local/lib/neuronix/services/<ServiceName>/`. Neuronix runs `install.sh`
 inside the live-build chroot (`9930-neuronix-personalize-services.hook.chroot`).
 
+Stock services ship from **`default/services/`** (e.g. `gtksync` Waybar helpers).
+Personalize overlays the same tree — same folder name replaces the default.
+
 ## Example layout
 
 ```text

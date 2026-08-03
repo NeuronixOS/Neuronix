@@ -14,6 +14,7 @@ wrappers and `/usr/share/applications/` desktop files.
 | `gtk-image` | Image viewer |
 | `gtk-theme-editor` | Suite color profile editor (Profile → Custom…) |
 | `gtk-theme/` | Shared theme data (`profiles.json`, python helpers). The Rust crate is **statically linked** into each app; this tree is still required for tooling and reference profiles. |
+| `gtk-sync/` | LAN file sync installer used by gtk-files (Setup Sync): `install.sh` / `uninstall.sh`, systemd units, and prebuilt `target/release/gtk-sync{,-client}` so setup works without cargo on the ISO. |
 | `skel-config/theme.toml` | Stock `~/.config/gtk-apps/theme.toml` when personalize does not supply configs/gtk-apps |
 
 Refresh from Devices after rebuilding apps:

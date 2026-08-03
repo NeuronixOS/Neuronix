@@ -3,9 +3,13 @@
 # Usage: merge-personalize-dropins.sh <includes.chroot> <personalize_root>
 #
 #   configs/             → etc/skel/configs + links from configs/links.json
-#                          system rows → /etc/* → ~/configs/* (neuronix-link-system-configs.sh)
+#                          system rows → /etc/* → ~/configs/*
+#                          (neuronix-link-system-configs.sh)
+#                          notes/ → ~/Notes (copy)
+#                          www/  → /var/www (real files) + ~/www → /var/www
 #   browser-extensions/  → usr/share/neuronix/browser-extensions + Chrome registration
-#   services/            → usr/local/lib/neuronix/services + install.sh (preferred)
+#   services/            → usr/local/lib/neuronix/services + install.sh
+#                          (default/services first, personalize/services overlays)
 #   gtk-apps/            → overlay onto usr/local/lib/neuronix/gtk-apps (+ bin + desktops)
 #   install/*.sh         → usr/share/neuronix/personalize-install (default then personalize)
 #   hooks/*.sh           → usr/share/neuronix/user-hooks (default then personalize)
@@ -187,6 +191,78 @@ HOOK
 }
 
 # ---------------------------------------------------------------------------
+# configs/www → /var/www (real files on the installed system)
+# Listed in links.json skip (and always skipped above). Personalize overlays default.
+# Home shortcut ~/www → /var/www comes from links.json abs_symlink (or created here).
+# ---------------------------------------------------------------------------
+_stage_www_tree() {
+	local default_src="${1:-}"
+	local pers_src="${2:-}"
+	local skel="${3:-}"
+	local var_www="$INCLUDES/var/www"
+	local staged=0
+
+	_copy_www_payload() {
+		local src="$1"
+		[[ -d "$src" ]] || return 0
+		local item base
+		shopt -s dotglob nullglob
+		for item in "$src"/*; do
+			base="$(basename "$item")"
+			_is_meta_name "$base" && continue
+			if [[ -d "$item" && ! -L "$item" ]]; then
+				mkdir -p "$var_www/$base"
+				# deep merge directory contents
+				local child cbase
+				for child in "$item"/*; do
+					[[ -e "$child" ]] || continue
+					cbase="$(basename "$child")"
+					_is_meta_name "$cbase" && continue
+					rm -rf "$var_www/$base/$cbase"
+					cp -a "$child" "$var_www/$base/"
+				done
+			else
+				rm -rf "$var_www/$base"
+				cp -a "$item" "$var_www/"
+			fi
+			staged=1
+		done
+		shopt -u dotglob nullglob
+	}
+
+	if [[ -d "${default_src}/www" ]] || [[ -n "$pers_src" && -d "${pers_src}/www" ]]; then
+		mkdir -p "$var_www"
+		_copy_www_payload "${default_src}/www"
+		[[ -n "$pers_src" ]] && _copy_www_payload "${pers_src}/www"
+	fi
+
+	# Strip any docs that slipped through
+	if [[ -d "$var_www" ]]; then
+		find "$var_www" -type f \( -name 'README.md' -o -name 'README' -o -name '*.example' \) -delete 2>/dev/null || true
+		# Ensure empty dirs from .gitkeep remain as placeholders
+		find "$var_www" -type f \( -name '.gitkeep' -o -name '.gitkeep.txt' \) -delete 2>/dev/null || true
+	fi
+
+	if [[ -d "$var_www" ]] && find "$var_www" -mindepth 1 | grep -q .; then
+		_info "staged configs/www → var/www"
+		# Ensure ~/www → /var/www even if links.json omits abs_symlink
+		if [[ -n "$skel" ]]; then
+			rm -rf "$skel/www"
+			ln -sfn /var/www "$skel/www"
+			_info "  link ~/www → /var/www"
+		fi
+	elif [[ -d "$var_www" ]]; then
+		# Keep an empty /var/www + home link when only stubs were present
+		mkdir -p "$var_www"
+		if [[ -n "$skel" ]]; then
+			rm -rf "$skel/www"
+			ln -sfn /var/www "$skel/www"
+			_info "  link ~/www → /var/www (empty tree)"
+		fi
+	fi
+}
+
+# ---------------------------------------------------------------------------
 # configs → ~/configs + links.json mapping
 # Base: default/configs (stock desktop). Overlay: personalize/configs when present.
 # ---------------------------------------------------------------------------
@@ -233,6 +309,7 @@ data = json.load(open(sys.argv[1]))
 for s in data.get("skip", []):
     print(s)
 print("links.json")
+print("www")
 PY
 	)
 
@@ -303,7 +380,10 @@ PY
 		_info "  copied personalize/.git → etc/skel/configs/.git (fallback; prefer configs/.git)"
 	fi
 
-	# Apply link map (only when source exists under dest)
+	# configs/www → /var/www before home abs_symlink ~/www → /var/www
+	_stage_www_tree "$default_src" "$pers_src" "$skel"
+
+	# Apply link map (only when source exists under dest — except abs_symlink)
 	local map_lines
 	map_lines="$(mktemp)"
 	python3 - "$map" <<'PY' >"$map_lines"
@@ -315,18 +395,34 @@ for link in data.get("links", []):
 PY
 	while IFS=$'\t' read -r typ from_rel to_rel; do
 		[[ -n "${typ:-}" ]] || continue
-		local from_abs="$dest/$from_rel"
 		local to_abs="$skel/$to_rel"
-		[[ -e "$from_abs" ]] || continue
 		case "$typ" in
+		abs_symlink)
+			# from_rel is an absolute path (e.g. /var/www) → ~/to_rel
+			mkdir -p "$(dirname "$to_abs")"
+			rm -rf "$to_abs"
+			ln -sfn "$from_rel" "$to_abs"
+			_info "  link ~/$to_rel → $from_rel"
+			;;
 		symlink)
+			local from_abs="$dest/$from_rel"
+			[[ -e "$from_abs" ]] || continue
 			_rel_symlink_abs "$to_abs" "$from_abs"
 			_info "  link ~/$to_rel → configs/$from_rel"
 			;;
 		copy)
+			local from_abs="$dest/$from_rel"
+			[[ -e "$from_abs" ]] || continue
 			mkdir -p "$(dirname "$to_abs")"
 			cp -a "$from_abs" "$to_abs"
-			chmod 0644 "$to_abs" 2>/dev/null || true
+			if [[ -d "$to_abs" ]]; then
+				# Drop docs/stubs from the home copy (keep real notes only).
+				find "$to_abs" -type f \( -name 'README.md' -o -name 'README' -o -name '.gitkeep' -o -name '.gitkeep.txt' -o -name '*.example' \) -delete 2>/dev/null || true
+				find "$to_abs" -type d -empty -delete 2>/dev/null || true
+				chmod 0755 "$to_abs" 2>/dev/null || true
+			else
+				chmod 0644 "$to_abs" 2>/dev/null || true
+			fi
 			_info "  copy configs/$from_rel → ~/$to_rel"
 			;;
 		*)
@@ -646,37 +742,40 @@ _fallback_enable_units() {
 	done
 }
 
-merge_services() {
-	local src="$PERSONALIZE/services"
+# Stage one services tree into includes.chroot. Sets STAGE_SERVICES_COUNT.
+_stage_services_from() {
+	local src="$1"
+	local label="$2"
+	local root="$3"
+	local runtime_root="$4"
+	local install_list="$5"
+	local n=0
+	STAGE_SERVICES_COUNT=0
+
 	_has_dropin_content "$src" || return 0
 
-	local root="$INCLUDES/usr/local/lib/neuronix/services"
-	local runtime_root="/usr/local/lib/neuronix/services"
-	mkdir -p "$root"
-	_info "staging services → usr/local/lib/neuronix/services"
-
-	local hook_dir install_list
-	hook_dir="$(cd "$INCLUDES/.." && pwd)/hooks/normal"
-	install_list="$INCLUDES/usr/share/neuronix/personalize-services.list"
-	mkdir -p "$(dirname "$install_list")" "$hook_dir"
-	: >"$install_list"
-
 	shopt -s nullglob
+	local svc_dir name staged runtime
 	for svc_dir in "$src"/*/; do
 		[[ -d "$svc_dir" ]] || continue
-		local name
 		name="$(basename "$svc_dir")"
 		[[ "$name" == .* ]] && continue
 		_is_meta_name "$name" && continue
 
-		local staged="$root/$name"
-		local runtime="$runtime_root/$name"
+		staged="$root/$name"
+		runtime="$runtime_root/$name"
 		rm -rf "$staged"
 		cp -a "$svc_dir" "$staged"
 		chmod 0755 "$staged/install.sh" 2>/dev/null || true
-		_info "  service $name"
+		_info "  service $name ($label)"
+		n=$((n + 1))
 
 		if [[ -f "$staged/install.sh" ]]; then
+			# Re-append after overlay: drop prior lines for this name
+			if [[ -f "$install_list" ]]; then
+				grep -vxF "$name" "$install_list" >"${install_list}.tmp" 2>/dev/null || true
+				mv -f "${install_list}.tmp" "$install_list"
+			fi
 			echo "$name" >>"$install_list"
 			_info "  will run install.sh via chroot hook"
 		else
@@ -684,11 +783,50 @@ merge_services() {
 		fi
 	done
 	shopt -u nullglob
+	STAGE_SERVICES_COUNT=$n
+}
+
+merge_services() {
+	local default_src
+	default_src="$(cd "$SCRIPT_DIR/.." && pwd)/default/services"
+	local pers_src=""
+	if [[ -d "${PERSONALIZE:-}" ]]; then
+		pers_src="$PERSONALIZE/services"
+	fi
+
+	local have_default=0 have_pers=0
+	_has_dropin_content "$default_src" && have_default=1
+	[[ -n "$pers_src" ]] && _has_dropin_content "$pers_src" && have_pers=1
+	if [[ "$have_default" -eq 0 && "$have_pers" -eq 0 ]]; then
+		return 0
+	fi
+
+	local root="$INCLUDES/usr/local/lib/neuronix/services"
+	local runtime_root="/usr/local/lib/neuronix/services"
+	mkdir -p "$root"
+	_info "staging services → usr/local/lib/neuronix/services (default=$have_default personalize=$have_pers)"
+
+	local hook_dir install_list
+	hook_dir="$(cd "$INCLUDES/.." && pwd)/hooks/normal"
+	install_list="$INCLUDES/usr/share/neuronix/personalize-services.list"
+	mkdir -p "$(dirname "$install_list")" "$hook_dir"
+	: >"$install_list"
+
+	local n_def=0 n_pers=0
+	if [[ "$have_default" -eq 1 ]]; then
+		_stage_services_from "$default_src" "default" "$root" "$runtime_root" "$install_list"
+		n_def=$STAGE_SERVICES_COUNT
+	fi
+	if [[ "$have_pers" -eq 1 ]]; then
+		_stage_services_from "$pers_src" "personalize" "$root" "$runtime_root" "$install_list"
+		n_pers=$STAGE_SERVICES_COUNT
+	fi
+	_info "  staged services (default=$n_def personalize=$n_pers)"
 
 	if [[ -s "$install_list" ]]; then
 		cat >"$hook_dir/9930-neuronix-personalize-services.hook.chroot" <<'HOOK'
 #!/bin/bash
-# Run personalize service install.sh scripts inside the live-build chroot.
+# Run default + personalize service install.sh scripts inside the live-build chroot.
 # Continue after a single service failure so one bad installer does not abort the ISO.
 set -u
 LIST=/usr/share/neuronix/personalize-services.list
@@ -797,6 +935,16 @@ merge_gtk_apps() {
 		_info "  overlaid gtk-theme/ (share + lib sibling)"
 	elif [[ -d "$src/gtk-theme" ]]; then
 		_info "  skip stub gtk-theme/ overlay"
+	fi
+
+	# Optional gtk-sync override (install.sh + prebuilt bins beside gtk-files)
+	if [[ -d "$src/gtk-sync" && -f "$src/gtk-sync/install.sh" ]] && ! _is_stub_only "$src/gtk-sync"; then
+		rm -rf "$lib/gtk-sync"
+		cp -a "$src/gtk-sync" "$lib/gtk-sync"
+		chmod 0755 "$lib/gtk-sync/install.sh" "$lib/gtk-sync/uninstall.sh" 2>/dev/null || true
+		_info "  overlaid gtk-sync/"
+	elif [[ -d "$src/gtk-sync" ]]; then
+		_info "  skip stub gtk-sync/ overlay"
 	fi
 
 	if [[ -d "$src/skel-config" ]]; then
@@ -928,8 +1076,9 @@ merge_user_hooks() {
 # Entry
 # ---------------------------------------------------------------------------
 mkdir -p "$INCLUDES"
-# Stock default/configs always considered; personalize overlays when present.
+# Stock default/{configs,services,install,hooks} always considered; personalize overlays when present.
 merge_configs
+merge_services
 # install/ + hooks/ merge default even without personalize/
 merge_install_scripts
 merge_user_hooks
@@ -940,6 +1089,5 @@ if [[ ! -d "$PERSONALIZE" ]]; then
 fi
 
 merge_browser_extensions
-merge_services
 merge_gtk_apps
 _info "done"

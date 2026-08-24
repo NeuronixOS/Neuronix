@@ -12,10 +12,14 @@ wrappers and `/usr/share/applications/` desktop files.
 | `gtk-calc` | Calculator |
 | `gtk-colors` | Color palette helper (`apps/gtk-colors/` + `bin/gtk-colors` wrapper) |
 | `gtk-image` | Image viewer |
+| `gtk-video` | Video trimmer (in/out on the timeline, crop/rotate/flip, export selection) |
 | `gtk-theme-editor` | Suite color profile editor (Profile → Custom…) |
 | `gtk-theme/` | Shared theme data (`profiles.json`, python helpers). The Rust crate is **statically linked** into each app; this tree is still required for tooling and reference profiles. |
 | `gtk-sync/` | LAN file sync installer used by gtk-files (Setup Sync): `install.sh` / `uninstall.sh`, systemd units, and prebuilt `target/release/gtk-sync{,-client}` so setup works without cargo on the ISO. |
+| `gtk-neuron/` | AI **Self Driving** daemon (`gtk-neurond`), Cursor worker (`python/cursor_worker.py` + optional `.venv`), and credentials template. Also staged as `bin/gtk-neurond` on PATH. |
 | `skel-config/theme.toml` | Stock `~/.config/gtk-apps/theme.toml` when personalize does not supply configs/gtk-apps |
+
+Self Driving (ꔮ / Ctrl+D) is built into gtk-files, gtk-term, gtk-edit, gtk-image, and gtk-video. On first use, paste a Gemini / Claude / Cursor API key in the panel (or copy `gtk-neuron/examples/credentials.toml` to `~/.config/gtk-apps/gtk-neuron/credentials.toml`).
 
 Refresh from Devices after rebuilding apps:
 

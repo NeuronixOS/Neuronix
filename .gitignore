@@ -1,5 +1,5 @@
 # Local personalize overlay — never commit (may contain SSH keys / secrets)
-personalize/
+personalize
 
 # live-build work trees / artifacts (if created under Build/)
 *.iso

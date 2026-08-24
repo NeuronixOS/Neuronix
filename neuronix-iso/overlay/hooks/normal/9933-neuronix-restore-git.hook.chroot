@@ -1,0 +1,16 @@
+#!/bin/sh
+# live-build rsync often drops .git directories from includes.chroot.
+# Merge stages tarballs; unpack them here (after includes are in the chroot).
+set -e
+
+_unpack_git() {
+	payload="$1"
+	dest="$2"
+	[ -f "$payload" ] || return 0
+	mkdir -p "$dest"
+	rm -rf "${dest}/.git"
+	tar -xf "$payload" -C "$dest"
+	echo "neuronix-restore-git: unpacked $payload → ${dest}/.git"
+}
+
+_unpack_git /usr/share/neuronix/skel-configs.git.tar /etc/skel/configs

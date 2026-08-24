@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Video Trimmer
+Comment=Neuronix GTK4 video trimmer (gtk-video)
+Exec=gtk-video %F
+TryExec=gtk-video
+Icon=video-x-generic
+Terminal=false
+MimeType=video/mp4;video/x-matroska;video/webm;video/quicktime;video/x-msvideo;video/mpeg;video/ogg;video/x-flv;video/3gpp;
+Categories=AudioVideo;Video;AudioVideoEditing;
+StartupNotify=true
+StartupWMClass=org.neuronix.GtkVideo

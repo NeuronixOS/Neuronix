@@ -209,15 +209,16 @@ _stage_www_tree() {
 		shopt -s dotglob nullglob
 		for item in "$src"/*; do
 			base="$(basename "$item")"
-			_is_meta_name "$base" && continue
+			# live-build drops .git; KvNix overlay tars it separately. Keep README / .gitkeep / *.example.
+			[[ "$base" == .git ]] && continue
 			if [[ -d "$item" && ! -L "$item" ]]; then
 				mkdir -p "$var_www/$base"
-				# deep merge directory contents
+				# deep merge directory contents (including hidden files)
 				local child cbase
 				for child in "$item"/*; do
 					[[ -e "$child" ]] || continue
 					cbase="$(basename "$child")"
-					_is_meta_name "$cbase" && continue
+					[[ "$cbase" == .git ]] && continue
 					rm -rf "$var_www/$base/$cbase"
 					cp -a "$child" "$var_www/$base/"
 				done
@@ -232,15 +233,11 @@ _stage_www_tree() {
 
 	if [[ -d "${default_src}/www" ]] || [[ -n "$pers_src" && -d "${pers_src}/www" ]]; then
 		mkdir -p "$var_www"
-		_copy_www_payload "${default_src}/www"
+		# Stub default/www (README-only) must not become the live site tree.
+		if [[ -d "${default_src}/www" ]] && ! _is_stub_only "${default_src}/www"; then
+			_copy_www_payload "${default_src}/www"
+		fi
 		[[ -n "$pers_src" ]] && _copy_www_payload "${pers_src}/www"
-	fi
-
-	# Strip any docs that slipped through
-	if [[ -d "$var_www" ]]; then
-		find "$var_www" -type f \( -name 'README.md' -o -name 'README' -o -name '*.example' \) -delete 2>/dev/null || true
-		# Ensure empty dirs from .gitkeep remain as placeholders
-		find "$var_www" -type f \( -name '.gitkeep' -o -name '.gitkeep.txt' \) -delete 2>/dev/null || true
 	fi
 
 	if [[ -d "$var_www" ]] && find "$var_www" -mindepth 1 | grep -q .; then
@@ -283,13 +280,40 @@ merge_configs() {
 
 	local skel="$INCLUDES/etc/skel"
 	local dest="$skel/configs"
-	local map=""
-	if [[ -n "$pers_src" && -f "$pers_src/links.json" ]]; then
-		map="$pers_src/links.json"
-	elif [[ -f "$default_src/links.json" ]]; then
-		map="$default_src/links.json"
-	else
-		map="$DEFAULT_LINKS"
+	local default_map="" pers_map="" map="" _merged_links_map=""
+	[[ -f "$default_src/links.json" ]] && default_map="$default_src/links.json"
+	[[ -n "$pers_src" && -f "$pers_src/links.json" ]] && pers_map="$pers_src/links.json"
+	[[ -z "$default_map" && -f "$DEFAULT_LINKS" ]] && default_map="$DEFAULT_LINKS"
+
+	# Overlay links.json replaces skip/system, but home `links` are unioned with
+	# default (overlay wins on the same `to`). Otherwise a server overlay that
+	# omits hypr/waybar drops the live Calamares session config.
+	if [[ -n "$pers_map" && -n "$default_map" ]]; then
+		map="$(mktemp)"
+		_merged_links_map="$map"
+		python3 - "$default_map" "$pers_map" "$map" <<'PY'
+import json, sys
+base = json.load(open(sys.argv[1]))
+pers = json.load(open(sys.argv[2]))
+out = {
+    "skip": list(pers.get("skip", base.get("skip", []))),
+    "system": list(pers["system"]) if "system" in pers else list(base.get("system", [])),
+}
+links = {}
+for item in base.get("links", []):
+    links[item["to"]] = item
+for item in pers.get("links", []):
+    links[item["to"]] = item
+out["links"] = list(links.values())
+with open(sys.argv[3], "w") as fh:
+    json.dump(out, fh, indent=2)
+    fh.write("\n")
+PY
+		_info "merged default+personalize links.json (overlay wins on same to=)"
+	elif [[ -n "$pers_map" ]]; then
+		map="$pers_map"
+	elif [[ -n "$default_map" ]]; then
+		map="$default_map"
 	fi
 	if [[ ! -f "$map" ]]; then
 		_info "ERROR: no configs/links.json and no default map at $DEFAULT_LINKS" >&2
@@ -366,18 +390,25 @@ PY
 	[[ "$have_default" -eq 1 ]] && _copy_configs_tree "$default_src" 0
 	[[ "$have_pers" -eq 1 ]] && _copy_configs_tree "$pers_src" 1
 
-	# Keep a personalize configs git repo on the live/installed system as ~/configs/.git
-	# (dotglob already copies it; this pass forces a clean replace and covers .git files).
+	# Keep personalize/configs/.git on the live/installed system as ~/configs/.git.
+	# live-build often omits .git from includes.chroot, so also stage a tarball
+	# unpacked by 9933-neuronix-restore-git.hook.chroot. Never fall back to
+	# personalize/.git (wrong GitHub repo for ~/configs).
+	_stage_git_payload() {
+		local git_path="$1" payload="$2" label="$3"
+		[[ -e "$git_path" ]] || return 0
+		mkdir -p "$(dirname "$payload")"
+		tar -C "$(dirname "$git_path")" -cf "$payload" .git
+		_info "  staged $label → ${payload#"$INCLUDES/"}"
+	}
+
 	if [[ -n "$pers_src" && -e "$pers_src/.git" ]]; then
 		rm -rf "$dest/.git"
 		cp -a "$pers_src/.git" "$dest/.git"
 		_info "  copied configs/.git → etc/skel/configs/.git (user config repo)"
-	elif [[ -n "${PERSONALIZE:-}" && -e "$PERSONALIZE/.git" && ! -e "$dest/.git" ]]; then
-		# Fallback: repo rooted at personalize/ — only use when configs/.git is absent.
-		# Work tree must still make sense under ~/configs (e.g. repo tracks configs files).
-		rm -rf "$dest/.git"
-		cp -a "$PERSONALIZE/.git" "$dest/.git"
-		_info "  copied personalize/.git → etc/skel/configs/.git (fallback; prefer configs/.git)"
+		_stage_git_payload "$pers_src/.git" \
+			"$INCLUDES/usr/share/neuronix/skel-configs.git.tar" \
+			"configs/.git"
 	fi
 
 	# configs/www → /var/www before home abs_symlink ~/www → /var/www
@@ -436,6 +467,7 @@ PY
 	local sys_src="$dest"
 	[[ "$have_pers" -eq 1 ]] && sys_src="$pers_src"
 	_merge_system_web_configs "$sys_src" "$dest" "$map"
+	[[ -n "${_merged_links_map:-}" ]] && rm -f "$_merged_links_map"
 
 	if [[ -d "$dest/ssh" ]]; then
 		local hook_dir
@@ -767,6 +799,12 @@ _stage_services_from() {
 		rm -rf "$staged"
 		cp -a "$svc_dir" "$staged"
 		chmod 0755 "$staged/install.sh" 2>/dev/null || true
+		# Overlay-only ISO prep (build host). e.g. KvNix apachebringup tars configs/www/.git.
+		if [[ -f "$staged/host-stage.sh" ]]; then
+			chmod 0755 "$staged/host-stage.sh"
+			"$staged/host-stage.sh" "$INCLUDES" "${PERSONALIZE:-}" "$staged"
+			_info "  ran $name/host-stage.sh"
+		fi
 		_info "  service $name ($label)"
 		n=$((n + 1))
 

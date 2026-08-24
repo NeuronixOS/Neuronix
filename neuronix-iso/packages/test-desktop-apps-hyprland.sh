@@ -83,6 +83,9 @@ _test() {
 _test gtk-term "neuronix-launch gtk-term" gtk-term
 _test gtk-files "neuronix-launch gtk-files" gtk-files
 _test gtk-edit "neuronix-launch gtk-edit" gtk-edit
+_test gtk-image "neuronix-launch gtk-image" gtk-image
+_test gtk-video "neuronix-launch gtk-video" gtk-video
+_test gtk-calc "neuronix-launch gtk-calc" gtk-calc
 _test galculator "neuronix-launch galculator" galculator
 _test imv "neuronix-launch imv" imv
 _test zathura "neuronix-launch zathura" zathura

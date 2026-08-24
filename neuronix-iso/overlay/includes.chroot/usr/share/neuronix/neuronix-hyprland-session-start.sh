@@ -142,11 +142,25 @@ if [ -x /usr/local/bin/neuronix-ensure-hyprbars ]; then
 	/usr/local/bin/neuronix-ensure-hyprbars &
 fi
 
-# Match hyprbars colors to the active GTK suite theme (theme.toml)
+# Match hyprbars + Waybar / shell chrome to the active GTK suite theme.
+# Delay until Hyprland answers. Soft sync only: NEURONIX_THEME_NO_HYPR_RELOAD
+# skips `hyprctl reload`, waybar kill/respawn, and portal restarts — those
+# freeze the compositor when run during logout→login bring-up.
 if [ -f /usr/share/neuronix/gtk-theme/python/gtk_theme.py ]; then
 	(
+		_i=0
+		while [ "${_i}" -lt 40 ]; do
+			if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
+				break
+			fi
+			_i=$((_i + 1))
+			sleep 0.25
+		done
+		# Let hyprbars / waybar / portals finish first paint + activation.
+		sleep 5
+		export NEURONIX_THEME_NO_HYPR_RELOAD=1
 		export PYTHONPATH="/usr/share/neuronix/gtk-theme/python${PYTHONPATH:+:$PYTHONPATH}"
-		python3 -c "from gtk_theme import sync_hyprbars; sync_hyprbars()" >/dev/null 2>&1 || true
+		python3 -c "from gtk_theme import sync_desktop_theme; sync_desktop_theme()" >/dev/null 2>&1 || true
 	) &
 fi
 

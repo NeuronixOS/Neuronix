@@ -9,4 +9,4 @@ Icon=accessories-calculator
 Terminal=false
 Categories=Utility;Calculator;
 StartupNotify=true
-StartupWMClass=org.linuxos.GtkCalc
+StartupWMClass=org.neuronix.GtkCalc

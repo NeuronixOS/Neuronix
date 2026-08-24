@@ -37,6 +37,12 @@ libgtk-4-1
 gir1.2-gtk-4.0
 libvte-2.91-gtk4-0
 libgtksourceview-5-0
+gir1.2-gtksource-5
+gir1.2-adw-1
+python3-google-auth
+python3-google-auth-httplib2
+python3-google-auth-oauthlib
+python3-googleapi
 foot
 firefox-esr
 thunar
@@ -45,6 +51,8 @@ gvfs-backends
 mousepad
 xfce4-power-manager
 brightnessctl
+python3-venv
+python3-pip
 hyprland
 hyprland-guiutils
 hyprpaper

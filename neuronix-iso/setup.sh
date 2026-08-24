@@ -231,9 +231,21 @@ if [[ -d "$_gtk_apps/bin" ]]; then
     echo "Staged gtk-sync installer next to gtk-files"
   fi
 
+  # gtk-neuron — Self Driving daemon + Cursor worker
+  # Apps look for /usr/local/lib/neuronix/gtk-apps/gtk-neuron/gtk-neurond
+  # and /usr/local/bin/gtk-neurond (from bin/ staging above).
+  if [[ -d "$_gtk_apps/gtk-neuron" && -x "$_gtk_apps/gtk-neuron/gtk-neurond" ]]; then
+    rm -rf "$_gtk_lib/gtk-neuron"
+    cp -a "$_gtk_apps/gtk-neuron" "$_gtk_lib/gtk-neuron"
+    chmod 0755 "$_gtk_lib/gtk-neuron/gtk-neurond"
+    [[ -f "$_gtk_lib/gtk-neuron/python/cursor_worker.py" ]] && \
+      chmod 0755 "$_gtk_lib/gtk-neuron/python/cursor_worker.py"
+    echo "Staged gtk-neuron (Self Driving daemon + Cursor worker)"
+  fi
+
   # Stock gtk-apps theme.toml lives in default/configs/gtk-apps/ (→ ~/configs via merge).
   # Do not write ~/.config/gtk-apps here; merge-personalize-dropins creates the symlink.
-  echo "Staged default/gtk-apps (suite + gtk-theme-editor + gtk-theme data + gtk-sync + MIME defaults) into includes.chroot"
+  echo "Staged default/gtk-apps (suite + gtk-theme-editor + gtk-theme data + gtk-sync + gtk-neuron + MIME defaults) into includes.chroot"
 fi
 
 # crontab.conf: personalize/configs/crontab wins over default/configs/crontab → /usr/share/neuronix/crontab.conf

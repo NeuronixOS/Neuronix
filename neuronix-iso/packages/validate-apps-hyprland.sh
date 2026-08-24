@@ -45,7 +45,8 @@ for pkg in foot thunar mousepad imv galculator zathura xarchiver \
 	dconf-editor system-config-printer zenity nwg-displays blueman \
 	nm-connection-editor btop gimp nwg-look xfce4-power-manager deskflow \
 	chromium gnome-snapshot \
-	libgtk-4-1 libvte-2.91-gtk4-0 libgtksourceview-5-0; do
+	libgtk-4-1 libvte-2.91-gtk4-0 libgtksourceview-5-0 \
+	gstreamer1.0-plugins-good gstreamer1.0-libav gstreamer1.0-gtk4 ffmpeg; do
 	_layer "$pkg" "B-default"
 done
 
@@ -120,6 +121,8 @@ _check "neuronix-x11-app" "$OVERLAY/usr/local/bin/neuronix-x11-app"
 _check "neuronix-settings" "$OVERLAY/usr/local/bin/neuronix-settings"
 _check "neuronix-ensure-hyprbars" "$OVERLAY/usr/local/bin/neuronix-ensure-hyprbars"
 _check "hyprland.conf (skel)" "$OVERLAY/etc/skel/.config/hypr/hyprland.conf"
+_check "gtk-video.desktop" "$OVERLAY/usr/share/applications/gtk-video.desktop"
+_check "gtk-video binary (default/gtk-apps)" "$BUILD_ROOT/default/gtk-apps/bin/gtk-video"
 
 if grep -q 'GSK_RENDERER=cairo' "$OVERLAY/usr/share/neuronix/neuronix-hyprland-session-env.sh" 2>/dev/null; then
 	echo "  OK  GSK_RENDERER=cairo in session env"
@@ -237,6 +240,9 @@ _smoke_run() {
 _smoke_run "Layer B: gtk-files" "gtk-files --help" 2
 _smoke_run "Layer B: gtk-edit" "gtk-edit --help" 2
 _smoke_run "Layer B: gtk-term" "gtk-term --help" 2
+_smoke_run "Layer B: gtk-image" "gtk-image --help" 2
+_smoke_run "Layer B: gtk-video" "gtk-video --help" 2
+_smoke_run "Layer B: gtk-calc" "gtk-calc --help" 2
 _smoke_run "Layer B fallback: foot" "foot --version"
 _smoke_run "hyprbars helper" "test -x /usr/local/bin/neuronix-ensure-hyprbars"
 _smoke_run "native: fuzzel" "fuzzel --version"

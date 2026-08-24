@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Calamares Server profile: purge slim-live GUI + Hyprland runtime, boot to console + SSH.
-# Also strip desktop skel/home configs and gtk-apps staged for the live Desktop image.
+# Also strip desktop skel/home configs, XDG Desktop/Documents/… folders, and gtk-apps.
 set -euo pipefail
 
 PURGE_LIST="${NEURONIX_LIVE_PURGE_LIST:-/etc/calamares/neuronix-live-purge.list}"
@@ -127,15 +127,75 @@ _strip_desktop_configs_from() {
 		"${root}/.local/bin/x-terminal-emulator" 2>/dev/null || true
 }
 
+# Desktop XDG folders from /etc/skel + xdg-user-dirs-update. Server homes stay flat.
+XDG_USER_DIR_NAMES=(
+	Desktop
+	Documents
+	Downloads
+	Music
+	Pictures
+	Public
+	Videos
+	Templates
+)
+
+_write_server_user_dirs() {
+	local dest="$1"
+	mkdir -p "$dest"
+	cat > "${dest}/user-dirs.conf" <<'EOF'
+enabled=False
+EOF
+	cat > "${dest}/user-dirs.dirs" <<'EOF'
+# Server profile: do not create Desktop/Documents/Downloads/…
+XDG_DESKTOP_DIR="$HOME"
+XDG_DOWNLOAD_DIR="$HOME"
+XDG_TEMPLATES_DIR="$HOME"
+XDG_PUBLICSHARE_DIR="$HOME"
+XDG_DOCUMENTS_DIR="$HOME"
+XDG_MUSIC_DIR="$HOME"
+XDG_PICTURES_DIR="$HOME"
+XDG_VIDEOS_DIR="$HOME"
+EOF
+}
+
+_strip_xdg_user_dirs_from() {
+	local root="$1"
+	local name owner _dir
+	[[ -d "$root" ]] || return 0
+	for name in "${XDG_USER_DIR_NAMES[@]}"; do
+		_dir="${root}/${name}"
+		[[ -d "$_dir" ]] || continue
+		# Empty, or only skel placeholders (.keep / .directory).
+		if [[ -z "$(find "$_dir" -mindepth 1 -maxdepth 1 ! -name '.keep' ! -name '.directory' 2>/dev/null | head -n 1)" ]]; then
+			rm -rf "$_dir"
+		fi
+	done
+	_write_server_user_dirs "${root}/.config"
+	if [[ "$root" == /home/* ]]; then
+		owner=$(stat -c '%U:%G' "$root" 2>/dev/null || true)
+		if [[ -n "${owner:-}" ]]; then
+			chown "$owner" "${root}/.config/user-dirs.conf" "${root}/.config/user-dirs.dirs" 2>/dev/null || true
+		fi
+	fi
+}
+
 _strip_desktop_configs_from /etc/skel
+_strip_xdg_user_dirs_from /etc/skel
 
 # users module runs before this script — clear desktop drop-ins from created homes.
 if [[ -d /home ]]; then
 	for _home in /home/*; do
 		[[ -d "$_home" ]] || continue
 		_strip_desktop_configs_from "$_home"
+		_strip_xdg_user_dirs_from "$_home"
 	done
 fi
+
+# Stop xdg-user-dirs-update from recreating folders on later logins / new users.
+mkdir -p /etc/xdg
+printf 'enabled=False\n' >/etc/xdg/user-dirs.conf
+rm -f /etc/xdg/autostart/xdg-user-dirs.desktop \
+	/etc/xdg/autostart/xdg-user-dirs-gtk-update.desktop 2>/dev/null || true
 
 if command -v systemctl >/dev/null 2>&1; then
 	systemctl set-default multi-user.target || true

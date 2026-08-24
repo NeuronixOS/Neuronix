@@ -12,61 +12,61 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("GtkLayerShell", "0.1")
 from gi.repository import Gtk, Gdk, GLib, GtkLayerShell  # noqa: E402
 
-CSS = b"""
-window.neuronix-choice {
-  background-color: #2e2e2e;
-  border: 1px solid #505050;
+CSS_TEMPLATE = """
+window.neuronix-choice {{
+  background-color: {surface};
+  border: 1px solid {border};
   border-radius: 12px;
-  color: #f5f5f5;
-}
+  color: {fg};
+}}
 box.neuronix-root,
 box.neuronix-scroll-wrap,
-eventbox.neuronix-scroll-wrap {
-  background-color: #2e2e2e;
-}
+eventbox.neuronix-scroll-wrap {{
+  background-color: {surface};
+}}
 scrolledwindow.neuronix-scroll,
 scrolledwindow.neuronix-scroll > *,
 scrolledwindow.neuronix-scroll viewport,
 scrolledwindow.neuronix-scroll undershoot,
-scrolledwindow.neuronix-scroll overshoot {
-  background-color: #2e2e2e;
+scrolledwindow.neuronix-scroll overshoot {{
+  background-color: {surface};
   border: none;
   box-shadow: none;
   outline: none;
   border-width: 0;
-}
-label.neuronix-title {
-  color: #f5f5f5;
+}}
+label.neuronix-title {{
+  color: {fg};
   font-size: 22px;
   font-weight: 700;
-}
-label.neuronix-subtitle {
-  color: #b0b0b0;
+}}
+label.neuronix-subtitle {{
+  color: {muted};
   font-size: 13px;
-}
-scrolledwindow, viewport, box.neuronix-list, frame {
-  background-color: #2e2e2e;
+}}
+scrolledwindow, viewport, box.neuronix-list, frame {{
+  background-color: {surface};
   border: none;
   box-shadow: none;
   outline: none;
   border-width: 0;
   border-style: none;
   border-radius: 0;
-}
+}}
 scrolledwindow > viewport,
 scrolledwindow > widget,
-scrolledwindow > scrollbar {
+scrolledwindow > scrollbar {{
   border: none;
-  background-color: #2e2e2e;
-}
+  background-color: {surface};
+}}
 /* Match edge etch to window bg */
 scrolledwindow overshoot.top,
 scrolledwindow overshoot.bottom,
 scrolledwindow undershoot.top,
 scrolledwindow undershoot.bottom,
 scrolledwindow overshoot,
-scrolledwindow undershoot {
-  background-color: #2e2e2e;
+scrolledwindow undershoot {{
+  background-color: {surface};
   background-image: none;
   border: none;
   box-shadow: none;
@@ -75,27 +75,27 @@ scrolledwindow undershoot {
   opacity: 0;
   margin: 0;
   padding: 0;
-}
-scrollbar {
-  background-color: #2e2e2e;
+}}
+scrollbar {{
+  background-color: {surface};
   border: none;
   box-shadow: none;
   min-width: 8px;
   margin: 0;
   padding: 0;
-}
-scrollbar trough {
-  background-color: #2e2e2e;
+}}
+scrollbar trough {{
+  background-color: {surface};
   border: none;
-}
-scrollbar slider {
-  background-color: #555555;
+}}
+scrollbar slider {{
+  background-color: {border};
   border-radius: 4px;
   min-width: 6px;
   margin: 2px;
-}
-button.neuronix-card {
-  background-color: #3a3a3a;
+}}
+button.neuronix-card {{
+  background-color: {card};
   background-image: none;
   border: none;
   border-radius: 10px;
@@ -104,35 +104,80 @@ button.neuronix-card {
   padding: 8px 14px;
   margin: 0;
   min-height: 44px;
-}
-button.neuronix-card:hover {
-  background-color: #4a4a4a;
-}
-button.neuronix-card label.neuronix-row-title {
-  color: #f5f5f5;
+}}
+button.neuronix-card:hover {{
+  background-color: {card_hover};
+}}
+button.neuronix-card label.neuronix-row-title {{
+  color: {fg};
   font-size: 14px;
   font-weight: 600;
-}
-button.neuronix-card label.neuronix-row-desc {
-  color: #a8a8a8;
+}}
+button.neuronix-card label.neuronix-row-desc {{
+  color: {muted};
   font-size: 11px;
-}
-button.neuronix-close {
-  background-color: #3a3a3a;
-  color: #f5f5f5;
+}}
+button.neuronix-close {{
+  background-color: {card};
+  color: {fg};
   border: none;
   border-radius: 8px;
   padding: 10px 20px;
   font-size: 13px;
   min-width: 88px;
-}
-button.neuronix-close:hover { background-color: #4a4a4a; }
+}}
+button.neuronix-close:hover {{ background-color: {card_hover}; }}
 """
 
 
+def _mix_hex(a: str, b: str, t: float) -> str:
+    def parse(h: str) -> tuple[int, int, int]:
+        h = h.lstrip("#")
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+    try:
+        ar, ag, ab = parse(a)
+        br, bg, bb = parse(b)
+    except Exception:
+        return a
+    r = int(ar + (br - ar) * t)
+    g = int(ag + (bg - ag) * t)
+    b_ = int(ab + (bb - ab) * t)
+    return f"#{r:02x}{g:02x}{b_:02x}"
+
+
+def _theme_chrome() -> dict[str, str]:
+    """Pull suite profile colors when gtk-theme is available."""
+    bg, fg = "#2e2e2e", "#f5f5f5"
+    try:
+        sys.path.insert(0, "/usr/share/neuronix/gtk-theme/python")
+        from gtk_theme import load_profile  # type: ignore
+
+        p = load_profile()
+        bg, fg = p.background, p.foreground
+    except Exception:
+        pass
+    surface = _mix_hex(bg, fg, 0.10)
+    border = _mix_hex(bg, fg, 0.18)
+    card = _mix_hex(bg, fg, 0.14)
+    card_hover = _mix_hex(bg, fg, 0.22)
+    muted = _mix_hex(fg, bg, 0.35)
+    return {
+        "bg": bg,
+        "fg": fg,
+        "surface": surface,
+        "border": border,
+        "card": card,
+        "card_hover": card_hover,
+        "muted": muted,
+    }
+
+
 def _apply_css() -> None:
+    chrome = _theme_chrome()
+    css = CSS_TEMPLATE.format(**chrome).encode("utf-8")
     provider = Gtk.CssProvider()
-    provider.load_from_data(CSS)
+    provider.load_from_data(css)
     # USER priority so we beat Adwaita's scrolledwindow border/undershoot
     Gtk.StyleContext.add_provider_for_screen(
         Gdk.Screen.get_default(),

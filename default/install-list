@@ -100,11 +100,17 @@ libvte-2.91-gtk4-0 # VTE GTK4 widget (gtk-term)
 libgtksourceview-5-0 # GtkSourceView 5 for gtk-edit syntax highlighting
 gir1.2-gtksource-5 # GtkSourceView 5 GObject introspection (gtk-meld / Python)
 gir1.2-adw-1 # libadwaita GObject introspection (gtk-worktimezone)
+gstreamer1.0-plugins-base # GTK4 MediaFile / gtk-video preview
+gstreamer1.0-plugins-good # gtk-video preview codecs
+gstreamer1.0-plugins-bad # extra codecs for gtk-video preview
+gstreamer1.0-libav # FFmpeg codecs for gtk-video preview (mp4/h264)
+gstreamer1.0-gtk4 # GTK4 video sink for gtk::MediaFile / gtk-video
+ffmpeg # gtk-video export (also listed under desktop)
 python3-google-auth # Google auth for gtk-meetings calendar import
 python3-google-auth-httplib2 # Google auth HTTP transport
 python3-google-auth-oauthlib # Google OAuth for gtk-meetings
 python3-googleapi # Google API client for gtk-meetings
-# Daily apps: gtk-term / gtk-files / gtk-edit (staged from default/gtk-apps)
+# Daily apps: gtk-term / gtk-files / gtk-edit / gtk-image / gtk-video / gtk-calc (+ gtk-neurond Self Driving)
 # Keep foot/thunar/mousepad as emergency fallbacks if binaries missing
 foot # Fallback Wayland terminal
 firefox-esr # Live-session browser (Desktop may add Chrome via Calamares)
@@ -114,6 +120,9 @@ gvfs-backends # userspace virtual filesystem - backends
 mousepad # Fallback text editor
 xfce4-power-manager # Power, sleep, and battery settings
 brightnessctl # Backlight brightness control from keybinds
+# Cursor Self Driving worker (venv ships prebuilt under gtk-apps/gtk-neuron/python/.venv)
+python3-venv # Create/repair Cursor SDK venv if needed
+python3-pip # pip for gtk-neuron cursor-sdk (optional repair)
 
 # --- server ---
 # Bare Server profile needs no extra apt packages beyond live keepers

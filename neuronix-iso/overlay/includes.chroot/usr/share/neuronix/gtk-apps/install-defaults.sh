@@ -17,6 +17,7 @@ LOCAL_BIN="${HOME}/.local/bin"
 DESKTOPS=(
 	gtk-edit.desktop
 	gtk-image.desktop
+	gtk-video.desktop
 	gtk-files.desktop
 	gtk-term.desktop
 	gtk-calc.desktop
@@ -146,6 +147,7 @@ echo ""
 echo "Installed GTK-Apps as defaults:"
 echo "  Text editor : gtk-edit.desktop"
 echo "  Image viewer: gtk-image.desktop"
+echo "  Video trimmer: gtk-video.desktop (launcher; mpv stays the default player)"
 echo "  File manager: gtk-files.desktop"
 echo "  Terminal    : gtk-term.desktop / gtk-term-launch.sh"
 echo "  Calculator  : gtk-calc.desktop (launcher only)"

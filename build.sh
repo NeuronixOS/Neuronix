@@ -193,6 +193,12 @@ regen_package_lists() {
 	SECTION_PKGS=()
 	for pkg in "${NEURONIX_MANIFEST_PKGS[@]}"; do
 		sec="${NEURONIX_MANIFEST_SECTION[$pkg]}"
+		case "$sec" in
+			live|installer|server|desktop) ;;
+			*)
+				_die "Unsupported install-list section '$sec' for package '$pkg' (use live, installer, server, or desktop)"
+				;;
+		esac
 		SECTION_PKGS["$sec"]+="${SECTION_PKGS[$sec]:+$'\n'}$pkg"
 	done
 

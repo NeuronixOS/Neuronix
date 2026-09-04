@@ -36,6 +36,8 @@ _has_dropin_content() {
 	local dir="$1"
 	[[ -d "$dir" ]] || return 1
 	local f base
+	# Follow a symlinked overlay directory such as
+	# personalize-server/configs -> ../configs-server.
 	while IFS= read -r -d '' f; do
 		base="$(basename "$f")"
 		_is_meta_name "$base" && continue
@@ -49,7 +51,7 @@ _has_dropin_content() {
 			continue
 		fi
 		return 0
-	done < <(find "$dir" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+	done < <(find -H "$dir" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
 	return 1
 }
 

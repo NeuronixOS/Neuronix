@@ -10,6 +10,8 @@ install_google_chrome() {
 	if [ -x "${CHROME}" ]; then
 		echo "[install-google-chrome] already installed"
 		_set_default_browser
+		# google-chrome-stable.deb overwrites google-chrome.desktop; register
+		# diverts it back to neuronix-chrome and packs personalize CRXs.
 		if [ -x /usr/share/neuronix/register-chrome-extensions.sh ]; then
 			/usr/share/neuronix/register-chrome-extensions.sh || true
 		fi
@@ -59,6 +61,7 @@ install_google_chrome() {
 	fi
 
 	_set_default_browser
+	# Deb overwrites google-chrome.desktop; register diverts it to neuronix-chrome.
 	if [ -x /usr/share/neuronix/register-chrome-extensions.sh ]; then
 		/usr/share/neuronix/register-chrome-extensions.sh || true
 	fi

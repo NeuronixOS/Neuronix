@@ -1,7 +1,7 @@
 /* Neuronix Waybar — black / grey / white (neutral on any wallpaper) */
 
 * {
-  font-family: "Cantarell", sans-serif;
+  font-family: "Cantarell", "DejaVu Sans", sans-serif;
   font-size: 13px;
   min-height: 0;
   color: #f5f5f5;
@@ -57,7 +57,7 @@ window#waybar {
 #cpu,
 #memory {
   padding: 0 12px;
-  font-family: "FontAwesome", "Cantarell", sans-serif;
+  font-family: "FontAwesome", "Cantarell", "DejaVu Sans", sans-serif;
   color: #cccccc;
 }
 

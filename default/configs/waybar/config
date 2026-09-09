@@ -5,10 +5,11 @@
   "spacing": 4,
   "modules-left": [
     "custom/menu",
-    "hyprland/workspaces"
+    "hyprland/workspaces",
+    "hyprland/window"
   ],
   "modules-center": [
-    "hyprland/window"
+    "clock"
   ],
   "modules-right": [
     "custom/gtk-sync",
@@ -17,7 +18,6 @@
     "cpu",
     "memory",
     "battery",
-    "clock",
     "tray"
   ],
   "custom/menu": {
@@ -26,13 +26,13 @@
     "on-click": "fuzzel"
   },
   "custom/gtk-sync": {
-    "exec": "gtk-sync-status",
+    "exec": "$HOME/.config/waybar/gtk-sync-status.sh",
     "return-type": "json",
     "interval": 3,
     "format": "{}",
     "tooltip": true,
     "on-click": "gtk-sync-menu",
-    "on-click-right": "gtk-sync-status"
+    "on-click-right": "$HOME/.config/waybar/gtk-sync-status.sh"
   },
   "hyprland/workspaces": {
     "format": "{id}",

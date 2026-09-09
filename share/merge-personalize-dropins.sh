@@ -524,78 +524,13 @@ merge_browser_extensions() {
 	_info "staged $count extension(s)"
 	[[ "$count" -gt 0 ]] || return 0
 
-	# Wrappers + desktops (overlay ships defaults; refresh from share when extensions stage)
+	# Wrappers + desktops (canonical scripts in share/; overlay copies are the fallback)
 	local bin="$INCLUDES/usr/local/bin"
 	local apps="$INCLUDES/usr/share/applications"
 	mkdir -p "$bin" "$apps"
-
-	# Google Chrome wrapper (Chrome only — Chromium has neuronix-chromium)
-	cat >"$bin/neuronix-chrome" <<'WRAP'
-#!/usr/bin/env bash
-# Launch Google Chrome with Neuronix unpacked extensions (if staged).
-set -euo pipefail
-EXT_ROOT="/usr/share/neuronix/browser-extensions"
-LOAD_ARGS=()
-if [[ -d "$EXT_ROOT" ]]; then
-	shopt -s nullglob
-	for d in "$EXT_ROOT"/*/; do
-		[[ -f "$d/manifest.json" ]] || continue
-		LOAD_ARGS+=("$(realpath "$d")")
-	done
-	shopt -u nullglob
-fi
-CHROME=""
-for c in google-chrome-stable google-chrome; do
-	if command -v "$c" >/dev/null 2>&1; then
-		CHROME="$c"
-		break
-	fi
-done
-if [[ -z "$CHROME" ]]; then
-	echo "neuronix-chrome: Google Chrome not found in PATH" >&2
-	exit 1
-fi
-if [[ ${#LOAD_ARGS[@]} -gt 0 ]]; then
-	IFS=,
-	exec "$CHROME" --load-extension="${LOAD_ARGS[*]}" "$@"
-fi
-exec "$CHROME" "$@"
-WRAP
-	chmod 0755 "$bin/neuronix-chrome"
-
-	# Debian Chromium wrapper
-	cat >"$bin/neuronix-chromium" <<'WRAP'
-#!/usr/bin/env bash
-# Launch Debian Chromium with Neuronix unpacked extensions (if staged).
-set -euo pipefail
-EXT_ROOT="/usr/share/neuronix/browser-extensions"
-LOAD_ARGS=()
-if [[ -d "$EXT_ROOT" ]]; then
-	shopt -s nullglob
-	for d in "$EXT_ROOT"/*/; do
-		[[ -f "$d/manifest.json" ]] || continue
-		LOAD_ARGS+=("$(realpath "$d")")
-	done
-	shopt -u nullglob
-fi
-CHROME=""
-for c in chromium chromium-browser; do
-	if command -v "$c" >/dev/null 2>&1; then
-		CHROME="$c"
-		break
-	fi
-done
-if [[ -z "$CHROME" ]]; then
-	echo "neuronix-chromium: chromium not found in PATH" >&2
-	exit 1
-fi
-if [[ ${#LOAD_ARGS[@]} -gt 0 ]]; then
-	IFS=,
-	exec "$CHROME" --load-extension="${LOAD_ARGS[*]}" "$@"
-fi
-exec "$CHROME" "$@"
-WRAP
-	chmod 0755 "$bin/neuronix-chromium"
+	cp -a "$SCRIPT_DIR/neuronix-chrome" "$bin/neuronix-chrome"
+	cp -a "$SCRIPT_DIR/neuronix-chromium" "$bin/neuronix-chromium"
+	chmod 0755 "$bin/neuronix-chrome" "$bin/neuronix-chromium"
 
 	cat >"$apps/neuronix-chrome.desktop" <<'DESK'
 [Desktop Entry]
@@ -680,6 +615,29 @@ DESK
 	# Chroot / post-chrome hook marker list of staged extensions
 	mkdir -p "$INCLUDES/usr/share/neuronix"
 	: >"$INCLUDES/usr/share/neuronix/browser-extensions.stamp"
+
+	# Retry CRX pack + External Extensions on first boot (Calamares pack can
+	# fail as root without --no-sandbox; register-chrome-extensions.sh is idempotent).
+	local unit_dir="$INCLUDES/etc/systemd/system"
+	mkdir -p "$unit_dir/multi-user.target.wants"
+	cat >"$unit_dir/neuronix-register-chrome-extensions.service" <<'UNIT'
+[Unit]
+Description=Pack and register Neuronix Chrome extensions
+After=network-online.target
+ConditionPathIsDirectory=/usr/share/neuronix/browser-extensions
+ConditionPathExists=/usr/share/neuronix/register-chrome-extensions.sh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/share/neuronix/register-chrome-extensions.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+	ln -sfn ../neuronix-register-chrome-extensions.service \
+		"$unit_dir/multi-user.target.wants/neuronix-register-chrome-extensions.service"
+	_info "enabled neuronix-register-chrome-extensions.service"
 }
 
 # ---------------------------------------------------------------------------

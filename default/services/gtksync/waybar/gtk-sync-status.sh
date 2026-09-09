@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Waybar custom module: gtk-sync client status (JSON text + tooltip).
 # Reads $XDG_RUNTIME_DIR/gtk-sync/status.json only while gtk-sync-client is active.
+#
+# Icons use FontAwesome Private Use Area (same as other Waybar modules) so they
+# render with font-family: FontAwesome — not Dingbats/emoji that show as tofu.
 set -euo pipefail
 
 if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
@@ -9,6 +12,15 @@ fi
 if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" && -S "${XDG_RUNTIME_DIR}/bus" ]]; then
 	export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
 fi
+
+# FontAwesome 4 glyphs (fonts-font-awesome)
+FA_OK=$'\uf00c'      # check
+FA_BAD=$'\uf00d'     # times
+FA_SYNC=$'\uf021'    # refresh
+FA_WARN=$'\uf071'    # warning
+FA_ELLIPSIS=$'\uf141' # ellipsis-h
+FA_UP=$'\uf062'
+FA_DOWN=$'\uf063'
 
 emit() {
 	export WB_TEXT="$1" WB_TIP="$2" WB_CLASS="$3"
@@ -59,7 +71,7 @@ status_path() {
 }
 
 if ! have_client_bin; then
-	emit "Sync ✗" "gtk-sync-client not installed" "missing"
+	emit "Sync ${FA_BAD}" "gtk-sync-client not installed" "missing"
 	exit 0
 fi
 
@@ -73,10 +85,10 @@ if ! client_active; then
 		tip+=$'\n'"unit enabled but inactive"
 	elif [[ ! -f "${HOME}/.config/gtk-sync/client.toml" ]]; then
 		tip+=$'\n'"no client.toml — set up Sync in gtk-files"
-		emit "Sync ✗" "$tip" "missing"
+		emit "Sync ${FA_BAD}" "$tip" "missing"
 		exit 0
 	fi
-	emit "Sync ✗" "$tip" "stopped"
+	emit "Sync ${FA_BAD}" "$tip" "stopped"
 	exit 0
 fi
 
@@ -85,7 +97,7 @@ if [[ -z "${path:-}" ]]; then
 	root="$(sync_root)"
 	tip="gtk-sync-client active (no status.json yet)"
 	[[ -n "$root" ]] && tip+=$'\n'"root: ${root}"
-	emit "Sync ✓" "$tip" "ok"
+	emit "Sync ${FA_OK}" "$tip" "ok"
 	exit 0
 fi
 
@@ -95,12 +107,19 @@ import json, os, sys
 path = sys.argv[1]
 root = sys.argv[2] if len(sys.argv) > 2 else ""
 
+FA_OK = "\uf00c"
+FA_SYNC = "\uf021"
+FA_WARN = "\uf071"
+FA_ELLIPSIS = "\uf141"
+FA_UP = "\uf062"
+FA_DOWN = "\uf063"
+
 try:
     with open(path, encoding="utf-8") as f:
         st = json.load(f)
 except Exception as e:
     print(json.dumps({
-        "text": "Sync ⚠",
+        "text": f"Sync {FA_WARN}",
         "tooltip": f"Could not read status.json:\n{e}",
         "class": "warning",
     }, ensure_ascii=False))
@@ -113,18 +132,18 @@ files = st.get("files") or {}
 pending = sum(1 for v in files.values() if v in ("pending", "syncing"))
 transferring = phase in ("pulling", "pushing") or (busy and phase != "scanning")
 
-text = "Sync ✓"
+text = f"Sync {FA_OK}"
 klass = "ok"
 line = "Up to date"
 
 if transferring or (busy and phase in ("pulling", "pushing")):
-    text = "Sync ↻"
+    text = f"Sync {FA_SYNC}"
     klass = "syncing"
     if active:
         a0 = active[0] if isinstance(active[0], dict) else {}
         name = os.path.basename(str(a0.get("path") or "")) or "file"
         direction = str(a0.get("direction") or "")
-        arrow = "↓" if direction == "down" else ("↑" if direction == "up" else "↻")
+        arrow = FA_DOWN if direction == "down" else (FA_UP if direction == "up" else FA_SYNC)
         extra = max(0, len(active) - 1) + pending
         if extra:
             line = f"Syncing {arrow} {name} (+{extra} more)"
@@ -135,11 +154,11 @@ if transferring or (busy and phase in ("pulling", "pushing")):
     else:
         line = f"Syncing ({phase})"
 elif phase == "scanning":
-    text = "Sync …"
+    text = f"Sync {FA_ELLIPSIS}"
     klass = "syncing"
-    line = "Scanning…"
+    line = "Scanning..."
 elif pending:
-    text = "Sync ↻"
+    text = f"Sync {FA_SYNC}"
     klass = "syncing"
     line = f"Pending ({pending} files)"
 

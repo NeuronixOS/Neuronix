@@ -12,6 +12,24 @@ source "$_here/neuronix-personalize.sh"
 IMAGES_DEFAULT="$REPO_ROOT/default/images"
 IMAGES_PERSONALIZE="$REPO_ROOT/personalize/images"
 
+# Product name (personalize metadata overlays default) — GRUB title + distributor.
+if [[ -r "$REPO_ROOT/default/metadata/debian.env" ]]; then
+	# shellcheck source=/dev/null
+	source "$REPO_ROOT/default/metadata/debian.env"
+fi
+if [[ -r "$REPO_ROOT/personalize/metadata/debian.env" ]]; then
+	# shellcheck source=/dev/null
+	source "$REPO_ROOT/personalize/metadata/debian.env"
+fi
+PRODUCT="${NEURONIX_PRODUCT_NAME:-Neuronix}"
+
+write_distributor_dropin() {
+	local _root="$1"
+	mkdir -p "$_root/etc/default/grub.d"
+	printf 'GRUB_DISTRIBUTOR="%s"\n' "$PRODUCT" >"$_root/etc/default/grub.d/neuronix-product.cfg"
+	chmod 0644 "$_root/etc/default/grub.d/neuronix-product.cfg"
+}
+
 pick_grub_16x9() {
 	neuronix_resolve_image "$IMAGES_DEFAULT" "$IMAGES_PERSONALIZE" "grub/grub-16x9" png || true
 }
@@ -28,15 +46,18 @@ write_grub_theme_txt() {
 	local _tmp
 	_tmp="$(mktemp)"
 	if [[ -s "$_src" ]]; then
-		sed "s|desktop-image: \"wallpaper.png\"|desktop-image: \"${_desktop_image}\"|" "$_src" >"$_tmp"
+		sed -e "s|desktop-image: \"wallpaper.png\"|desktop-image: \"${_desktop_image}\"|" \
+			-e "s|Welcome to Neuronix|Welcome to ${PRODUCT}|g" \
+			"$_src" >"$_tmp"
 	elif [[ -s "$_dest" ]]; then
 		cp -a "$_dest" "$_tmp"
+		sed -i "s|Welcome to Neuronix|Welcome to ${PRODUCT}|g" "$_tmp"
 	else
 		cat >"$_tmp" <<EOF
 desktop-image: "${_desktop_image}"
 title-color: "#ffffff"
 title-font: "Unifont Regular 16"
-title-text: "Welcome to Neuronix"
+title-text: "Welcome to ${PRODUCT}"
 message-font: "Unifont Regular 16"
 terminal-font: "Unifont Regular 16"
 
@@ -159,6 +180,7 @@ if [[ -n "$GRUB43" && -f "$GRUB43" ]]; then
 	cp -a "$GRUB43" "$OVERLAY/includes.chroot/usr/share/neuronix/branding/grub-4x3.png"
 	cp -a "$GRUB43" "$CER_GRUB/grub-4x3.png"
 fi
+write_distributor_dropin "$OVERLAY/includes.chroot"
 
 # Optional live-build tree (setup.sh passes BUILD_ROOT/config as second arg).
 if [[ -n "${1:-}" ]]; then
@@ -176,6 +198,7 @@ if [[ -n "${1:-}" ]]; then
 		cp -a "$GRUB43" "$_cfg/includes.chroot/usr/share/neuronix/branding/grub-4x3.png"
 		cp -a "$GRUB43" "$_cfg/includes.chroot/usr/share/desktop-base/ceratopsian-theme/grub/grub-4x3.png"
 	fi
+	write_distributor_dropin "$_cfg/includes.chroot"
 fi
 
 echo "merge-grub-branding: OK ($GRUB16 → live USB isolinux + GRUB + installed branding)"

@@ -123,6 +123,11 @@ fi
 
 waybar &
 mako &
+# Monitor hot-plug profiles (optional; no-op when kanshi is not installed)
+if command -v kanshi >/dev/null 2>&1; then
+	pkill -x kanshi 2>/dev/null || true
+	kanshi &
+fi
 # Ensure common XDG dirs exist (screenshots → ~/Pictures, recordings → ~/Videos).
 mkdir -p "${HOME}/Pictures" "${HOME}/Videos" "${HOME}/Downloads" "${HOME}/Documents" 2>/dev/null || true
 # Volume / brightness OSD (binds use swayosd-client)

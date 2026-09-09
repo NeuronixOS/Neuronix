@@ -48,6 +48,7 @@ debconf # Debian configuration management system
 rsyslog # reliable system and kernel logging daemon
 fontconfig # generic font configuration library - support binaries
 fonts-cascadia-code # Cascadia Code monospace (gtk-edit default editor font)
+fonts-noto-color-emoji # Color emoji for gtk-edit and other GTK apps
 zip # Archiver for .zip files
 gdisk # GPT fdisk text-mode partitioning tool
 dconf-cli # simple configuration storage system - utilities
@@ -134,6 +135,8 @@ python3-pip # pip for gtk-neuron cursor-sdk (optional repair)
 # Hyprland session as shipped (keybinds + settings hub + hyprpm plugins)
 grim # Wayland screenshot utility (Print / Super+Shift+S)
 slurp # Region selector for grim screenshots
+wf-recorder # Screen recording (Ctrl+Alt+Shift+R in hyprland.conf)
+kanshi # Monitor hot-plug profiles for Wayland compositors
 cmake # Build hyprpm plugins (hyprbars, Hyprspace)
 g++ # C++ compiler for hyprpm plugins
 meson # Build system used by hyprpm plugin builds
@@ -145,6 +148,8 @@ libpango1.0-dev # pangocairo headers required to compile Hyprspace
 libcairo2-dev # Cairo headers (pangocairo) for hyprpm plugins
 nwg-displays # Monitor layout (settings hub Display)
 nwg-look # GTK theme/icons/cursors (settings hub Appearance)
+nwg-bar # Session / power quick-action bar (Ctrl+Alt+Delete)
+nwg-clipman # Clipboard history GUI (optional; launch from menu)
 xsettingsd # Xsettings daemon (nwg-look exports ~/.config/xsettingsd/)
 gparted # Partition editor (settings hub Disks)
 baobab # Disk usage analyzer (GUI)

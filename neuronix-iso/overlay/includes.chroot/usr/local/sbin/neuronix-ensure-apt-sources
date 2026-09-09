@@ -4,3 +4,11 @@ set -eu
 . /usr/share/neuronix/ensure-apt-contrib-nonfree.sh
 ensure_apt_contrib_nonfree
 ensure_apt_backports
+# Calamares / live-build sometimes leave sources.list mode 0600; apt tools and
+# users then cannot even list packages. Keep world-readable.
+if [ -f /etc/apt/sources.list ]; then
+	chmod 0644 /etc/apt/sources.list || true
+fi
+if [ -f /etc/apt/sources.list.d/neuronix-backports.list ]; then
+	chmod 0644 /etc/apt/sources.list.d/neuronix-backports.list || true
+fi

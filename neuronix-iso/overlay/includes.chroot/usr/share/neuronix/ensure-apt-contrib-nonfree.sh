@@ -39,14 +39,20 @@ ensure_apt_contrib_nonfree() {
 		if [ "$_changed" -eq 1 ]; then
 			cp -a /etc/apt/sources.list "/etc/apt/sources.list.bak.$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
 			mv "$_tmp" /etc/apt/sources.list
+			chmod 0644 /etc/apt/sources.list 2>/dev/null || true
 			echo "[ensure-apt-contrib-nonfree] updated /etc/apt/sources.list"
 		else
 			rm -f "$_tmp"
+			chmod 0644 /etc/apt/sources.list 2>/dev/null || true
 		fi
 	fi
 
 	for _deb822 in /etc/apt/sources.list.d/*.sources; do
 		[ -f "$_deb822" ] || continue
+		# Only touch Debian/ubuntu-style archives — never Chrome/Cursor/vendor repos.
+		if ! grep -qiE 'URIs:.*(debian\.org|ubuntu\.com|launchpad\.net)' "$_deb822" 2>/dev/null; then
+			continue
+		fi
 		if grep -q '^Components:' "$_deb822" \
 			&& grep '^Components:' "$_deb822" | grep -qE '(^|[[:space:]])non-free([[:space:]]|$)'; then
 			continue

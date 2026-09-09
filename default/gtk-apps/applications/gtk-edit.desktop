@@ -3,7 +3,7 @@ Version=1.0
 Type=Application
 Name=Text Editor
 Comment=Neuronix GTK4 text editor (gtk-edit)
-Exec=gtk-edit %F
+Exec=env GSK_RENDERER=ngl gtk-edit %F
 TryExec=gtk-edit
 Icon=accessories-text-editor
 Terminal=false

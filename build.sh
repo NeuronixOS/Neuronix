@@ -262,10 +262,10 @@ regen_package_lists() {
 			[[ -n "${live_keep[$pkg]:-}" ]] && continue
 			printf '%s\n' "$pkg"
 		done <<<"${SECTION_PKGS[live]:-}"
-		# Hook 997 / Desktop extras present on the live squashfs but outside # --- live ---.
+		# Hook 997 Hyprland runtime (ydotool is kept for Active-User on Server).
 		printf '%s\n' \
 			hyprland hyprland-guiutils hyprpaper hyprpicker \
-			xdg-desktop-portal-hyprland ydotool
+			xdg-desktop-portal-hyprland
 	} >"$live_purge"
 	_info "wrote ${_dim}${live_purge#"$REPO_ROOT/"}${_reset}"
 

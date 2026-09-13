@@ -2,7 +2,9 @@
 """Shared Neuronix GTK choice dialog — spacious action cards (not a packed zenity table)."""
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 import sys
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -10,7 +12,7 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("GtkLayerShell", "0.1")
-from gi.repository import Gtk, Gdk, GLib, GtkLayerShell  # noqa: E402
+from gi.repository import Gtk, Gdk, GLib, GtkLayerShell, Pango  # noqa: E402
 
 CSS_TEMPLATE = """
 window.neuronix-choice {{
@@ -127,6 +129,24 @@ button.neuronix-close {{
   min-width: 88px;
 }}
 button.neuronix-close:hover {{ background-color: {card_hover}; }}
+button.neuronix-xclose {{
+  background-color: transparent;
+  background-image: none;
+  color: {fg};
+  border: none;
+  border-radius: 8px;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  min-width: 32px;
+  min-height: 32px;
+  font-size: 22px;
+  font-weight: 700;
+}}
+button.neuronix-xclose:hover {{
+  background-color: #e02020;
+  color: #ffffff;
+}}
 """
 
 
@@ -186,31 +206,130 @@ def _apply_css() -> None:
     )
 
 
-def _monitor_geom():
-    display = Gdk.Display.get_default()
-    monitor = display.get_primary_monitor() if display else None
-    if monitor is None and display is not None:
-        monitor = display.get_monitor(0)
-    if monitor is not None:
-        return monitor.get_geometry()
+def _gdk_monitor_at(display, x: int, y: int):
+    try:
+        mon = display.get_monitor_at_point(int(x), int(y))
+        if mon is not None:
+            return mon
+    except Exception:
+        pass
     return None
 
 
-def _center_layer(win: Gtk.Window, width: int, height: int) -> None:
+def _gdk_monitor_at_origin(display, x: int, y: int):
+    n = display.get_n_monitors()
+    for i in range(n):
+        mon = display.get_monitor(i)
+        geo = mon.get_geometry()
+        if int(geo.x) == int(x) and int(geo.y) == int(y):
+            return mon
+    return None
+
+
+def _hypr_cursor_monitor(display):
+    """Hyprland cursor/focus — Gdk pointer is stuck at 0,0 on Wayland."""
+    try:
+        pos = subprocess.check_output(["hyprctl", "cursorpos"], text=True, timeout=1).strip()
+        parts = [p.strip() for p in pos.split(",")]
+        mon = _gdk_monitor_at(display, int(parts[0]), int(parts[1]))
+        if mon is not None:
+            return mon
+    except Exception:
+        pass
+    try:
+        monitors = json.loads(
+            subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=1)
+        )
+        for hm in monitors:
+            if not hm.get("focused"):
+                continue
+            mon = _gdk_monitor_at_origin(display, int(hm.get("x", 0)), int(hm.get("y", 0)))
+            if mon is not None:
+                return mon
+    except Exception:
+        pass
+    return None
+
+
+def _pointer_monitor():
+    """Monitor under the Waybar click (Hyprland), not Gdk's bogus 0,0 / missing primary."""
+    display = Gdk.Display.get_default()
+    if display is None:
+        return None
+    mon = _hypr_cursor_monitor(display)
+    if mon is not None:
+        return mon
+    n = display.get_n_monitors()
+    landscape = None
+    for i in range(n):
+        candidate = display.get_monitor(i)
+        geo = candidate.get_geometry()
+        if geo.width >= geo.height:
+            landscape = candidate
+            break
+    if landscape is not None:
+        return landscape
+    primary = display.get_primary_monitor()
+    if primary is not None:
+        return primary
+    if n > 0:
+        return display.get_monitor(0)
+    return None
+
+
+def center_layer_window(win: Gtk.Window, width: int, height: int) -> None:
+    """Pin a gtk-layer-shell surface to the center of the clicked/focused output."""
     GtkLayerShell.init_for_window(win)
-    GtkLayerShell.set_layer(win, GtkLayerShell.Layer.TOP)
+    GtkLayerShell.set_layer(win, GtkLayerShell.Layer.OVERLAY)
     GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
+    GtkLayerShell.set_exclusive_zone(win, 0)
     GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.LEFT, True)
     GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.TOP, True)
 
-    geo = _monitor_geom()
-    if geo is not None:
-        left = max(12, (geo.width - width) // 2)
-        top = max(40, (geo.height - height) // 2)
+    mon = _pointer_monitor()
+    if mon is not None:
+        try:
+            GtkLayerShell.set_monitor(win, mon)
+        except Exception:
+            pass
+        geo = mon.get_geometry()
+        left = max(12, (int(geo.width) - int(width)) // 2)
+        top = max(12, (int(geo.height) - int(height)) // 2)
     else:
         left, top = 200, 120
     GtkLayerShell.set_margin(win, GtkLayerShell.Edge.LEFT, left)
     GtkLayerShell.set_margin(win, GtkLayerShell.Edge.TOP, top)
+
+
+def _center_layer(win: Gtk.Window, width: int, height: int) -> None:
+    center_layer_window(win, width, height)
+
+
+def make_close_x_button(on_close) -> Gtk.Button:
+    """Compact top-right × used by layer-shell dialogs (no window chrome)."""
+    btn = Gtk.Button(label="×")
+    btn.set_relief(Gtk.ReliefStyle.NONE)
+    btn.set_focus_on_click(False)
+    btn.set_valign(Gtk.Align.START)
+    btn.set_halign(Gtk.Align.END)
+    btn.set_tooltip_text("Close")
+    btn.get_style_context().add_class("neuronix-xclose")
+    btn.connect("clicked", lambda *_: on_close())
+    return btn
+
+
+def pack_title_with_close(parent: Gtk.Box, title_widget: Gtk.Widget, on_close) -> Gtk.Box:
+    """Title on the left, × close on the top-right."""
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    title_widget.set_hexpand(True)
+    try:
+        title_widget.set_ellipsize(Pango.EllipsizeMode.END)
+    except Exception:
+        pass
+    row.pack_start(title_widget, True, True, 0)
+    row.pack_end(make_close_x_button(on_close), False, False, 0)
+    parent.pack_start(row, False, False, 0)
+    return row
 
 
 def choose(
@@ -246,15 +365,15 @@ def choose(
 
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
     outer.get_style_context().add_class("neuronix-root")
-    outer.set_margin_top(22)
+    outer.set_margin_top(14)
     outer.set_margin_bottom(18)
     outer.set_margin_start(22)
-    outer.set_margin_end(22)
+    outer.set_margin_end(14)
     win.add(outer)
 
     title_lbl = Gtk.Label(label=title, xalign=0.0)
     title_lbl.get_style_context().add_class("neuronix-title")
-    outer.pack_start(title_lbl, False, False, 0)
+    pack_title_with_close(outer, title_lbl, lambda: Gtk.main_quit())
 
     if subtitle:
         sub = Gtk.Label(label=subtitle, xalign=0.0)

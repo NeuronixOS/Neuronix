@@ -54,3 +54,9 @@ x-scheme-handler/https=neuronix-chrome.desktop
 text/html=neuronix-chrome.desktop
 x-scheme-handler/about=neuronix-chrome.desktop
 x-scheme-handler/unknown=neuronix-chrome.desktop
+
+[Removed Associations]
+inode/directory=thunar.desktop
+inode/mount-point=thunar.desktop
+x-directory/normal=thunar.desktop
+application/x-directory=thunar.desktop

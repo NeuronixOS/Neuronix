@@ -45,7 +45,7 @@ class ConfigsApp(Gtk.Application):
             dialog.set_message("Configs root not found")
             dialog.set_detail(
                 f"{self.root}\n\nCreate ~/configs or pass --root PATH "
-                "(e.g. Neuronix/Build/default/configs)."
+                "(e.g. Neuronix/default/configs)."
             )
             dialog.set_modal(True)
             dialog.set_buttons(["OK"])

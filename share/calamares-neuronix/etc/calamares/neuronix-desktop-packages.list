@@ -41,11 +41,17 @@ x265
 ffmpeg
 flatpak
 libreoffice
+blender
 font-manager
+gimp
+kdenlive
+kicad
 mplayer
 smplayer
 totem
 vlc
+remmina
+deskflow
 hyprland
 hyprpaper
 hyprpicker

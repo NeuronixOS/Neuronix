@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Debian live-build: Neuronix Hyprland live ISO profile.
-# Run from Build/neuronix-iso/. Overlay is merged into NEURONIX_BUILD_ROOT.
+# Run from neuronix-iso/. Overlay is merged into NEURONIX_BUILD_ROOT.
 # Branding: default/images/ + optional personalize/images/ (prefer personalize).
 
 set -euo pipefail
@@ -204,6 +204,40 @@ if [[ -d "$_gtk_apps/bin" ]]; then
     mkdir -p "$BUILD_ROOT/config/includes.chroot/usr/share/neuronix/gtk-apps"
     install -m 0755 "$_gtk_apps/applications/install-defaults.sh" \
       "$BUILD_ROOT/config/includes.chroot/usr/share/neuronix/gtk-apps/install-defaults.sh"
+  fi
+  # gtk-files owns FileManager1 / xfce file-manager D-Bus names (Thunar stays installed as fallback)
+  if [[ -f "$_gtk_apps/applications/gtk-files-filemanager1" ]]; then
+    _chroot="$BUILD_ROOT/config/includes.chroot"
+    install -m 0755 "$_gtk_apps/applications/gtk-files-filemanager1" \
+      "$_chroot/usr/local/bin/gtk-files-filemanager1"
+    if [[ -f "$_gtk_apps/systemd/thunar.service" ]]; then
+      mkdir -p "$_chroot/etc/systemd/user"
+      install -m 0644 "$_gtk_apps/systemd/thunar.service" \
+        "$_chroot/etc/systemd/user/thunar.service"
+    fi
+    if [[ -d "$_gtk_apps/dbus-1" ]]; then
+      mkdir -p "$_chroot/usr/local/share/dbus-1/services"
+      install -m 0644 "$_gtk_apps"/dbus-1/*.service \
+        "$_chroot/usr/local/share/dbus-1/services/"
+    fi
+    if [[ -f "$_gtk_apps/hide/thunar.desktop" ]]; then
+      mkdir -p "$_chroot/usr/local/share/applications"
+      install -m 0644 "$_gtk_apps/hide/thunar.desktop" \
+        "$_chroot/usr/local/share/applications/thunar.desktop"
+    fi
+    if [[ -f "$_gtk_apps/environment.d/50-neuronix-gtk-apps.conf" ]]; then
+      mkdir -p "$_chroot/usr/lib/environment.d"
+      install -m 0644 "$_gtk_apps/environment.d/50-neuronix-gtk-apps.conf" \
+        "$_chroot/usr/lib/environment.d/50-neuronix-gtk-apps.conf"
+    fi
+    if [[ -f "$_gtk_apps/xfce4/helpers.rc" ]]; then
+      mkdir -p "$_chroot/etc/xdg/xfce4" "$_chroot/etc/skel/.config/xfce4"
+      install -m 0644 "$_gtk_apps/xfce4/helpers.rc" \
+        "$_chroot/etc/xdg/xfce4/helpers.rc"
+      install -m 0644 "$_gtk_apps/xfce4/helpers.rc" \
+        "$_chroot/etc/skel/.config/xfce4/helpers.rc"
+    fi
+    echo "Staged gtk-files as FileManager1 (overrides Thunar daemon)"
   fi
   # User-local x-terminal-emulator early on PATH (skel)
   _skel_local_bin="$BUILD_ROOT/config/includes.chroot/etc/skel/.local/bin"

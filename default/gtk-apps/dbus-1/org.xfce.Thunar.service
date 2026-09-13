@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.xfce.Thunar
+Exec=/usr/local/bin/gtk-files-filemanager1
+SystemdService=thunar.service

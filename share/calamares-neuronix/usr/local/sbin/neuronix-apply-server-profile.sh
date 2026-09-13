@@ -13,8 +13,8 @@ HYPRLAND_RUNTIME=(
 	hyprpaper
 	hyprpicker
 	xdg-desktop-portal-hyprland
-	ydotool
 )
+# ydotool stays: Active-User (mouse jiggler) runs on Server and Desktop.
 
 # Desktop-oriented paths under configs/ (~/configs) and matching ~/.config links.
 DESKTOP_CONFIG_NAMES=(
@@ -77,6 +77,16 @@ rm -f /etc/lightdm/lightdm.conf.d/50-neuronix-live-autologin.conf \
 	/etc/lightdm/lightdm.conf.d/88-neuronix-hyprland-session.conf \
 	/etc/lightdm/lightdm.conf.d/10-neuronix-lightdm-debug.conf 2>/dev/null || true
 
+# Desktop-only services (Remux / Screensaver / gtk-sync). Keep activeuser + hostreporter.
+rm -rf /usr/local/lib/neuronix/services/screensaver \
+	/usr/local/lib/neuronix/services/gtksync \
+	/usr/local/lib/neuronix/services/remux 2>/dev/null || true
+rm -f /etc/systemd/system/remux.service \
+	/etc/systemd/system/multi-user.target.wants/remux.service 2>/dev/null || true
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl disable --now remux.service 2>/dev/null || true
+fi
+
 # Remove staged Desktop session / gtk-apps helpers (not apt packages).
 rm -rf /usr/local/lib/neuronix/gtk-apps \
 	/usr/share/neuronix/gtk-apps \
@@ -92,12 +102,18 @@ rm -f /usr/local/bin/gtk-* \
 	/usr/share/applications/neuronix-logout.desktop \
 	/usr/share/applications/neuronix-restart.desktop \
 	/usr/share/applications/neuronix-reboot.desktop \
-	/usr/share/applications/neuronix-shutdown.desktop 2>/dev/null || true
+	/usr/share/applications/neuronix-shutdown.desktop \
+	/etc/systemd/user/thunar.service \
+	/usr/local/share/applications/thunar.desktop \
+	/usr/lib/environment.d/50-neuronix-gtk-apps.conf \
+	/etc/xdg/xfce4/helpers.rc 2>/dev/null || true
+rm -rf /usr/local/share/dbus-1/services 2>/dev/null || true
 rm -f /usr/local/bin/neuronix-settings \
 	/usr/local/bin/neuronix-change-background \
 	/usr/local/bin/neuronix-desktop-rmb \
 	/usr/local/bin/neuronix-datetime \
 	/usr/local/bin/neuronix-calendar \
+	/usr/local/bin/neuronix-cava \
 	/usr/local/bin/neuronix-power-settings \
 	/usr/local/bin/neuronix-ensure-power-manager \
 	/usr/local/bin/neuronix-ensure-hyprspace \
@@ -118,7 +134,10 @@ _strip_desktop_configs_from() {
 		"${root}/.config/waybar" \
 		"${root}/.config/gtk-3.0" \
 		"${root}/.config/gtk-4.0" \
-		"${root}/.config/gtk-apps" 2>/dev/null || true
+		"${root}/.config/gtk-apps" \
+		"${root}/.config/neuronix-screensaver" 2>/dev/null || true
+	rm -f "${root}/.config/systemd/user/neuronix-screensaver-idle.service" \
+		"${root}/.config/systemd/user/default.target.wants/neuronix-screensaver-idle.service" 2>/dev/null || true
 	rm -f "${root}/.config/mimeapps.list" \
 		"${root}/.config/xdg-terminals.list" \
 		"${root}/.config/gnome-xdg-terminals.list" 2>/dev/null || true

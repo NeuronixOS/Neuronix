@@ -1,7 +1,9 @@
 # Local personalize overlay — never commit (may contain SSH keys / secrets)
 personalize
 
-# live-build work trees / artifacts (if created under Build/)
+# live-build work trees / artifacts (if created next to this repo)
 *.iso
 *.img
 .cache/
+__pycache__/
+*.py[cod]

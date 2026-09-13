@@ -1,0 +1,8 @@
+[Unit]
+Description=gtk-files as the session file manager (replaces Thunar)
+
+[Service]
+Type=dbus
+ExecStart=/usr/local/bin/gtk-files-filemanager1
+BusName=org.xfce.FileManager
+KillMode=process

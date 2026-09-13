@@ -16,6 +16,7 @@ pipewire
 pipewire-pulse
 wireplumber
 pavucontrol
+cava
 swayosd
 sound-theme-freedesktop
 pulseaudio-utils
@@ -29,6 +30,7 @@ xdg-desktop-portal
 xdg-desktop-portal-gtk
 nm-connection-editor
 python3-gi
+python3-dbus
 gir1.2-gtklayershell-0.1
 libgtk-layer-shell0
 gir1.2-nm-1.0
@@ -64,4 +66,3 @@ hyprland-guiutils
 hyprpaper
 hyprpicker
 xdg-desktop-portal-hyprland
-ydotool

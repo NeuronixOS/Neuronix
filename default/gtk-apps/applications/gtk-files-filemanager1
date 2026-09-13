@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Session FileManager1 provider: open folders in gtk-files instead of Thunar."""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+from urllib.parse import unquote, urlparse
+
+import dbus
+import dbus.mainloop.glib
+import dbus.service
+from gi.repository import GLib
+
+GTK_FILES = shutil.which("gtk-files") or "/usr/local/bin/gtk-files"
+
+
+def _path_from_uri(uri: str) -> str | None:
+    raw = str(uri).strip()
+    if not raw:
+        return None
+    if raw.startswith("file://"):
+        parsed = urlparse(raw)
+        path = unquote(parsed.path)
+        if parsed.netloc and parsed.netloc != "localhost":
+            path = f"/{parsed.netloc}{path}"
+        return path or None
+    if "://" in raw:
+        return None
+    return raw
+
+
+def _open_in_gtk_files(uris) -> None:
+    targets: list[str] = []
+    seen: set[str] = set()
+    for uri in uris:
+        path = _path_from_uri(uri)
+        if not path:
+            continue
+        if os.path.isdir(path):
+            folder = path
+        else:
+            folder = os.path.dirname(path) or os.path.expanduser("~")
+        if folder not in seen:
+            seen.add(folder)
+            targets.append(folder)
+    if not targets:
+        targets = [os.path.expanduser("~")]
+    for folder in targets:
+        subprocess.Popen(
+            [GTK_FILES, folder],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
+class FileManager(dbus.service.Object):
+    def __init__(self, bus: dbus.SessionBus) -> None:
+        self._names = [
+            dbus.service.BusName("org.freedesktop.FileManager1", bus),
+            dbus.service.BusName("org.xfce.FileManager", bus),
+            dbus.service.BusName("org.xfce.Thunar", bus),
+        ]
+        super().__init__(bus, "/org/freedesktop/FileManager1")
+
+    @dbus.service.method(
+        "org.freedesktop.FileManager1", in_signature="ass", out_signature=""
+    )
+    def ShowFolders(self, uris, _startup_id):
+        _open_in_gtk_files(uris)
+
+    @dbus.service.method(
+        "org.freedesktop.FileManager1", in_signature="ass", out_signature=""
+    )
+    def ShowItems(self, uris, _startup_id):
+        _open_in_gtk_files(uris)
+
+    @dbus.service.method(
+        "org.freedesktop.FileManager1", in_signature="ass", out_signature=""
+    )
+    def ShowItemProperties(self, uris, _startup_id):
+        _open_in_gtk_files(uris)
+
+
+def main() -> None:
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    bus = dbus.SessionBus()
+    _service = FileManager(bus)
+    GLib.MainLoop().run()
+
+
+if __name__ == "__main__":
+    main()

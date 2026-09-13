@@ -22,6 +22,7 @@ personalize/
   install/                         # Calamares Desktop scripts — see README
   hooks/                           # first-login user scripts — see README
   gtk-apps/                        # extra/override GTK binaries — see README
+  grub.d/                          # optional GRUB_DISTRIBUTOR drop-in — see README
 ```
 
 ## Quick start

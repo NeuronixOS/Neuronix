@@ -113,6 +113,13 @@ xdg-mime default gtk-files.desktop inode/mount-point 2>/dev/null || true
 xdg-mime default gtk-files.desktop x-directory/normal 2>/dev/null || true
 xdg-mime default gtk-files.desktop application/x-directory 2>/dev/null || true
 
+# Hide vendor Thunar from menus; ISO also stages /usr/local/share/applications/thunar.desktop
+if [[ -f /usr/local/share/applications/thunar.desktop ]]; then
+	cp -a /usr/local/share/applications/thunar.desktop "$APP_DIR/thunar.desktop"
+elif [[ -f "$SCRIPT_DIR/../hide/thunar.desktop" ]]; then
+	cp -a "$SCRIPT_DIR/../hide/thunar.desktop" "$APP_DIR/thunar.desktop"
+fi
+
 printf '%s\n' 'gtk-term.desktop' >"$CONFIG_DIR/xdg-terminals.list"
 printf '%s\n' 'gtk-term.desktop' >"$CONFIG_DIR/gnome-xdg-terminals.list"
 
@@ -148,7 +155,7 @@ echo "Installed GTK-Apps as defaults:"
 echo "  Text editor : gtk-edit.desktop"
 echo "  Image viewer: gtk-image.desktop"
 echo "  Video trimmer: gtk-video.desktop (launcher; mpv stays the default player)"
-echo "  File manager: gtk-files.desktop"
+echo "  File manager: gtk-files.desktop (FileManager1; Thunar hidden)"
 echo "  Terminal    : gtk-term.desktop / gtk-term-launch.sh"
 echo "  Calculator  : gtk-calc.desktop (launcher only)"
 echo "  Colors      : gtk-colors.desktop (launcher only)"

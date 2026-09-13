@@ -1,0 +1,61 @@
+#!/bin/sh
+# Waybar sound left-click: open (or focus) the CAVA visualizer.
+set -eu
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+_uid="$(id -u)"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+
+if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
+	# shellcheck disable=SC1091
+	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
+	neuronix_hyprland_session_env 2>/dev/null || true
+fi
+
+if ! command -v cava >/dev/null 2>&1; then
+	notify-send -a Neuronix -t 4000 "Sound" "cava is not installed" 2>/dev/null || true
+	exit 1
+fi
+
+_focus_existing() {
+	command -v hyprctl >/dev/null 2>&1 || return 1
+	_addr="$(
+		hyprctl clients -j 2>/dev/null | python3 -c '
+import json, sys
+try:
+    clients = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(0)
+for c in clients:
+    ident = " ".join(
+        str(c.get(k) or "") for k in ("class", "title", "initialClass")
+    ).lower()
+    if "cava" in ident:
+        print(c.get("address") or "")
+        break
+'
+	)"
+	[ -n "${_addr:-}" ] || return 1
+	hyprctl dispatch focuswindow "address:${_addr}" >/dev/null
+}
+
+if _focus_existing; then
+	exit 0
+fi
+
+if [ -f "${HOME}/.config/cava/config" ]; then
+	CFG="${HOME}/.config/cava/config"
+elif [ -f /usr/share/neuronix/cava/config ]; then
+	CFG="/usr/share/neuronix/cava/config"
+else
+	CFG=""
+fi
+
+export SDL_VIDEO_WAYLAND_WMCLASS="${SDL_VIDEO_WAYLAND_WMCLASS:-org.neuronix.cava}"
+export SDL_VIDEO_X11_WMCLASS="${SDL_VIDEO_X11_WMCLASS:-org.neuronix.cava}"
+
+if [ -n "$CFG" ]; then
+	exec cava -p "$CFG"
+fi
+exec cava

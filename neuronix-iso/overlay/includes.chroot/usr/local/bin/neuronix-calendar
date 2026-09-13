@@ -10,7 +10,10 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("GtkLayerShell", "0.1")
-from gi.repository import Gtk, Gdk, GtkLayerShell  # noqa: E402
+from gi.repository import Gtk, Gdk  # noqa: E402
+
+sys.path.insert(0, "/usr/share/neuronix")
+from neuronix_choice_dialog import center_layer_window, pack_title_with_close  # noqa: E402
 
 
 def _notify(text: str) -> None:
@@ -35,13 +38,7 @@ def main() -> int:
     win.set_decorated(False)
     win.set_default_size(440, 360)
 
-    GtkLayerShell.init_for_window(win)
-    GtkLayerShell.set_layer(win, GtkLayerShell.Layer.TOP)
-    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.TOP, True)
-    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.RIGHT, True)
-    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.TOP, 40)
-    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.RIGHT, 12)
-    GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
+    center_layer_window(win, 440, 360)
 
     css = Gtk.CssProvider()
     css.load_from_data(
@@ -82,6 +79,24 @@ def main() -> int:
           min-width: 96px;
         }
         button:hover { background-color: #4a4a4a; }
+        button.neuronix-xclose {
+          background-color: transparent;
+          background-image: none;
+          color: #f5f5f5;
+          border: none;
+          border-radius: 8px;
+          box-shadow: none;
+          padding: 0;
+          margin: 0;
+          min-width: 32px;
+          min-height: 32px;
+          font-size: 22px;
+          font-weight: 700;
+        }
+        button.neuronix-xclose:hover {
+          background-color: #e02020;
+          color: #ffffff;
+        }
         """
     )
     Gtk.StyleContext.add_provider_for_screen(
@@ -89,16 +104,20 @@ def main() -> int:
     )
 
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-    box.set_margin_top(16)
+    box.set_margin_top(10)
     box.set_margin_bottom(16)
     box.set_margin_start(16)
-    box.set_margin_end(16)
+    box.set_margin_end(8)
     win.add(box)
+
+    def _close(*_a):
+        Gtk.main_quit()
+        return False
 
     label = Gtk.Label(label=today.strftime("Today is %A, %B %d %Y"))
     label.get_style_context().add_class("today-label")
     label.set_xalign(0.0)
-    box.pack_start(label, False, False, 0)
+    pack_title_with_close(box, label, _close)
 
     cal = Gtk.Calendar()
     cal.set_display_options(
@@ -126,10 +145,6 @@ def main() -> int:
     buttons.pack_start(cancel, False, False, 0)
     buttons.pack_start(ok, False, False, 0)
     box.pack_start(buttons, False, False, 0)
-
-    def _close(*_a):
-        Gtk.main_quit()
-        return False
 
     def _ok(*_a):
         y, m, d = cal.get_date()

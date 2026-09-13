@@ -50,7 +50,11 @@
       "\uf027",
       "\uf028"
     ],
-    "on-click": "pavucontrol"
+    "on-click": "neuronix-cava",
+    "on-click-right": "pavucontrol",
+    "on-scroll-up": "neuronix-volume +5",
+    "on-scroll-down": "neuronix-volume -5",
+    "on-click-middle": "neuronix-volume mute-toggle"
   },
   "network": {
     "format-wifi": "\uf1eb {signalStrength}%",

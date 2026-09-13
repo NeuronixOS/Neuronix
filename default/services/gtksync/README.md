@@ -1,7 +1,7 @@
 # gtk-sync Waybar helpers (Neuronix default)
 
 Waybar status module + click menu for the **gtk-sync** client. Shipped from
-`Neuronix/Build/default/services/gtksync/` on every Neuronix machine.
+`Neuronix/default/services/gtksync/` on every Neuronix machine.
 
 ## Files
 

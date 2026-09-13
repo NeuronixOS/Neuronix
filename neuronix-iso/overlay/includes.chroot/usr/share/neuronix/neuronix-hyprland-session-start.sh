@@ -169,37 +169,6 @@ if [ -f /usr/share/neuronix/gtk-theme/python/gtk_theme.py ]; then
 	) &
 fi
 
-# Workspace overview (Hyprspace) — every login: soft ensure (NO unload/reload;
-# that resets upstream hideRealLayers=true and leaves Super black). Apply
-# defaults + revive hyprpaper. Delayed retries beat late plugin races.
-if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ] || [ -x /usr/local/bin/neuronix-ensure-hyprspace ]; then
-	(
-		_i=0
-		while [ "${_i}" -lt 30 ]; do
-			if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
-				break
-			fi
-			_i=$((_i + 1))
-			sleep 0.2
-		done
-		# Soft only — never --force on login.
-		if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ]; then
-			/usr/local/bin/neuronix-fix-hyprspace-now -q || true
-		else
-			/usr/local/bin/neuronix-ensure-hyprspace || true
-		fi
-		sleep 2
-		if [ -x /usr/local/bin/neuronix-fix-hyprspace-now ]; then
-			/usr/local/bin/neuronix-fix-hyprspace-now -q || true
-		else
-			/usr/local/bin/neuronix-ensure-hyprspace || true
-		fi
-		if command -v hyprpaper >/dev/null 2>&1 && ! pgrep -x hyprpaper >/dev/null 2>&1; then
-			hyprpaper >/dev/null 2>&1 &
-		fi
-	) &
-fi
-
 # Prefer GNOME agent when present; mate-polkit on native Wayland often shows a
 # blank "Authenticate" surface under Hyprland — force XWayland for that agent.
 POLKIT_AGENT=""

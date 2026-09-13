@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.freedesktop.FileManager1
+Exec=/usr/local/bin/gtk-files-filemanager1
+SystemdService=thunar.service

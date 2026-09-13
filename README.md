@@ -664,6 +664,7 @@ Keep these consistent together:
 
 - Edit **`default/images/`** or **`personalize/images/`**, then **`setup.sh`**
 - GRUB: `images/grub/` ↔ `share/merge-grub-branding.sh` ↔ overlay bootloaders ↔ hooks 991/992
+- `GRUB_DISTRIBUTOR`: `default/grub.d/neuronix-product.cfg`; `personalize/grub.d/neuronix-product.cfg` clobbers it into the live-build chroot (overlay stays stock)
 - Live wallpaper path: `setup.sh` resolves `live/background` as png/jpg/webp (personalize preferred) and stages `background.png`
 - Greeter background path in `lightdm-gtk-greeter.conf` vs files under `usr/share/backgrounds/neuronix-installed/`
 

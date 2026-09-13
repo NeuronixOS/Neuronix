@@ -76,6 +76,7 @@ pipewire # audio and video processing engine multimedia server
 pipewire-pulse # PipeWire PulseAudio daemon
 wireplumber # modular session / policy manager for PipeWire
 pavucontrol # PulseAudio / PipeWire volume control (Waybar + settings)
+cava # Console-based Audio Visualizer (Waybar sound click → SDL window)
 swayosd # On-screen volume / brightness / mute OSD (swayosd-server + client)
 sound-theme-freedesktop # System sounds (audio-volume-change beep for neuronix-volume)
 pulseaudio-utils # paplay for volume-change feedback beep
@@ -90,6 +91,9 @@ xdg-desktop-portal # Desktop integration portal for sandboxed apps (Flatpak)
 xdg-desktop-portal-gtk # GTK portal backend for xdg-desktop-portal
 nm-connection-editor # NetworkManager connection editor (settings hub)
 python3-gi # Python 3 bindings for gobject-introspection
+python3-evdev # screensaver idle watcher (reads /dev/input)
+python3-cairo # screensaver GTK4 drawing
+python3-dbus # gtk-files FileManager1 shim (replaces Thunar daemon)
 gir1.2-gtklayershell-0.1 # Python/GTK layer-shell bindings (calendar / settings)
 libgtk-layer-shell0 # Wayland layer-shell library
 gir1.2-nm-1.0 # GObject introspection data for libnm

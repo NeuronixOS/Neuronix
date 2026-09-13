@@ -8,7 +8,7 @@ Created by Kevin Hinds — [github.com/NeuronixOS/GTK-Apps](https://github.com/N
 
 ```bash
 cd gtk-configs
-python3 configs.py --root /path/to/Neuronix/Build/default/configs
+python3 configs.py --root /path/to/Neuronix/default/configs
 ```
 
 Default without `--root` edits `~/configs` (merged live tree).

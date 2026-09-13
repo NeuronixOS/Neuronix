@@ -12,7 +12,11 @@ source "$_here/neuronix-personalize.sh"
 IMAGES_DEFAULT="$REPO_ROOT/default/images"
 IMAGES_PERSONALIZE="$REPO_ROOT/personalize/images"
 
-# Product name (personalize metadata overlays default) — GRUB title + distributor.
+# Product name (personalize metadata overlays default) — GRUB theme title.
+# Distributor string: default/grub.d/neuronix-product.cfg, clobbered by
+# personalize/grub.d/neuronix-product.cfg when that file exists (see
+# merge-personalize-dropins). Overlay includes.chroot always gets the stock
+# default so KvNix builds do not dirty this git tree.
 if [[ -r "$REPO_ROOT/default/metadata/debian.env" ]]; then
 	# shellcheck source=/dev/null
 	source "$REPO_ROOT/default/metadata/debian.env"
@@ -24,10 +28,27 @@ fi
 PRODUCT="${NEURONIX_PRODUCT_NAME:-Neuronix}"
 
 write_distributor_dropin() {
+	# $1 = chroot root (includes.chroot). $2 = 1 to prefer personalize/grub.d/.
 	local _root="$1"
-	mkdir -p "$_root/etc/default/grub.d"
-	printf 'GRUB_DISTRIBUTOR="%s"\n' "$PRODUCT" >"$_root/etc/default/grub.d/neuronix-product.cfg"
-	chmod 0644 "$_root/etc/default/grub.d/neuronix-product.cfg"
+	local _allow_pers="${2:-0}"
+	local _out="$_root/etc/default/grub.d/neuronix-product.cfg"
+	local _src=""
+	local _pers="$REPO_ROOT/personalize/grub.d/neuronix-product.cfg"
+	local _def="$REPO_ROOT/default/grub.d/neuronix-product.cfg"
+	mkdir -p "$(dirname "$_out")"
+	if [[ "$_allow_pers" == 1 && -f "$_pers" && -s "$_pers" ]]; then
+		_src="$_pers"
+	elif [[ -f "$_def" && -s "$_def" ]]; then
+		_src="$_def"
+	fi
+	if [[ -n "$_src" ]]; then
+		cp -a "$_src" "$_out"
+		chmod 0644 "$_out"
+		echo "merge-grub-branding: $_out ← $_src"
+		return 0
+	fi
+	printf 'GRUB_DISTRIBUTOR="%s"\n' "$PRODUCT" >"$_out"
+	chmod 0644 "$_out"
 }
 
 pick_grub_16x9() {
@@ -180,7 +201,7 @@ if [[ -n "$GRUB43" && -f "$GRUB43" ]]; then
 	cp -a "$GRUB43" "$OVERLAY/includes.chroot/usr/share/neuronix/branding/grub-4x3.png"
 	cp -a "$GRUB43" "$CER_GRUB/grub-4x3.png"
 fi
-write_distributor_dropin "$OVERLAY/includes.chroot"
+write_distributor_dropin "$OVERLAY/includes.chroot" 0
 
 # Optional live-build tree (setup.sh passes BUILD_ROOT/config as second arg).
 if [[ -n "${1:-}" ]]; then
@@ -198,7 +219,7 @@ if [[ -n "${1:-}" ]]; then
 		cp -a "$GRUB43" "$_cfg/includes.chroot/usr/share/neuronix/branding/grub-4x3.png"
 		cp -a "$GRUB43" "$_cfg/includes.chroot/usr/share/desktop-base/ceratopsian-theme/grub/grub-4x3.png"
 	fi
-	write_distributor_dropin "$_cfg/includes.chroot"
+	write_distributor_dropin "$_cfg/includes.chroot" 1
 fi
 
 echo "merge-grub-branding: OK ($GRUB16 → live USB isolinux + GRUB + installed branding)"

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Thunar File Manager
+Comment=Hidden; folders open in gtk-files
+Exec=gtk-files %F
+TryExec=gtk-files
+Icon=system-file-manager
+Terminal=false
+NoDisplay=true
+Hidden=true
+StartupNotify=true

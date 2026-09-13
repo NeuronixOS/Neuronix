@@ -7,6 +7,9 @@ inside the live-build chroot (`9930-neuronix-personalize-services.hook.chroot`).
 Stock services ship from **`default/services/`** (e.g. `gtksync` Waybar helpers).
 Personalize overlays the same tree — same folder name replaces the default.
 
+Optional `SCOPE` file (`desktop` or `all`, default `all`): `desktop` is skipped
+when merging a server overlay (`personalize-server`).
+
 ## Example layout
 
 ```text

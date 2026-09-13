@@ -30,6 +30,7 @@ debconf
 rsyslog
 fontconfig
 fonts-cascadia-code
+fonts-noto-color-emoji
 zip
 gdisk
 dconf-cli
@@ -55,6 +56,7 @@ pipewire
 pipewire-pulse
 wireplumber
 pavucontrol
+cava
 swayosd
 sound-theme-freedesktop
 pulseaudio-utils
@@ -68,6 +70,7 @@ xdg-desktop-portal
 xdg-desktop-portal-gtk
 nm-connection-editor
 python3-gi
+python3-dbus
 gir1.2-gtklayershell-0.1
 libgtk-layer-shell0
 gir1.2-nm-1.0
@@ -79,6 +82,11 @@ libvte-2.91-gtk4-0
 libgtksourceview-5-0
 gir1.2-gtksource-5
 gir1.2-adw-1
+gstreamer1.0-plugins-base
+gstreamer1.0-plugins-good
+gstreamer1.0-plugins-bad
+gstreamer1.0-libav
+gstreamer1.0-gtk4
 python3-google-auth
 python3-google-auth-httplib2
 python3-google-auth-oauthlib

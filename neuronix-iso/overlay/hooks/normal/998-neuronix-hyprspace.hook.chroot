@@ -1,8 +1,9 @@
 #!/bin/sh
 # Build Hyprland plugins against the ISO Hyprland ABI and install .so files so
-# live sessions get titlebars (hyprbars) and Super→overview (Hyprspace) without
-# compiling at first boot. Packaged hyprland-plugin-hyprbars often lags the
-# backports Hyprland ABI and is not installable — build from source instead.
+# live sessions get titlebars (hyprbars) without compiling at first boot.
+# Packaged hyprland-plugin-hyprbars often lags the backports Hyprland ABI and
+# is not installable — build from source instead.
+# Alt+Tab is a GTK picker (neuronix-window-switch), not a compositor plugin.
 #
 # hyprland-plugins main tracks the newest Hyprland; clone the matching vX.Y
 # tag so headers match hyprland-dev on the ISO.
@@ -10,7 +11,6 @@ set -e
 
 PLUGIN_DIR=/usr/lib/x86_64-linux-gnu/hyprland/plugins
 HYPRBARS_SO="${PLUGIN_DIR}/libhyprbars.so"
-HYPRSPACE_SO="${PLUGIN_DIR}/Hyprspace.so"
 
 _suite="$(. /etc/os-release 2>/dev/null && printf '%s' "${VERSION_CODENAME:-trixie}")"
 [ -n "${_suite}" ] || _suite="trixie"
@@ -79,49 +79,6 @@ if _clone_hyprland_plugins "${_workdir}/hyprland-plugins"; then
 	fi
 else
 	echo "[neuronix-hypr-plugins] WARNING: hyprland-plugins clone failed (network?)" >&2
-fi
-
-# --- Hyprspace (workspace overview) ---
-# Neuronix patches (usr/share/neuronix/patches/hyprspace):
-#  - stub-render the active workspace (upstream leaves a grey tile when
-#    drawActiveWorkspace=false, which we need to avoid Hyprland 0.55 zoom).
-#    With decoration opacity 0.99, window textures can be stubbed while the
-#    real windows stay visible on the desktop under the strip.
-#  - on hide(), exec neuronix-overview-toggle sync so exitOnClick restores Waybar.
-#  - vertical scroll selects desktops anywhere in overview: left to 1, right
-#    creates/extends higher desktops (wraps back to 1 after 32).
-#  - default hideRealLayers=false and never fade real layers on show()
-#    (upstream default true → solid black desk under the strip on 0.55).
-cd "${_workdir}"
-if git clone --depth 1 https://github.com/KZDKM/Hyprspace.git Hyprspace 2>/dev/null; then
-	cd Hyprspace
-	_hs_patchdir=/usr/share/neuronix/patches/hyprspace
-	if [ -d "${_hs_patchdir}" ]; then
-		for _p in "${_hs_patchdir}"/*.patch; do
-			[ -f "${_p}" ] || continue
-			echo "[neuronix-hypr-plugins] applying $(basename "${_p}")…"
-			if ! patch -p1 --forward --batch <"${_p}"; then
-				echo "[neuronix-hypr-plugins] WARNING: patch failed: ${_p}" >&2
-			fi
-		done
-	fi
-	if make all; then
-		install -m 0755 Hyprspace.so "${HYPRSPACE_SO}"
-		echo "[neuronix-hypr-plugins] installed ${HYPRSPACE_SO}"
-	else
-		# Keep prebuilt overlay .so if present (patched Neuronix build).
-		if [ -f "${HYPRSPACE_SO}" ]; then
-			echo "[neuronix-hypr-plugins] WARNING: Hyprspace build failed; keeping existing ${HYPRSPACE_SO}" >&2
-		else
-			echo "[neuronix-hypr-plugins] WARNING: Hyprspace build failed" >&2
-		fi
-	fi
-else
-	if [ -f "${HYPRSPACE_SO}" ]; then
-		echo "[neuronix-hypr-plugins] WARNING: Hyprspace clone failed; keeping existing ${HYPRSPACE_SO}" >&2
-	else
-		echo "[neuronix-hypr-plugins] WARNING: Hyprspace clone failed (network?)" >&2
-	fi
 fi
 
 exit 0

@@ -10,9 +10,11 @@
 #   browser-extensions/  → usr/share/neuronix/browser-extensions + Chrome registration
 #   services/            → usr/local/lib/neuronix/services + install.sh
 #                          (default/services first, personalize/services overlays)
+#                          SCOPE=desktop dirs skipped on personalize-server overlays
 #   gtk-apps/            → overlay onto usr/local/lib/neuronix/gtk-apps (+ bin + desktops)
 #   install/*.sh         → usr/share/neuronix/personalize-install (default then personalize)
 #   hooks/*.sh           → usr/share/neuronix/user-hooks (default then personalize)
+#   grub.d/neuronix-product.cfg → etc/default/grub.d/ (clobbers default/grub.d/)
 set -euo pipefail
 
 INCLUDES="${1:?usage: merge-personalize-dropins.sh <includes.chroot> <personalize_root>}"
@@ -643,6 +645,27 @@ UNIT
 # ---------------------------------------------------------------------------
 # services
 # ---------------------------------------------------------------------------
+# True for KvNix personalize-server (and any overlay whose live hostname is *-server).
+_is_server_overlay() {
+	local env="${PERSONALIZE:-}/metadata/debian.env"
+	if [[ -f "$env" ]] && grep -qE '^[[:space:]]*NEURONIX_LIVE_HOSTNAME=.*server' "$env"; then
+		return 0
+	fi
+	local base
+	base="$(basename "$(readlink -f "${PERSONALIZE:-/}")" 2>/dev/null || true)"
+	[[ "$base" == *server* ]]
+}
+
+# Optional SCOPE file: "desktop" is skipped on server overlays. Default is all.
+_service_scope() {
+	local dir="$1"
+	if [[ -f "$dir/SCOPE" ]]; then
+		tr -d '[:space:]' <"$dir/SCOPE" | tr '[:upper:]' '[:lower:]'
+		return 0
+	fi
+	echo all
+}
+
 _service_type() {
 	local unit="$1" dir="$2"
 	if [[ -f "$dir/TYPE" ]]; then
@@ -753,6 +776,10 @@ _stage_services_from() {
 		name="$(basename "$svc_dir")"
 		[[ "$name" == .* ]] && continue
 		_is_meta_name "$name" && continue
+		if [[ "${SKIP_DESKTOP_SERVICES:-0}" -eq 1 && "$(_service_scope "$svc_dir")" == desktop ]]; then
+			_info "  skip $name (desktop-only, server overlay)"
+			continue
+		fi
 
 		staged="$root/$name"
 		runtime="$runtime_root/$name"
@@ -809,6 +836,12 @@ merge_services() {
 	install_list="$INCLUDES/usr/share/neuronix/personalize-services.list"
 	mkdir -p "$(dirname "$install_list")" "$hook_dir"
 	: >"$install_list"
+
+	SKIP_DESKTOP_SERVICES=0
+	if _is_server_overlay; then
+		SKIP_DESKTOP_SERVICES=1
+		_info "server overlay: skipping SCOPE=desktop services"
+	fi
 
 	local n_def=0 n_pers=0
 	if [[ "$have_default" -eq 1 ]]; then
@@ -1070,11 +1103,32 @@ merge_user_hooks() {
 	fi
 }
 
+# /etc/default/grub.d/neuronix-product.cfg — stock default, personalize clobbers.
+merge_grub_product_cfg() {
+	local dest="$INCLUDES/etc/default/grub.d/neuronix-product.cfg"
+	local def="$(_repo_default_root)/default/grub.d/neuronix-product.cfg"
+	local pers=""
+	[[ -d "${PERSONALIZE:-}" ]] && pers="$PERSONALIZE/grub.d/neuronix-product.cfg"
+	mkdir -p "$(dirname "$dest")"
+	if [[ -f "$def" && -s "$def" ]]; then
+		cp -a "$def" "$dest"
+		chmod 0644 "$dest"
+	fi
+	if [[ -n "$pers" && -f "$pers" && -s "$pers" ]] && ! _is_meta_name "$(basename "$pers")"; then
+		cp -a "$pers" "$dest"
+		chmod 0644 "$dest"
+		_info "grub.d/neuronix-product.cfg ← personalize (clobbers default)"
+	elif [[ -f "$dest" ]]; then
+		_info "grub.d/neuronix-product.cfg ← default"
+	fi
+}
+
 # ---------------------------------------------------------------------------
 # Entry
 # ---------------------------------------------------------------------------
 mkdir -p "$INCLUDES"
-# Stock default/{configs,services,install,hooks} always considered; personalize overlays when present.
+# Stock default/{configs,services,install,hooks,grub.d} always considered; personalize overlays when present.
+merge_grub_product_cfg
 merge_configs
 merge_services
 # install/ + hooks/ merge default even without personalize/

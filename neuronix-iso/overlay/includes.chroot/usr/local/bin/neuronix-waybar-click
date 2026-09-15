@@ -66,8 +66,34 @@ case "${1:-}" in
 	battery)
 		exec neuronix-waybar-popover --class xfce4-power-manager-settings --width 640 --height 520 -- neuronix-power-settings
 		;;
+	settings)
+		# Detach: waybar kills the click process group when this script exits.
+		if command -v systemd-run >/dev/null 2>&1; then
+			systemd-run --user --collect --quiet \
+				--property=KillMode=process \
+				--setenv="NEURONIX_CLICK_XY=${NEURONIX_CLICK_XY}" \
+				--setenv="PATH=${PATH}" \
+				--setenv="WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" \
+				--setenv="XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}" \
+				--setenv="HYPRLAND_INSTANCE_SIGNATURE=${HYPRLAND_INSTANCE_SIGNATURE:-}" \
+				--setenv="DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" \
+				--setenv="DISPLAY=${DISPLAY:-}" \
+				--setenv="HOME=${HOME}" \
+				-- neuronix-settings
+			exit 0
+		fi
+		setsid -f env NEURONIX_CLICK_XY="${NEURONIX_CLICK_XY}" neuronix-settings >/dev/null 2>&1 || true
+		exit 0
+		;;
+	menu)
+		if pgrep -x fuzzel >/dev/null 2>&1; then
+			pkill -x fuzzel || true
+			exit 0
+		fi
+		exec fuzzel --anchor top-left --x-margin 8 --y-margin 40
+		;;
 	*)
-		echo "Usage: neuronix-waybar-click volume|network|cpu|memory|btop|battery" >&2
+		echo "Usage: neuronix-waybar-click volume|network|cpu|memory|btop|battery|settings|menu" >&2
 		exit 1
 		;;
 esac

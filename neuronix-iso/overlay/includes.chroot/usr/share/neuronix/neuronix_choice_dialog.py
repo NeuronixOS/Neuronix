@@ -24,28 +24,61 @@ def _singleton_key(title: str) -> str:
     return key or "dialog"
 
 
-def _acquire_choice_singleton(title: str) -> bool:
-    """One Date & Time / GTK-Sync / Settings panel at a time. Raise the live one."""
+def _lock_pid(fd: int) -> Optional[int]:
+    try:
+        os.lseek(fd, 0, os.SEEK_SET)
+        raw = os.read(fd, 64).decode("utf-8", "replace").strip()
+        return int(raw)
+    except Exception:
+        return None
+
+
+def _try_exclusive_lock(path: str) -> Tuple[int, bool]:
     import fcntl
 
-    runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
-    os.makedirs(runtime, exist_ok=True)
-    path = os.path.join(runtime, f"neuronix-choice-{_singleton_key(title)}.lock")
     fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fd, True
     except OSError:
+        return fd, False
+
+
+def _signal_toggle(pid: int) -> bool:
+    """Ask the live panel to close. False if that PID is already gone."""
+    try:
+        os.kill(pid, signal.SIGUSR2)
+        return True
+    except ProcessLookupError:
+        return False
+    except Exception:
+        return True
+
+
+def _acquire_choice_singleton(title: str) -> bool:
+    """One panel of this title. A second Waybar click closes it instead of stacking."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    os.makedirs(runtime, exist_ok=True)
+    path = os.path.join(runtime, f"neuronix-choice-{_singleton_key(title)}.lock")
+    fd, got = _try_exclusive_lock(path)
+    if not got:
+        pid = _lock_pid(fd)
         try:
-            os.lseek(fd, 0, os.SEEK_SET)
-            raw = os.read(fd, 64).decode("utf-8", "replace").strip()
             os.close(fd)
-            os.kill(int(raw), signal.SIGUSR1)
         except Exception:
+            pass
+        if pid and _signal_toggle(pid):
+            return False
+        fd, got = _try_exclusive_lock(path)
+        if not got:
+            pid = _lock_pid(fd)
             try:
                 os.close(fd)
             except Exception:
                 pass
-        return False
+            if pid:
+                _signal_toggle(pid)
+            return False
     os.lseek(fd, 0, os.SEEK_SET)
     try:
         os.ftruncate(fd, 0)
@@ -54,6 +87,25 @@ def _acquire_choice_singleton(title: str) -> bool:
     os.write(fd, str(os.getpid()).encode("utf-8"))
     _SINGLETON_LOCKS.append(fd)
     return True
+
+
+def begin_waybar_popover(title: str) -> bool:
+    """Return True if this process should show the panel.
+
+    A second Waybar click of the same panel closes it (GNOME-style toggle).
+    Nested/follow-up dialogs in the same process keep the existing lock.
+    """
+    def _quit(*_a):
+        GLib.idle_add(Gtk.main_quit)
+        return True
+
+    try:
+        signal.signal(signal.SIGUSR2, _quit)
+    except Exception:
+        pass
+    if _SINGLETON_LOCKS:
+        return True
+    return _acquire_choice_singleton(title)
 
 CSS_TEMPLATE = """
 window.neuronix-choice {{
@@ -389,11 +441,30 @@ def _hypr_cursor_xy() -> Optional[Tuple[int, int]]:
         return None
 
 
+def _hypr_monitor_logical_size(mon: dict) -> Tuple[int, int]:
+    """Layout width/height for a Hypr monitor (swap for 90°/270° transform).
+
+    hyprctl reports the mode size (e.g. 3840x2160) even when the output is
+    rotated; layer-shell / cursor coords use the post-transform layout box.
+    """
+    w = int(mon.get("width", 0) or 0)
+    h = int(mon.get("height", 0) or 0)
+    try:
+        transform = int(mon.get("transform", 0) or 0) % 4
+    except Exception:
+        transform = 0
+    if transform in (1, 3):
+        return h, w
+    return w, h
+
+
 def _hypr_monitor_at_point(x: int, y: int) -> Optional[dict]:
     try:
         for mon in _hypr_json(["hyprctl", "monitors", "-j"]):
             mx, my = int(mon.get("x", 0)), int(mon.get("y", 0))
-            mw, mh = int(mon.get("width", 0)), int(mon.get("height", 0))
+            mw, mh = _hypr_monitor_logical_size(mon)
+            if mw <= 0 or mh <= 0:
+                continue
             if mx <= x < mx + mw and my <= y < my + mh:
                 return mon
     except Exception:
@@ -455,7 +526,9 @@ def waybar_popover_geom(
     if mon is None:
         return None
     mx, my = int(mon.get("x", 0)), int(mon.get("y", 0))
-    mw, mh = int(mon.get("width", 0)), int(mon.get("height", 0))
+    mw, mh = _hypr_monitor_logical_size(mon)
+    if mw <= 0 or mh <= 0:
+        return None
     bar_h = _waybar_height(str(mon.get("name") or ""), 32)
     left = int(x - width / 2)
     left = max(mx + 8, min(left, mx + mw - width - 8))
@@ -701,8 +774,7 @@ def choose(
     items: (id, label, description). Returns selected id, or None if cancelled.
     """
     freeze_click_xy()
-    signal.signal(signal.SIGUSR1, lambda *_a: None)
-    if not _acquire_choice_singleton(title):
+    if not begin_waybar_popover(title):
         return None
     _apply_css()
     selected: Dict[str, Optional[str]] = {"id": None}
@@ -732,12 +804,6 @@ def choose(
         pass
 
     _center_layer(win, panel_w, panel_h)
-
-    def _raise(*_a):
-        GLib.idle_add(win.present)
-        return True
-
-    signal.signal(signal.SIGUSR1, lambda *_: _raise())
 
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     outer.get_style_context().add_class("neuronix-root")
@@ -799,6 +865,8 @@ def _base_panel(
 ) -> Tuple[Gtk.Window, Gtk.Box, Dict[str, Optional[str]]]:
     """Shared chrome for nested popovers (same slot as the choice panel)."""
     freeze_click_xy()
+    if not begin_waybar_popover(title):
+        raise SystemExit(0)
     _apply_css()
     result: Dict[str, Optional[str]] = {"value": None}
 

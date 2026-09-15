@@ -17,13 +17,19 @@
     "network",
     "cpu",
     "memory",
+    "custom/settings",
     "battery",
     "tray"
   ],
   "custom/menu": {
     "format": "\uf0c9",
     "tooltip": "Applications",
-    "on-click": "fuzzel --anchor top-left --x-margin 8 --y-margin 40"
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click menu"
+  },
+  "custom/settings": {
+    "format": "\uf013",
+    "tooltip": "Settings",
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click settings"
   },
   "custom/gtk-sync": {
     "exec": "$HOME/.config/waybar/gtk-sync-status.sh",

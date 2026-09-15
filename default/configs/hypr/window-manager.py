@@ -29,6 +29,7 @@ CASCADE_STEP = 40
 CASCADE_MAX = 6
 CASCADE_SIZE_SLOP = 96
 CASCADE_POS_SLOP = 24
+MINIMIZED_SPECIAL = "special:minimized"
 
 SKIP_CLASS_SUBSTR = (
     "zenity",
@@ -127,6 +128,12 @@ def monitor_by_name(name: str, monitors: list[dict] | None = None) -> dict:
 
 def hdmi_monitor(monitors: list[dict] | None = None) -> dict:
     return monitor_by_name(HDMI, monitors)
+
+
+def is_minimized_win(win: dict) -> bool:
+    """True when the window lives on the hyprbars − / Super+H minimize special."""
+    name = str((win.get("workspace") or {}).get("name") or "")
+    return name == MINIMIZED_SPECIAL or name.endswith(":minimized")
 
 
 def waybar_cut(layers: dict, mon_name: str, strip_top: int, strip_bottom: int) -> tuple[int, int]:
@@ -1022,6 +1029,82 @@ def _overview_place_grid(clients: list[dict]) -> int:
     return cols
 
 
+def _pull_to_overview_workspace(addr: str, ws_id: int) -> None:
+    """Move a window (often special:minimized) onto the overview HDMI workspace."""
+    target = f"address:{addr}"
+    try:
+        dispatch("movetoworkspacesilent", f"{int(ws_id)},{target}")
+    except Exception:
+        pass
+    time.sleep(0.03)
+    try:
+        dispatch("focuswindow", target)
+        dispatch("movewindow", f"mon:{HDMI}")
+    except Exception:
+        pass
+    time.sleep(0.02)
+
+
+def restore_overview_windows(
+    snaps: list[dict],
+    focus_addr: str | None = None,
+    workspace: int | None = None,
+) -> None:
+    """Put every snapshotted window back, then raise focus_addr if given."""
+    for s in snaps:
+        addr = s.get("address")
+        if not addr:
+            continue
+        target = f"address:{addr}"
+        win = client_by_address(addr)
+        if not win:
+            continue
+        # Unselected minimized windows go back to the minimize special.
+        if s.get("minimized") and addr != focus_addr:
+            try:
+                dispatch("movetoworkspacesilent", f"{MINIMIZED_SPECIAL},{target}")
+            except Exception:
+                pass
+            continue
+        fs = win.get("fullscreen")
+        if fs not in (None, False, 0, "0"):
+            dispatch("focuswindow", target)
+            dispatch("fullscreen", "0")
+        # Restoring a previously minimized pick onto the overview workspace.
+        if s.get("minimized") and focus_addr == addr and workspace is not None:
+            try:
+                dispatch("movetoworkspacesilent", f"{int(workspace)},{target}")
+            except Exception:
+                pass
+        if s.get("floating"):
+            ensure_floating(target, win)
+            w, h = int(s.get("w") or 0), int(s.get("h") or 0)
+            x, y = int(s.get("x") or 0), int(s.get("y") or 0)
+            if w > 0 and h > 0:
+                dispatch_batch(
+                    [
+                        f"dispatch resizewindowpixel exact {w} {h},{target}",
+                        f"dispatch movewindowpixel exact {x} {y},{target}",
+                    ]
+                )
+        else:
+            dispatch("focuswindow", target)
+            dispatch("settiled")
+
+    if focus_addr:
+        target = f"address:{focus_addr}"
+        dispatch("focuswindow", target)
+        for cmd, arg in (("bringactivetotop", ""), ("alterzorder", "top")):
+            try:
+                if arg:
+                    dispatch(cmd, arg)
+                else:
+                    dispatch(cmd)
+                break
+            except Exception:
+                continue
+
+
 def overview_adopt_window(addr: str) -> bool:
     """Put a newly mapped window into the live Super overview grid."""
     st = overview_state()
@@ -1111,6 +1194,7 @@ def grid_hdmi(*, enter_overview: bool = False) -> None:
     When enter_overview=True, snapshot layouts first; a later click restores
     every window and raises the picked one. Overview cells are landscape
     rectangles (width > height), centered — not stretched to fill the screen.
+    Minimized windows (special:minimized) are pulled into the grid too.
     """
     if enter_overview and overview_state():
         # Super again: leave overview, restore previous layouts.
@@ -1128,25 +1212,48 @@ def grid_hdmi(*, enter_overview: bool = False) -> None:
         active_ws = hypr_json("activeworkspace") or {}
     ws_id = int(active_ws.get("id") or 1)
 
-    clients = []
+    clients: list[dict] = []
+    minimized: list[dict] = []
     for win in hypr_json("clients"):
+        if not win.get("address"):
+            continue
+        if not win.get("mapped") or win.get("hidden"):
+            continue
+        if is_dialog_like(win) or is_photos_dialog(win):
+            continue
+        cls = (win.get("class") or "").lower()
+        if "waybar-popover" in _window_tags(win):
+            continue
+        if any(s in cls for s in SKIP_CLASS_SUBSTR):
+            continue
+        if is_popup_or_menu(win):
+            continue
+        # special:minimized must be collected before skip_new_window (that
+        # helper skips every special:* workspace, including minimize).
+        if is_minimized_win(win):
+            minimized.append(win)
+            continue
+        if skip_new_window(win):
+            continue
         if int(win.get("monitor") if win.get("monitor") is not None else -1) != mid:
             continue
         wsid = int((win.get("workspace") or {}).get("id") or -1)
         if wsid != ws_id:
             continue
-        if not win.get("mapped") or win.get("hidden"):
-            continue
-        if skip_new_window(win) or is_dialog_like(win) or is_photos_dialog(win):
-            continue
-        if not win.get("address"):
-            continue
         clients.append(win)
+
+    if enter_overview:
+        # Show hyprbars − / Super+H minimized windows alongside the desk.
+        clients.extend(minimized)
+
     if not clients:
+        if enter_overview:
+            overview_fuzzel("")
         return
 
     clients.sort(
         key=lambda w: (
+            1 if is_minimized_win(w) else 0,
             int((w.get("at") or [0, 0])[1]),
             int((w.get("at") or [0, 0])[0]),
             w.get("address") or "",
@@ -1168,8 +1275,19 @@ def grid_hdmi(*, enter_overview: bool = False) -> None:
                     "y": int(at[1]),
                     "w": max(0, int(size[0] or 0)),
                     "h": max(0, int(size[1] or 0)),
+                    "minimized": bool(is_minimized_win(win)),
                 }
             )
+        # Pull minimized windows onto this workspace so they render in the grid.
+        for win in clients:
+            if is_minimized_win(win):
+                _pull_to_overview_workspace(win["address"], ws_id)
+        # Refresh client dicts after moves (addresses stable).
+        by_addr = {c.get("address"): c for c in hypr_json("clients")}
+        placed = [by_addr[w["address"]] for w in clients if w["address"] in by_addr]
+        if not placed:
+            placed = clients
+
         write_overview_state(
             {
                 "active": True,
@@ -1179,15 +1297,18 @@ def grid_hdmi(*, enter_overview: bool = False) -> None:
                 "armed_at": time.time() + 0.35,
             }
         )
-        cols = _overview_place_grid(clients)
+        cols = _overview_place_grid(placed)
         st = overview_state() or {}
         st["cols"] = cols
         write_overview_state(st)
-        overview_raise(clients[0]["address"])
+        overview_raise(placed[0]["address"])
         try:
             dispatch("submap", "hdmi-overview")
         except Exception:
             pass
+        # Super: zoomed grid plus fuzzel. Blocks until fuzzel exits (click /
+        # Super / Escape kill it from another bind).
+        overview_fuzzel("")
         return
 
     n = len(clients)
@@ -1251,49 +1372,6 @@ def write_overview_state(data: dict | None) -> None:
     os.replace(tmp, path)
 
 
-def restore_overview_windows(snaps: list[dict], focus_addr: str | None = None) -> None:
-    """Put every snapshotted window back, then raise focus_addr if given."""
-    for s in snaps:
-        addr = s.get("address")
-        if not addr:
-            continue
-        target = f"address:{addr}"
-        win = client_by_address(addr)
-        if not win:
-            continue
-        fs = win.get("fullscreen")
-        if fs not in (None, False, 0, "0"):
-            dispatch("focuswindow", target)
-            dispatch("fullscreen", "0")
-        if s.get("floating"):
-            ensure_floating(target, win)
-            w, h = int(s.get("w") or 0), int(s.get("h") or 0)
-            x, y = int(s.get("x") or 0), int(s.get("y") or 0)
-            if w > 0 and h > 0:
-                dispatch_batch(
-                    [
-                        f"dispatch resizewindowpixel exact {w} {h},{target}",
-                        f"dispatch movewindowpixel exact {x} {y},{target}",
-                    ]
-                )
-        else:
-            dispatch("focuswindow", target)
-            dispatch("settiled")
-
-    if focus_addr:
-        target = f"address:{focus_addr}"
-        dispatch("focuswindow", target)
-        for cmd, arg in (("bringactivetotop", ""), ("alterzorder", "top")):
-            try:
-                if arg:
-                    dispatch(cmd, arg)
-                else:
-                    dispatch(cmd)
-                break
-            except Exception:
-                continue
-
-
 def overview_cancel() -> None:
     st = overview_state()
     write_overview_state(None)
@@ -1301,21 +1379,40 @@ def overview_cancel() -> None:
         dispatch("submap", "reset")
     except Exception:
         pass
+    _dismiss_fuzzel()
     if st and st.get("windows"):
-        restore_overview_windows(list(st["windows"]))
+        ws = st.get("workspace")
+        restore_overview_windows(
+            list(st["windows"]),
+            workspace=int(ws) if ws is not None else None,
+        )
+
+
+def _fuzzel_pids() -> set[int]:
+    try:
+        out = subprocess.check_output(["pgrep", "-x", "fuzzel"], text=True, timeout=1)
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        return set()
+    pids: set[int] = set()
+    for line in out.splitlines():
+        line = line.strip()
+        if line.isdigit():
+            pids.add(int(line))
+    return pids
+
+
+def _dismiss_fuzzel() -> None:
+    """Drop the Super-overview launcher so a window click can finish the pick."""
+    subprocess.run(
+        ["pkill", "-x", "fuzzel"],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def _fuzzel_running() -> bool:
-    try:
-        subprocess.run(
-            ["pgrep", "-x", "fuzzel"],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
+    return bool(_fuzzel_pids())
 
 
 def _sanitize_query(query: str) -> str:
@@ -1341,7 +1438,8 @@ def _send_to_fuzzel(text: str) -> None:
 
 def _pointer_on_fuzzel() -> bool:
     """True when the cursor is on the fuzzel overlay (do not treat as a window pick)."""
-    if not _fuzzel_running():
+    pids = _fuzzel_pids()
+    if not pids:
         return False
     try:
         pos = hypr_json("cursorpos")
@@ -1359,7 +1457,12 @@ def _pointer_on_fuzzel() -> bool:
             for level in (info.get("levels") or {}).values():
                 for surf in level or []:
                     ns = str(surf.get("namespace") or "").lower()
-                    if "fuzzel" not in ns:
+                    try:
+                        pid = int(surf.get("pid") or 0)
+                    except Exception:
+                        pid = 0
+                    # fuzzel uses layer-shell namespace "launcher".
+                    if pid not in pids and "fuzzel" not in ns:
                         continue
                     x, y = int(surf.get("x") or 0), int(surf.get("y") or 0)
                     w, h = int(surf.get("w") or 0), int(surf.get("h") or 0)
@@ -1381,8 +1484,104 @@ def _pointer_on_fuzzel() -> bool:
     return False
 
 
+def _passthrough_click_to_fuzzel() -> None:
+    """Hypr mouse binds eat the event — hop to a pass submap and redeliver via ydotool."""
+    try:
+        dispatch("submap", "hdmi-overview-pass")
+    except Exception:
+        return
+    time.sleep(0.03)
+    try:
+        subprocess.run(
+            ["ydotool", "click", "0xC0"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=1,
+        )
+    except Exception:
+        pass
+    time.sleep(0.05)
+    st = overview_state()
+    if st and st.get("launcher") and _fuzzel_running():
+        try:
+            dispatch("submap", "hdmi-overview-launcher")
+        except Exception:
+            pass
+
+
+def overview_finish_from_launcher(known_addrs: set[str]) -> None:
+    """After fuzzel launches an app: leave overview and focus the new window."""
+    st = overview_state()
+    if not st:
+        return
+    snaps = list(st.get("windows") or [])
+    ws_id = st.get("workspace")
+    write_overview_state(None)
+    try:
+        dispatch("submap", "reset")
+    except Exception:
+        pass
+    if ws_id is not None:
+        try:
+            dispatch("workspace", str(int(ws_id)))
+        except Exception:
+            pass
+    if snaps:
+        restore_overview_windows(
+            snaps,
+            focus_addr=None,
+            workspace=int(ws_id) if ws_id is not None else None,
+        )
+
+    focus: str | None = None
+    for _ in range(50):
+        time.sleep(0.04)
+        try:
+            clients = hypr_json("clients")
+        except Exception:
+            clients = []
+        newest: list[tuple[int, str]] = []
+        for win in clients:
+            addr = win.get("address")
+            if not addr or addr in known_addrs:
+                continue
+            if not win.get("mapped") or win.get("hidden"):
+                continue
+            if skip_new_window(win):
+                continue
+            newest.append((int(win.get("focusHistoryID") or 9999), addr))
+        if newest:
+            newest.sort(key=lambda t: t[0])
+            focus = newest[0][1]
+            break
+    if not focus:
+        return
+    time.sleep(0.12)
+    target = f"address:{focus}"
+    try:
+        dispatch("focuswindow", target)
+    except Exception:
+        return
+    for cmd, arg in (("bringactivetotop", ""), ("alterzorder", "top")):
+        try:
+            if arg:
+                dispatch(cmd, arg)
+            else:
+                dispatch(cmd)
+            break
+        except Exception:
+            continue
+
+
 def overview_fuzzel(query: str = "") -> None:
-    """Open fuzzel over the zoomed-out grid. Overview stays until Enter or a click."""
+    """Open fuzzel over the zoomed-out grid. Overview stays until Enter or a click.
+
+    While fuzzel is up, Hyprland uses submap ``hdmi-overview-launcher`` so a
+    left-click on a grid cell can pick that window and kill fuzzel. Clicks on
+    fuzzel itself are redelivered (namespace ``launcher``). Unbound keys go to
+    fuzzel. A successful launch closes the overview and focuses the new app.
+    """
     text = _sanitize_query(query)
     st = overview_state()
     if not st:
@@ -1409,9 +1608,12 @@ def overview_fuzzel(query: str = "") -> None:
     st["launcher"] = True
     write_overview_state(st)
     try:
-        dispatch("submap", "reset")
+        dispatch("submap", "hdmi-overview-launcher")
     except Exception:
-        pass
+        try:
+            dispatch("submap", "reset")
+        except Exception:
+            pass
 
     exe = shutil.which("neuronix-fuzzel") or shutil.which("fuzzel") or "fuzzel"
     cmd = [
@@ -1424,24 +1626,35 @@ def overview_fuzzel(query: str = "") -> None:
     if text:
         cmd.append(f"--search={text}")
 
+    known_addrs = {
+        str(w.get("address"))
+        for w in (hypr_json("clients") or [])
+        if w.get("address")
+    }
+
     # Must wait here: a daemon thread is killed when this keybind process exits,
     # which aborted fuzzel before it could map.
+    rc = 1
     try:
-        subprocess.run(
+        completed = subprocess.run(
             cmd,
             check=False,
             start_new_session=True,
         )
+        rc = int(completed.returncode)
     finally:
         cur = overview_state()
         if not cur:
             return
         cur.pop("launcher", None)
         write_overview_state(cur)
-        try:
-            dispatch("submap", "hdmi-overview")
-        except Exception:
-            pass
+        if rc == 0:
+            overview_finish_from_launcher(known_addrs)
+        else:
+            try:
+                dispatch("submap", "hdmi-overview")
+            except Exception:
+                pass
 
 
 def window_at_cursor() -> dict | None:
@@ -1573,9 +1786,14 @@ def overview_confirm(addr: str | None = None) -> None:
         dispatch("submap", "reset")
     except Exception:
         pass
+    _dismiss_fuzzel()
     if ws_id is not None:
         dispatch("workspace", str(int(ws_id)))
-    restore_overview_windows(snaps, focus_addr=addr)
+    restore_overview_windows(
+        snaps,
+        focus_addr=addr,
+        workspace=int(ws_id) if ws_id is not None else None,
+    )
 
 
 def overview_pick() -> None:
@@ -1585,13 +1803,15 @@ def overview_pick() -> None:
         return
     if time.time() < float(st.get("armed_at") or 0):
         return
+    if _pointer_on_fuzzel():
+        # Mouse bind already consumed the event — redeliver to fuzzel.
+        _passthrough_click_to_fuzzel()
+        return
     win = window_at_cursor()
     if not win or not win.get("address"):
         return
-    ws_id = st.get("workspace")
-    if ws_id is not None:
-        if int((win.get("workspace") or {}).get("id") or -1) != int(ws_id):
-            return
+    if win["address"] not in set(overview_addrs(st)):
+        return
     overview_confirm(win["address"])
 
 

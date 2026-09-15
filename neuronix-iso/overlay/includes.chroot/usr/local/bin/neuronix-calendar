@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.expanduser("~/.local/share/neuronix"))
 from neuronix_choice_dialog import (  # noqa: E402
     _apply_css,
     _theme_chrome,
+    begin_waybar_popover,
     center_layer_window,
     freeze_click_xy,
     pack_title_with_close,
@@ -127,6 +128,8 @@ def _notify(text: str) -> None:
 
 def main() -> int:
     freeze_click_xy()
+    if not begin_waybar_popover("Calendar"):
+        return 0
     today = _dt.date.today()
     view = {"year": today.year, "month": today.month}
     selected = {"date": today}

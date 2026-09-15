@@ -262,10 +262,11 @@ regen_package_lists() {
 			[[ -n "${live_keep[$pkg]:-}" ]] && continue
 			printf '%s\n' "$pkg"
 		done <<<"${SECTION_PKGS[live]:-}"
-		# Hook 997 Hyprland runtime (ydotool is kept for Active-User on Server).
+		# Hook 997 Hyprland runtime (ydotool is Desktop-only; purge on Server).
 		printf '%s\n' \
 			hyprland hyprland-guiutils hyprpaper hyprpicker \
-			xdg-desktop-portal-hyprland
+			xdg-desktop-portal-hyprland \
+			ydotool
 	} >"$live_purge"
 	_info "wrote ${_dim}${live_purge#"$REPO_ROOT/"}${_reset}"
 

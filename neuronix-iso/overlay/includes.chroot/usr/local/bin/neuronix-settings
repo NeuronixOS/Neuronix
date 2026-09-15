@@ -2,7 +2,13 @@
 # Neuronix settings hub — modular Hyprland settings (no gnome-control-center).
 set -eu
 
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
+# Freeze the bar click before PATH/GTK work (Active-User jiggles the pointer).
+if [ -z "${NEURONIX_CLICK_XY:-}" ]; then
+	NEURONIX_CLICK_XY="$(/usr/bin/hyprctl cursorpos 2>/dev/null | tr -d ' ' || true)"
+	export NEURONIX_CLICK_XY
+fi
+
+export PATH="${HOME}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
 _uid="$(id -u)"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
@@ -12,11 +18,13 @@ if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
 	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
 	neuronix_hyprland_session_env
 fi
+export PATH="${HOME}/.local/bin:${PATH}"
 
 _pick="$(
 	python3 - <<'PY'
 import os, sys
 sys.path.insert(0, "/usr/share/neuronix")
+sys.path.insert(0, os.path.expanduser("~/.local/share/neuronix"))
 from neuronix_choice_dialog import choose
 
 items = [

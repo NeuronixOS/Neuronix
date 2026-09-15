@@ -2,7 +2,13 @@
 # Date & time helper for waybar clock clicks (calendar, 12/24h, set clock, timezone).
 set -eu
 
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
+# Freeze the bar click before PATH/GTK work (Active-User jiggles the pointer).
+if [ -z "${NEURONIX_CLICK_XY:-}" ]; then
+	NEURONIX_CLICK_XY="$(/usr/bin/hyprctl cursorpos 2>/dev/null | tr -d ' ' || true)"
+	export NEURONIX_CLICK_XY
+fi
+
+export PATH="${HOME}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
 _uid="$(id -u)"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
@@ -12,10 +18,24 @@ if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
 	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
 	neuronix_hyprland_session_env
 fi
+export PATH="${HOME}/.local/bin:${PATH}"
 
 WAYBAR_CONF="${HOME}/.config/waybar/config"
 PREF_DIR="${HOME}/.config/neuronix"
 PREF_FILE="${PREF_DIR}/clock-format"
+
+_dlg() {
+	# Shared GNOME-style layer-shell dialogs under the frozen Waybar click.
+	if [ -f "${HOME}/.local/share/neuronix/neuronix_choice_dialog.py" ]; then
+		python3 "${HOME}/.local/share/neuronix/neuronix_choice_dialog.py" "$@"
+		return $?
+	fi
+	if [ -f /usr/share/neuronix/neuronix_choice_dialog.py ]; then
+		python3 /usr/share/neuronix/neuronix_choice_dialog.py "$@"
+		return $?
+	fi
+	return 127
+}
 
 _current_fmt() {
 	if [ -f "${PREF_FILE}" ]; then
@@ -61,41 +81,39 @@ _show_calendar() {
 		neuronix-calendar || true
 		return 0
 	fi
-	_picked="$(zenity --calendar --title="Calendar" --text="Today is $(date '+%A, %B %d %Y')" 2>/dev/null)" || return 0
+	_picked="$(_dlg calendar "Calendar" "Today is $(date '+%A, %B %d %Y')" 2>/dev/null)" || return 0
 	[ -n "${_picked}" ] && notify-send -a Neuronix -t 4000 "Calendar" "Selected: ${_picked}" 2>/dev/null || true
 }
 
 _set_datetime() {
-	_date="$(zenity --calendar --title="Set date" --text="Choose the system date:" 2>/dev/null)" || return 0
+	_date="$(_dlg calendar "Set date" "Choose the system date:" 2>/dev/null)" || return 0
 	[ -n "${_date}" ] || return 0
-	_time="$(zenity --entry --title="Set time" --text="Enter time as HH:MM (24-hour):" --entry-text="$(date '+%H:%M')" 2>/dev/null)" || return 0
+	# Calendar returns YYYY-MM-DD; keep a friendly display for the time step.
+	_date_disp="$(date -d "${_date}" '+%Y-%m-%d' 2>/dev/null || printf '%s' "${_date}")"
+	_time="$(_dlg entry "Set time" "Enter time as HH:MM (24-hour) for ${_date_disp}:" --default="$(date '+%H:%M')" 2>/dev/null)" || return 0
 	[ -n "${_time}" ] || return 0
-	_iso="$(date -d "${_date} ${_time}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" || {
-		zenity --error --text="Could not parse date/time:\n${_date} ${_time}" 2>/dev/null || true
+	_iso="$(date -d "${_date_disp} ${_time}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" || {
+		_dlg message --kind=error "Date & time" "Could not parse date/time:
+${_date_disp} ${_time}" 2>/dev/null || true
 		return 1
 	}
 	if pkexec timedatectl set-time "${_iso}"; then
 		notify-send -a Neuronix -t 4000 "Date & time" "Set to ${_iso}" 2>/dev/null || true
 	else
-		zenity --error --text="Failed to set system time (need admin rights)." 2>/dev/null || true
+		_dlg message --kind=error "Date & time" "Failed to set system time (need admin rights)." 2>/dev/null || true
 	fi
 }
 
 _set_timezone() {
 	_cur="$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)"
 	_tz="$(
-		timedatectl list-timezones 2>/dev/null | zenity --list \
-			--title="Time zone" \
-			--text="Current: ${_cur}\nSelect a time zone:" \
-			--column="Timezone" \
-			--width=480 --height=520 \
-			2>/dev/null
+		timedatectl list-timezones 2>/dev/null | _dlg timezone --current="${_cur}" 2>/dev/null
 	)" || return 0
 	[ -n "${_tz}" ] || return 0
 	if pkexec timedatectl set-timezone "${_tz}"; then
 		notify-send -a Neuronix -t 4000 "Time zone" "Set to ${_tz}" 2>/dev/null || true
 	else
-		zenity --error --text="Failed to set time zone (need admin rights)." 2>/dev/null || true
+		_dlg message --kind=error "Time zone" "Failed to set time zone (need admin rights)." 2>/dev/null || true
 	fi
 }
 
@@ -122,6 +140,7 @@ _show_menu() {
 		python3 - <<'PY'
 import os, sys
 sys.path.insert(0, "/usr/share/neuronix")
+sys.path.insert(0, os.path.expanduser("~/.local/share/neuronix"))
 from neuronix_choice_dialog import choose
 
 items = [

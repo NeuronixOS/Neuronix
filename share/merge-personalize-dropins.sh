@@ -467,6 +467,18 @@ PY
 	done <"$map_lines"
 	rm -f "$map_lines"
 
+	# Hyprland binds `neuronix-*` from PATH before home links exist. Keep
+	# the same helpers in /usr/local/bin as configs/bin (default + overlay).
+	local helper src_helper
+	mkdir -p "$INCLUDES/usr/local/bin"
+	for helper in "$dest"/bin/neuronix-*; do
+		[[ -f "$helper" ]] || continue
+		src_helper="$(basename "$helper")"
+		cp -a "$helper" "$INCLUDES/usr/local/bin/$src_helper"
+		chmod 0755 "$INCLUDES/usr/local/bin/$src_helper"
+		_info "  usr/local/bin/$src_helper"
+	done
+
 	# System web configs: prefer personalize tree when present, else staged dest / default
 	local sys_src="$dest"
 	[[ "$have_pers" -eq 1 ]] && sys_src="$pers_src"

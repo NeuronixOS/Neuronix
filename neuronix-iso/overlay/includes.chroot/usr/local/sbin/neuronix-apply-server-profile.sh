@@ -13,8 +13,9 @@ HYPRLAND_RUNTIME=(
 	hyprpaper
 	hyprpicker
 	xdg-desktop-portal-hyprland
+	ydotool
 )
-# ydotool stays: Active-User (mouse jiggler) runs on Server and Desktop.
+# ydotool is Desktop-only (Active-User mouse jiggler). Purge it on Server.
 
 # Desktop-oriented paths under configs/ (~/configs) and matching ~/.config links.
 DESKTOP_CONFIG_NAMES=(
@@ -77,10 +78,11 @@ rm -f /etc/lightdm/lightdm.conf.d/50-neuronix-live-autologin.conf \
 	/etc/lightdm/lightdm.conf.d/88-neuronix-hyprland-session.conf \
 	/etc/lightdm/lightdm.conf.d/10-neuronix-lightdm-debug.conf 2>/dev/null || true
 
-# Desktop-only services (Remux / Screensaver / gtk-sync). Keep activeuser + hostreporter.
+# Desktop-only services (Remux / Screensaver / gtk-sync / Active-User). Keep hostreporter.
 rm -rf /usr/local/lib/neuronix/services/screensaver \
 	/usr/local/lib/neuronix/services/gtksync \
-	/usr/local/lib/neuronix/services/remux 2>/dev/null || true
+	/usr/local/lib/neuronix/services/remux \
+	/usr/local/lib/neuronix/services/activeuser 2>/dev/null || true
 rm -f /etc/systemd/system/remux.service \
 	/etc/systemd/system/multi-user.target.wants/remux.service 2>/dev/null || true
 if command -v systemctl >/dev/null 2>&1; then
@@ -113,6 +115,8 @@ rm -f /usr/local/bin/neuronix-settings \
 	/usr/local/bin/neuronix-desktop-rmb \
 	/usr/local/bin/neuronix-datetime \
 	/usr/local/bin/neuronix-calendar \
+	/usr/local/bin/neuronix-waybar-click \
+	/usr/local/bin/neuronix-waybar-popover \
 	/usr/local/bin/neuronix-cava \
 	/usr/local/bin/neuronix-power-settings \
 	/usr/local/bin/neuronix-ensure-power-manager \
@@ -137,7 +141,13 @@ _strip_desktop_configs_from() {
 		"${root}/.config/gtk-apps" \
 		"${root}/.config/neuronix-screensaver" 2>/dev/null || true
 	rm -f "${root}/.config/systemd/user/neuronix-screensaver-idle.service" \
-		"${root}/.config/systemd/user/default.target.wants/neuronix-screensaver-idle.service" 2>/dev/null || true
+		"${root}/.config/systemd/user/default.target.wants/neuronix-screensaver-idle.service" \
+		"${root}/.config/systemd/user/active-user.service" \
+		"${root}/.config/systemd/user/default.target.wants/active-user.service" \
+		"${root}/.config/systemd/user/ydotool.service" \
+		"${root}/.config/systemd/user/default.target.wants/ydotool.service" 2>/dev/null || true
+	rm -rf "${root}/.config/active-user" \
+		"${root}/.config/systemd/user/graphical-session.target.wants" 2>/dev/null || true
 	rm -f "${root}/.config/mimeapps.list" \
 		"${root}/.config/xdg-terminals.list" \
 		"${root}/.config/gnome-xdg-terminals.list" 2>/dev/null || true

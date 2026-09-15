@@ -70,9 +70,13 @@ xdg-desktop-portal
 xdg-desktop-portal-gtk
 nm-connection-editor
 python3-gi
+python3-evdev
+python3-cairo
 python3-dbus
 gir1.2-gtklayershell-0.1
+gir1.2-gtk4layershell-1.0
 libgtk-layer-shell0
+libgtk4-layer-shell0
 gir1.2-nm-1.0
 papirus-icon-theme
 adwaita-icon-theme
@@ -91,6 +95,8 @@ python3-google-auth
 python3-google-auth-httplib2
 python3-google-auth-oauthlib
 python3-googleapi
+grim
+slurp
 foot
 firefox-esr
 thunar

@@ -15,7 +15,8 @@ on the ISO (no Dropbox paths).
 ## Idle service
 
 systemd user unit `neuronix-screensaver-idle` launches after **5 minutes** without
-keyboard/mouse input (evdev). Config: `~/.config/neuronix-screensaver/config.ini`
+keyboard/mouse input (evdev). Unplugged receivers are dropped (a hung fd would
+otherwise pin a CPU core). Config: `~/.config/neuronix-screensaver/config.ini`
 
 ```ini
 [idle]
@@ -33,4 +34,5 @@ journalctl --user -u neuronix-screensaver-idle -f
 ## Prerequisites
 
 - `python3-evdev`, `python3-gi`, `python3-cairo`, `gir1.2-gtk-4.0`
+- `gir1.2-gtk4layershell-1.0` (overlay layer so floating windows cannot sit on top)
 - User in the `input` group (Calamares `neuronix-add-user-input-group.sh`)

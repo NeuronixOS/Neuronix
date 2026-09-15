@@ -134,6 +134,43 @@ fi
 
 _check "neuronix-window-switch" "$OVERLAY/usr/local/bin/neuronix-window-switch"
 _check "neuronix-escape" "$OVERLAY/usr/local/bin/neuronix-escape"
+_check "neuronix-screenshot" "$OVERLAY/usr/local/bin/neuronix-screenshot"
+
+if grep -q 'pkill -x slurp' "$OVERLAY/usr/local/bin/neuronix-escape" 2>/dev/null \
+	&& grep -q 'pkill -x slurp' "$BUILD_ROOT/default/configs/bin/neuronix-escape" 2>/dev/null; then
+	echo "  OK  Escape cancels slurp (screenshot region)"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  slurp cancel in neuronix-escape"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'neuronix-screenshot' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null \
+	&& grep -q 'gtk-image' "$OVERLAY/usr/local/bin/neuronix-screenshot" 2>/dev/null; then
+	echo "  OK  Print Screen → neuronix-screenshot → gtk-image"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  neuronix-screenshot bind / gtk-image open"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'gir1.2-gtk4layershell-1.0' "$BUILD_ROOT/default/install-list" 2>/dev/null \
+	&& grep -q 'gir1.2-gtk4layershell-1.0' "$OVERLAY/../package-lists/live.list.chroot" 2>/dev/null; then
+	echo "  OK  live ISO has GTK4 layer-shell (screensaver overlay)"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  gir1.2-gtk4layershell-1.0 in install-list / live.list.chroot"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'def is_gtk_image' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null \
+	&& grep -q '_spawned_by_photos' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null; then
+	echo "  OK  gtk-image grids only when spawned from gtk-photos"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  gtk-image photos-grid guard in default window-manager.py"
+	_fail=$((_fail + 1))
+fi
 
 if grep -q 'neuronix-window-switch' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null; then
 	echo "  OK  hyprland.conf Alt+Tab → neuronix-window-switch"
@@ -218,6 +255,14 @@ if [[ -d "$_pers_hypr" ]]; then
 		_ok=$((_ok + 1))
 	else
 		echo "  MISSING  gtk-photos bottom-left pack in window-manager.py"
+		_fail=$((_fail + 1))
+	fi
+	if grep -q 'def is_gtk_image' "$_pers_hypr/window-manager.py" 2>/dev/null \
+		&& grep -q '_spawned_by_photos' "$_pers_hypr/window-manager.py" 2>/dev/null; then
+		echo "  OK  personalize gtk-image grids only from gtk-photos"
+		_ok=$((_ok + 1))
+	else
+		echo "  MISSING  gtk-image photos-grid guard in personalize window-manager.py"
 		_fail=$((_fail + 1))
 	fi
 	if grep -q 'def is_photos_dialog' "$_pers_hypr/window-manager.py" 2>/dev/null \

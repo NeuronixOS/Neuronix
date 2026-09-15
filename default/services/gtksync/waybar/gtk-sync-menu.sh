@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Waybar gtk-sync menu — roomy GTK (zenity) dialogs; no terminals.
+# Waybar gtk-sync menu — GNOME-style Neuronix dialogs under the bar click.
 #
 # IMPORTANT: waybar tears down the on-click process group when this script
-# exits, so dialogs/apps must be launched via systemd-run --user (or setsid).
+# exits, so long-lived apps (file manager) must be launched via systemd-run.
+# Nested dialogs run in-process so they keep NEURONIX_CLICK_XY and pin under
+# the original Sync click.
 set -euo pipefail
+
+if [[ -z "${NEURONIX_CLICK_XY:-}" ]]; then
+	NEURONIX_CLICK_XY="$(/usr/bin/hyprctl cursorpos 2>/dev/null | tr -d ' ' || true)"
+	export NEURONIX_CLICK_XY
+fi
 
 if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
 	export XDG_RUNTIME_DIR="/run/user/$(id -u)"
@@ -17,13 +24,42 @@ STATUS_JSON="${XDG_RUNTIME_DIR}/gtk-sync/status.json"
 TITLE="GTK-Sync"
 SELF="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
 
+_dlg_py() {
+	if [[ -f "${HOME}/.local/share/neuronix/neuronix_choice_dialog.py" ]]; then
+		echo "${HOME}/.local/share/neuronix/neuronix_choice_dialog.py"
+		return 0
+	fi
+	if [[ -f /usr/share/neuronix/neuronix_choice_dialog.py ]]; then
+		echo /usr/share/neuronix/neuronix_choice_dialog.py
+		return 0
+	fi
+	return 1
+}
+
+_dlg() {
+	local py
+	py="$(_dlg_py)" || return 127
+	python3 "$py" "$@"
+}
+
 launch() {
+	# Detach apps that must outlive the waybar click handler.
+	local -a env_args=()
+	if [[ -n "${NEURONIX_CLICK_XY:-}" ]]; then
+		env_args+=(--setenv="NEURONIX_CLICK_XY=${NEURONIX_CLICK_XY}")
+	fi
+	for key in WAYLAND_DISPLAY XDG_RUNTIME_DIR HYPRLAND_INSTANCE_SIGNATURE \
+		DBUS_SESSION_BUS_ADDRESS DISPLAY PATH HOME XDG_CURRENT_DESKTOP; do
+		if [[ -n "${!key:-}" ]]; then
+			env_args+=(--setenv="${key}=${!key}")
+		fi
+	done
 	if command -v systemd-run >/dev/null 2>&1; then
-		systemd-run --user --collect --quiet -- "$@" >/dev/null
+		systemd-run --user --collect --quiet "${env_args[@]}" -- "$@" >/dev/null
 		return
 	fi
 	if command -v setsid >/dev/null 2>&1; then
-		setsid -f "$@" >/dev/null 2>&1
+		setsid -f env ${NEURONIX_CLICK_XY:+NEURONIX_CLICK_XY="$NEURONIX_CLICK_XY"} "$@" >/dev/null 2>&1
 		return
 	fi
 	nohup "$@" >/dev/null 2>&1 &
@@ -34,9 +70,11 @@ have_zenity() { command -v zenity >/dev/null 2>&1; }
 
 dlg_info() {
 	local msg="$1"
+	if _dlg message --kind=info "$TITLE" "$msg" 2>/dev/null; then
+		return 0
+	fi
 	if have_zenity; then
-		launch zenity --info --title="$TITLE" --width=440 --height=180 \
-			--ok-label="OK" --text="$msg"
+		zenity --info --title="$TITLE" --width=440 --height=180 --ok-label="OK" --text="$msg" || true
 	else
 		notify-send "$TITLE" "$msg" 2>/dev/null || true
 	fi
@@ -44,9 +82,11 @@ dlg_info() {
 
 dlg_warn() {
 	local msg="$1"
+	if _dlg message --kind=warning "$TITLE" "$msg" 2>/dev/null; then
+		return 0
+	fi
 	if have_zenity; then
-		launch zenity --warning --title="$TITLE" --width=440 --height=180 \
-			--ok-label="OK" --text="$msg"
+		zenity --warning --title="$TITLE" --width=440 --height=180 --ok-label="OK" --text="$msg" || true
 	else
 		notify-send "$TITLE" "$msg" 2>/dev/null || true
 	fi
@@ -54,9 +94,11 @@ dlg_warn() {
 
 dlg_error() {
 	local msg="$1"
+	if _dlg message --kind=error "$TITLE" "$msg" 2>/dev/null; then
+		return 0
+	fi
 	if have_zenity; then
-		launch zenity --error --title="$TITLE" --width=440 --height=180 \
-			--ok-label="OK" --text="$msg"
+		zenity --error --title="$TITLE" --width=440 --height=180 --ok-label="OK" --text="$msg" || true
 	else
 		notify-send "$TITLE" "$msg" 2>/dev/null || true
 	fi
@@ -64,9 +106,14 @@ dlg_error() {
 
 dlg_text_file() {
 	local subtitle="$1" file="$2"
+	if _dlg text "$TITLE" --subtitle "$subtitle" --body-file "$file"; then
+		rm -f "$file"
+		return 0
+	fi
 	if have_zenity; then
-		launch bash -c 'zenity --text-info --title="$1" --width=580 --height=400 --font="Cantarell 12" --filename="$2"; rm -f "$2"' \
-			bash "$TITLE — $subtitle" "$file"
+		zenity --text-info --title="$TITLE — $subtitle" --width=580 --height=400 \
+			--font="Cantarell 12" --filename="$file" || true
+		rm -f "$file"
 	else
 		notify-send "$TITLE — $subtitle" "$(head -c 200 "$file")" 2>/dev/null || true
 		rm -f "$file"
@@ -175,15 +222,20 @@ PY
 }
 
 cmd_status_once() {
-	if ! have_zenity; then
-		notify-send "$TITLE" "$(status_summary | head -c 400)" 2>/dev/null || true
-		return 0
-	fi
 	local tmp
 	tmp="$(mktemp)"
 	status_summary >"$tmp"
-	zenity --text-info --title="$TITLE" --width=460 --height=380 \
-		--font="Cantarell 12" --filename="$tmp" --ok-label="Close" || true
+	if _dlg text "$TITLE" --subtitle "Status" --body-file "$tmp"; then
+		rm -f "$tmp"
+		return 0
+	fi
+	if have_zenity; then
+		zenity --text-info --title="$TITLE" --width=460 --height=380 \
+			--font="Cantarell 12" --filename="$tmp" --ok-label="Close" || true
+		rm -f "$tmp"
+		return 0
+	fi
+	notify-send "$TITLE" "$(head -c 400 "$tmp")" 2>/dev/null || true
 	rm -f "$tmp"
 }
 
@@ -191,7 +243,9 @@ open_folder() {
 	local root
 	root="$(sync_root)"
 	if [[ -z "$root" || ! -d "$root" ]]; then
-		dlg_warn "No sync folder yet.\n\nOpen Files and choose Setup Sync first."
+		dlg_warn "No sync folder yet.
+
+Open Files and choose Setup Sync first."
 		return
 	fi
 	if command -v gtk-files >/dev/null 2>&1; then
@@ -199,23 +253,30 @@ open_folder() {
 	elif command -v xdg-open >/dev/null 2>&1; then
 		launch xdg-open "$root"
 	else
-		dlg_error "No file manager found.\n\n$root"
+		dlg_error "No file manager found.
+
+$root"
 	fi
 }
 
 show_status() {
-	launch bash "$SELF" --status
+	# Stay in-process so the status panel pins under the Sync click.
+	cmd_status_once
 }
 
 start_client() {
 	if [[ ! -f "$CFG" ]]; then
-		dlg_warn "Sync is not set up yet.\n\nOpen Files and choose Setup Sync first."
+		dlg_warn "Sync is not set up yet.
+
+Open Files and choose Setup Sync first."
 		return
 	fi
 	if systemctl --user enable --now gtk-sync-client 2>/dev/null; then
 		dlg_info "Sync client started."
 	else
-		dlg_error "Could not start the sync client.\n\nIs gtk-sync-client installed?"
+		dlg_error "Could not start the sync client.
+
+Is gtk-sync-client installed?"
 	fi
 }
 
@@ -228,7 +289,9 @@ stop_client() {
 
 restart_client() {
 	if [[ ! -f "$CFG" ]]; then
-		dlg_warn "Sync is not set up yet.\n\nOpen Files and choose Setup Sync first."
+		dlg_warn "Sync is not set up yet.
+
+Open Files and choose Setup Sync first."
 		return
 	fi
 	if systemctl --user restart gtk-sync-client 2>/dev/null; then
@@ -277,7 +340,21 @@ esac
 
 # Menu: Neuronix Settings-style card dialog when available.
 choice=""
-if [[ -f /usr/share/neuronix/neuronix_choice_dialog.py ]]; then
+if [[ -f "$HOME/.local/share/neuronix/neuronix_choice_dialog.py" ]]; then
+	choice="$(
+		python3 "$HOME/.local/share/neuronix/neuronix_choice_dialog.py" \
+			"GTK-Sync" \
+			"Choose an action." \
+			"open|Open folder|Browse your synced files" \
+			"status|Status|See if sync is running" \
+			"start|Start|Start the sync client" \
+			"stop|Stop|Stop the sync client" \
+			"restart|Restart|Restart the sync client" \
+			"activity|Activity|Recent sync log" \
+			"server|Server|Local server status" \
+			2>/dev/null || true
+	)"
+elif [[ -f /usr/share/neuronix/neuronix_choice_dialog.py ]]; then
 	choice="$(
 		python3 /usr/share/neuronix/neuronix_choice_dialog.py \
 			"GTK-Sync" \
@@ -329,6 +406,8 @@ case "$choice" in
 	activity|"Activity"|"Recent Activity") show_journal ;;
 	server|"Server"|"Server Status") show_server ;;
 	*)
-		dlg_warn "Unknown menu item:\n\n${choice}"
+		dlg_warn "Unknown menu item:
+
+${choice}"
 		;;
 esac

@@ -19,7 +19,13 @@ PY
 neuronix_hyprland_session_env() {
 	export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 	export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
-	export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
+	# User overrides must win. Prepending /usr/local/bin first hid ~/.local
+	# helpers and sent Waybar back to the stock centered dialogs.
+	_local_bin=""
+	if [ -n "${HOME:-}" ] && [ -d "${HOME}/.local/bin" ]; then
+		_local_bin="${HOME}/.local/bin:"
+	fi
+	export PATH="${_local_bin}/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
 
 	export GTK_THEME=Adwaita-dark
 	export GSK_RENDERER=cairo

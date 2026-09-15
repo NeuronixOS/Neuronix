@@ -34,6 +34,7 @@ SKIP_CLASS_SUBSTR = (
     "zenity",
     "polkit",
     "neuronix-choice",
+    "neuronix-calendar",
     "xdg-desktop-portal",
     "pavucontrol",
     "nm-connection-editor",
@@ -44,6 +45,10 @@ SKIP_CLASS_SUBSTR = (
     "nwg-bar",
     "fuzzel",
     "windowswitch",
+    "screensaver",
+    "org.neuronix.cava",
+    "org.neuronix.btop",
+    "org.neuronix.popover",
 )
 
 DIALOG_TITLE_SUBSTR = (
@@ -74,6 +79,7 @@ DIALOG_TITLE_SUBSTR = (
 
 PHOTOS_CLASS = "org.neuronix.gtkphotos"
 PHOTOS_MEDIA_CLASS = "gtk-photos-media"
+GTK_IMAGE_CLASS = "org.neuronix.gtkimage"
 PHOTOS_MAIN_TITLE = "photo organizer"
 MELD_CLASS_SUBSTR = ("gtkmeld", "org.gnome.meld")
 MELD_HOME_TITLES = ("meld", "gtk meld", "new comparison")
@@ -444,10 +450,21 @@ def is_gtk_meld_diff(win: dict) -> bool:
     return False
 
 
+def _window_tags(win: dict) -> list[str]:
+    tags = win.get("tags")
+    if isinstance(tags, str):
+        return tags.split()
+    if isinstance(tags, (list, tuple, set)):
+        return [str(t) for t in tags]
+    return []
+
+
 def skip_new_window(win: dict) -> bool:
     cls = (win.get("class") or "").lower()
     ws = str((win.get("workspace") or {}).get("name") or "")
     if ws.startswith("special"):
+        return True
+    if "waybar-popover" in _window_tags(win):
         return True
     if any(s in cls for s in SKIP_CLASS_SUBSTR):
         return True
@@ -597,8 +614,39 @@ def is_photos_organizer(win: dict) -> bool:
     return combined == PHOTOS_MAIN_TITLE or combined.startswith("photo organizer")
 
 
+def _photos_class(win: dict) -> bool:
+    cls = (win.get("class") or "").lower().replace("_", ".")
+    initial = (win.get("initialClass") or "").lower().replace("_", ".")
+    return PHOTOS_CLASS in cls or PHOTOS_CLASS in initial
+
+
+def is_gtk_image(win: dict) -> bool:
+    cls = (win.get("class") or "").lower().replace("_", ".")
+    initial = (win.get("initialClass") or "").lower().replace("_", ".")
+    return GTK_IMAGE_CLASS in cls or GTK_IMAGE_CLASS in initial or "gtkimage" in cls or "gtkimage" in initial
+
+
+def _spawned_by_photos(win: dict) -> bool:
+    """True when this process is gtk-photos or a child of it."""
+    pid = int(win.get("pid") or 0)
+    if not pid:
+        return False
+    cmd = _pid_cmdlines(pid)
+    if "gtk-photos" in cmd or "org.neuronix.GtkPhotos" in cmd:
+        return True
+    photos = _photos_app_pids()
+    cur = pid
+    for _ in range(8):
+        if cur in photos:
+            return True
+        cur = _pid_parent(cur)
+        if cur <= 1:
+            break
+    return False
+
+
 def is_photos_media(win: dict) -> bool:
-    """True only for image/video viewer windows, not the organizer or dialogs."""
+    """Image/video viewers opened from gtk-photos — not standalone gtk-image."""
     if is_photos_organizer(win):
         return False
     cls = (win.get("class") or "").lower()
@@ -611,7 +659,9 @@ def is_photos_media(win: dict) -> bool:
         return True
     if PHOTOS_MEDIA_CLASS in cls or PHOTOS_MEDIA_CLASS in initial_cls:
         return True
-    if _title_is_photos_media(title) or _title_is_photos_media(initial):
+    if _photos_class(win) and (
+        _title_is_photos_media(title) or _title_is_photos_media(initial)
+    ):
         return True
     pid = int(win.get("pid") or 0)
     if pid and any(marker in _pid_cmdlines(pid) for marker in PHOTOS_CMDLINE_MARKERS):
@@ -619,6 +669,8 @@ def is_photos_media(win: dict) -> bool:
     if _class_is_chromium(cls) or _class_is_chromium(initial_cls):
         if pid and pid in _photos_chromium_tree_pids():
             return True
+    if is_gtk_image(win):
+        return _spawned_by_photos(win)
     return False
 
 
@@ -1569,6 +1621,8 @@ def skip_dp_tile(win: dict) -> bool:
     ws = str((win.get("workspace") or {}).get("name") or "")
     if ws.startswith("special"):
         return True
+    if "waybar-popover" in _window_tags(win):
+        return True
     if any(s in cls for s in SKIP_CLASS_SUBSTR):
         return True
     xdg = str(win.get("xdgTag") or win.get("xdg_tag") or "").lower()
@@ -1696,10 +1750,7 @@ def watch() -> None:
                     continue
 
                 def _run(a: str = addr) -> None:
-                    try:
-                        place_new_window(a)
-                    except Exception:
-                        pass
+                    place_new_window(a)
 
                 threading.Thread(target=_run, daemon=True).start()
                 continue

@@ -1,19 +1,114 @@
 #!/usr/bin/env python3
-"""Neuronix calendar popover — layer-shell so hyprbars never paints a title bar."""
+"""Neuronix calendar popover — GNOME Clock-style month view under Waybar."""
 from __future__ import annotations
 
+import calendar as _cal
 import datetime as _dt
 import os
+import subprocess
 import sys
+
+if not os.environ.get("NEURONIX_CLICK_XY"):
+    try:
+        os.environ["NEURONIX_CLICK_XY"] = (
+            subprocess.check_output(["hyprctl", "cursorpos"], text=True, timeout=1)
+            .replace(" ", "")
+            .strip()
+        )
+    except Exception:
+        pass
 
 import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("GtkLayerShell", "0.1")
-from gi.repository import Gtk, Gdk  # noqa: E402
+from gi.repository import Gtk, Gdk, GLib, Pango  # noqa: E402
 
 sys.path.insert(0, "/usr/share/neuronix")
-from neuronix_choice_dialog import center_layer_window, pack_title_with_close  # noqa: E402
+sys.path.insert(0, os.path.expanduser("~/.local/share/neuronix"))
+from neuronix_choice_dialog import (  # noqa: E402
+    _apply_css,
+    _theme_chrome,
+    center_layer_window,
+    freeze_click_xy,
+    pack_title_with_close,
+)
+
+
+CSS_EXTRA = """
+label.neuronix-cal-heading {{
+  color: {fg};
+  font-size: 15px;
+  font-weight: 700;
+}}
+label.neuronix-cal-weekday {{
+  color: {muted};
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 36px;
+}}
+button.neuronix-cal-nav {{
+  background-color: {tile};
+  background-image: none;
+  color: {fg};
+  border: 1px solid {btn_border};
+  border-radius: 8px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  font-size: 16px;
+  font-weight: 700;
+}}
+button.neuronix-cal-nav:hover {{
+  background-color: {btn_hover};
+}}
+button.neuronix-day {{
+  background-color: transparent;
+  background-image: none;
+  color: {fg};
+  border: none;
+  border-radius: 999px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+}}
+button.neuronix-day:hover {{
+  background-color: {tile};
+}}
+button.neuronix-day.other-month {{
+  color: {muted};
+  opacity: 0.55;
+}}
+button.neuronix-day.today {{
+  background-color: {accent};
+  color: {on_accent};
+  font-weight: 700;
+}}
+button.neuronix-day.today:hover {{
+  background-color: {accent};
+  opacity: 0.92;
+}}
+button.neuronix-day.selected:not(.today) {{
+  background-color: {tile};
+  font-weight: 600;
+}}
+button.neuronix-today-link {{
+  background-color: {tile};
+  background-image: none;
+  color: {fg};
+  border: 1px solid {btn_border};
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 36px;
+}}
+button.neuronix-today-link:hover {{
+  background-color: {btn_hover};
+}}
+"""
 
 
 def _notify(text: str) -> None:
@@ -24,139 +119,238 @@ def _notify(text: str) -> None:
         if not Notify.is_initted():
             Notify.init("Neuronix")
         n = Notify.Notification.new("Calendar", text, None)
-        n.set_timeout(4000)
+        n.set_timeout(3500)
         n.show()
     except Exception:
         pass
 
 
 def main() -> int:
+    freeze_click_xy()
     today = _dt.date.today()
+    view = {"year": today.year, "month": today.month}
+    selected = {"date": today}
+
+    chrome = _theme_chrome()
+    _apply_css()
+    extra = Gtk.CssProvider()
+    extra.load_from_data(CSS_EXTRA.format(**chrome).encode("utf-8"))
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(),
+        extra,
+        Gtk.STYLE_PROVIDER_PRIORITY_USER,
+    )
+
+    GLib.set_prgname("neuronix-calendar")
+    try:
+        Gdk.set_program_class("neuronix-calendar")
+    except Exception:
+        pass
+
+    panel_w, panel_h = 360, 420
     win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
     win.set_title("Calendar")
     win.set_resizable(False)
     win.set_decorated(False)
-    win.set_default_size(440, 360)
+    win.set_default_size(panel_w, panel_h)
+    win.set_size_request(panel_w, panel_h)
+    win.get_style_context().add_class("neuronix-choice")
+    center_layer_window(win, panel_w, panel_h)
 
-    center_layer_window(win, 440, 360)
-
-    css = Gtk.CssProvider()
-    css.load_from_data(
-        b"""
-        window {
-          background-color: #2e2e2e;
-          border: 1px solid #505050;
-          border-radius: 10px;
-          color: #f5f5f5;
-        }
-        label.today-label {
-          color: #f5f5f5;
-          font-size: 16px;
-          font-weight: 600;
-          padding: 2px 0 6px 0;
-        }
-        calendar {
-          background-color: #2e2e2e;
-          color: #f5f5f5;
-          font-size: 16px;
-          min-width: 400px;
-        }
-        /* Solid Neuronix red chip on the selected / current day only */
-        calendar:selected {
-          background-color: #e02020;
-          color: #ffffff;
-          border-radius: 999px;
-          font-weight: bold;
-        }
-        button {
-          background-color: #3a3a3a;
-          color: #f5f5f5;
-          border: none;
-          border-radius: 8px;
-          padding: 10px 22px;
-          margin: 2px;
-          font-size: 14px;
-          min-width: 96px;
-        }
-        button:hover { background-color: #4a4a4a; }
-        button.neuronix-xclose {
-          background-color: transparent;
-          background-image: none;
-          color: #f5f5f5;
-          border: none;
-          border-radius: 8px;
-          box-shadow: none;
-          padding: 0;
-          margin: 0;
-          min-width: 32px;
-          min-height: 32px;
-          font-size: 22px;
-          font-weight: 700;
-        }
-        button.neuronix-xclose:hover {
-          background-color: #e02020;
-          color: #ffffff;
-        }
-        """
-    )
-    Gtk.StyleContext.add_provider_for_screen(
-        Gdk.Screen.get_default(), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-    )
-
-    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-    box.set_margin_top(10)
-    box.set_margin_bottom(16)
-    box.set_margin_start(16)
-    box.set_margin_end(8)
-    win.add(box)
+    outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    outer.get_style_context().add_class("neuronix-root")
+    outer.set_hexpand(True)
+    outer.set_vexpand(True)
+    win.add(outer)
 
     def _close(*_a):
         Gtk.main_quit()
         return False
 
-    label = Gtk.Label(label=today.strftime("Today is %A, %B %d %Y"))
-    label.get_style_context().add_class("today-label")
-    label.set_xalign(0.0)
-    pack_title_with_close(box, label, _close)
+    title = Gtk.Label(label="Calendar", xalign=0.0)
+    title.get_style_context().add_class("neuronix-title")
+    pack_title_with_close(outer, title, _close)
 
-    cal = Gtk.Calendar()
-    cal.set_display_options(
-        Gtk.CalendarDisplayOptions.SHOW_HEADING
-        | Gtk.CalendarDisplayOptions.SHOW_DAY_NAMES
+    sub = Gtk.Label(label=today.strftime("%A, %B ") + str(today.day) + today.strftime(" %Y"), xalign=0.0)
+    sub.get_style_context().add_class("neuronix-subtitle")
+    outer.pack_start(sub, False, False, 0)
+
+    # Month navigation — GNOME Clock style
+    nav = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+    prev_btn = Gtk.Button(label="‹")
+    prev_btn.get_style_context().add_class("neuronix-cal-nav")
+    next_btn = Gtk.Button(label="›")
+    next_btn.get_style_context().add_class("neuronix-cal-nav")
+    month_lbl = Gtk.Label(xalign=0.0)
+    month_lbl.get_style_context().add_class("neuronix-cal-heading")
+    month_lbl.set_hexpand(True)
+    month_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+    nav.pack_start(month_lbl, True, True, 0)
+    nav.pack_end(next_btn, False, False, 0)
+    nav.pack_end(prev_btn, False, False, 0)
+    outer.pack_start(nav, False, False, 0)
+
+    # Weekday headers (locale Monday-first when calendar.setfirstweekday says so)
+    firstweekday = _cal.MONDAY
+    _cal.setfirstweekday(firstweekday)
+    weekdays = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+    weekdays.set_homogeneous(True)
+    names = ["M", "T", "W", "T", "F", "S", "S"]
+    # Prefer short locale names when available
+    try:
+        loc_names = list(_cal.day_abbr)
+        # day_abbr is Mon..Sun when Monday-first display
+        names = [loc_names[(firstweekday + i) % 7][:1].upper() for i in range(7)]
+    except Exception:
+        pass
+    for name in names:
+        lbl = Gtk.Label(label=name)
+        lbl.get_style_context().add_class("neuronix-cal-weekday")
+        lbl.set_halign(Gtk.Align.CENTER)
+        weekdays.pack_start(lbl, True, True, 0)
+    outer.pack_start(weekdays, False, False, 0)
+
+    grid = Gtk.Grid()
+    grid.set_column_homogeneous(True)
+    grid.set_row_homogeneous(True)
+    grid.set_column_spacing(2)
+    grid.set_row_spacing(2)
+    grid.set_hexpand(True)
+    grid.set_vexpand(True)
+    outer.pack_start(grid, True, True, 0)
+
+    day_buttons: list[Gtk.Button] = []
+
+    def _shift_month(delta: int) -> None:
+        m = view["month"] + delta
+        y = view["year"]
+        while m < 1:
+            m += 12
+            y -= 1
+        while m > 12:
+            m -= 12
+            y += 1
+        view["year"], view["month"] = y, m
+        _rebuild()
+
+    def _go_today(*_a) -> None:
+        view["year"], view["month"] = today.year, today.month
+        selected["date"] = today
+        _rebuild()
+
+    def _pick(day: _dt.date) -> None:
+        selected["date"] = day
+        view["year"], view["month"] = day.year, day.month
+        _notify(day.strftime("%A, %B ") + str(day.day) + day.strftime(" %Y"))
+        _rebuild()
+        # Soft close after picking — GNOME popover feel
+        GLib.timeout_add(180, _close)
+
+    def _rebuild() -> None:
+        month_lbl.set_text(_dt.date(view["year"], view["month"], 1).strftime("%B %Y"))
+        for child in list(grid.get_children()):
+            grid.remove(child)
+        day_buttons.clear()
+
+        weeks = _cal.Calendar(firstweekday).monthdatescalendar(view["year"], view["month"])
+        for r, week in enumerate(weeks):
+            for c, day in enumerate(week):
+                btn = Gtk.Button(label=str(day.day))
+                btn.set_relief(Gtk.ReliefStyle.NONE)
+                btn.set_focus_on_click(False)
+                ctx = btn.get_style_context()
+                ctx.add_class("neuronix-day")
+                if day.month != view["month"]:
+                    ctx.add_class("other-month")
+                if day == today:
+                    ctx.add_class("today")
+                if day == selected["date"] and day != today:
+                    ctx.add_class("selected")
+                btn.connect("clicked", lambda _b, d=day: _pick(d))
+                grid.attach(btn, c, r, 1, 1)
+                day_buttons.append(btn)
+        grid.show_all()
+
+    prev_btn.connect("clicked", lambda *_: _shift_month(-1))
+    next_btn.connect("clicked", lambda *_: _shift_month(1))
+
+    footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    today_link = Gtk.Button(label="Today")
+    today_link.get_style_context().add_class("neuronix-today-link")
+    today_link.set_halign(Gtk.Align.START)
+    today_link.connect("clicked", _go_today)
+
+    configure = Gtk.Button(label="Configure…")
+    configure.get_style_context().add_class("neuronix-today-link")
+    configure.set_halign(Gtk.Align.END)
+    configure.set_tooltip_text("Date & Time settings")
+
+    def _open_configure(*_a) -> None:
+        # Launch Date & Time menu under the same Waybar click, then close calendar.
+        dt = None
+        for cand in (
+            os.path.expanduser("~/.local/bin/neuronix-datetime"),
+            "/usr/local/bin/neuronix-datetime",
+            "neuronix-datetime",
+        ):
+            if cand == "neuronix-datetime" or (os.path.isfile(cand) and os.access(cand, os.X_OK)):
+                dt = cand
+                break
+        if not dt:
+            _close()
+            return
+        env = os.environ.copy()
+        local = os.path.expanduser("~/.local/bin")
+        env["PATH"] = f"{local}:/usr/local/bin:/usr/bin:/bin:" + env.get("PATH", "")
+        run = [
+            "systemd-run",
+            "--user",
+            "--collect",
+            "--quiet",
+            "--property=KillMode=process",
+        ]
+        for key in (
+            "WAYLAND_DISPLAY",
+            "XDG_RUNTIME_DIR",
+            "HYPRLAND_INSTANCE_SIGNATURE",
+            "DBUS_SESSION_BUS_ADDRESS",
+            "DISPLAY",
+            "PATH",
+            "HOME",
+            "NEURONIX_CLICK_XY",
+            "XDG_CURRENT_DESKTOP",
+        ):
+            val = env.get(key)
+            if val:
+                run.append(f"--setenv={key}={val}")
+        run.extend(["--", dt])
+        try:
+            r = subprocess.run(run, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if r.returncode != 0:
+                raise RuntimeError("systemd-run failed")
+        except Exception:
+            subprocess.Popen(
+                [dt],
+                start_new_session=True,
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        GLib.idle_add(_close)
+
+    configure.connect("clicked", _open_configure)
+    footer.pack_start(today_link, False, False, 0)
+    footer.pack_end(configure, False, False, 0)
+    outer.pack_start(footer, False, False, 0)
+
+    win.connect(
+        "key-press-event",
+        lambda _w, e: _close() if e.keyval == Gdk.KEY_Escape else False,
     )
-
-    def _mark_today(*_a):
-        cal.clear_marks()
-        y, m, _d = cal.get_date()
-        if int(y) == today.year and int(m) + 1 == today.month:
-            cal.mark_day(today.day)
-            cal.select_day(today.day)
-
-    cal.select_month(today.month - 1, today.year)
-    cal.select_day(today.day)
-    cal.mark_day(today.day)
-    cal.connect("month-changed", _mark_today)
-    box.pack_start(cal, True, True, 0)
-
-    buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-    buttons.set_halign(Gtk.Align.END)
-    cancel = Gtk.Button(label="Cancel")
-    ok = Gtk.Button(label="OK")
-    buttons.pack_start(cancel, False, False, 0)
-    buttons.pack_start(ok, False, False, 0)
-    box.pack_start(buttons, False, False, 0)
-
-    def _ok(*_a):
-        y, m, d = cal.get_date()
-        picked = _dt.date(int(y), int(m) + 1, int(d))
-        _notify(f"Selected: {picked.isoformat()}")
-        _close()
-
-    cancel.connect("clicked", _close)
-    ok.connect("clicked", _ok)
-    win.connect("key-press-event", lambda _w, e: _close() if e.keyval == Gdk.KEY_Escape else False)
     win.connect("destroy", _close)
 
+    _rebuild()
+    center_layer_window(win, panel_w, panel_h)
     win.show_all()
     win.present()
     Gtk.main()
@@ -165,16 +359,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     os.environ.setdefault("XDG_CURRENT_DESKTOP", "Hyprland")
-    try:
-        raise SystemExit(main())
-    except Exception as exc:
-        print(f"neuronix-calendar: {exc}", file=sys.stderr)
-        os.execvp(
-            "zenity",
-            [
-                "zenity",
-                "--calendar",
-                "--title=Calendar",
-                f"--text=Today is {_dt.date.today():%A, %B %d %Y}",
-            ],
-        )
+    raise SystemExit(main())

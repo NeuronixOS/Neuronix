@@ -1,0 +1,63 @@
+#!/bin/sh
+# Capture a screenshot (grim + slurp), copy to clipboard, open in gtk-image.
+# Escape cancels region select (see neuronix-escape). No file is written on cancel.
+#
+# Usage: neuronix-screenshot [region|region-file|full]
+set -eu
+
+mode="${1:-region}"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+if [ -n "${HOME:-}" ] && [ -d "${HOME}/.local/bin" ]; then
+	export PATH="${HOME}/.local/bin:${PATH}"
+fi
+
+pictures="${HOME}/Pictures"
+if command -v xdg-user-dir >/dev/null 2>&1; then
+	pictures="$(xdg-user-dir PICTURES 2>/dev/null || echo "$pictures")"
+fi
+mkdir -p "$pictures"
+f="$pictures/Screenshot-$(date +%Y-%m-%d_%H-%M-%S).png"
+copy=1
+
+_region() {
+	# slurp exits non-zero on Escape / right-click cancel.
+	region="$(slurp)" || return 1
+	[ -n "$region" ] || return 1
+	grim -g "$region" "$f"
+}
+
+case "$mode" in
+full)
+	grim "$f"
+	;;
+region-file)
+	copy=0
+	_region || exit 0
+	;;
+region | *)
+	_region || exit 0
+	;;
+esac
+
+[ -f "$f" ] || exit 0
+
+if [ "$copy" -eq 1 ] && command -v wl-copy >/dev/null 2>&1; then
+	wl-copy <"$f"
+fi
+
+if command -v notify-send >/dev/null 2>&1; then
+	notify-send -i "$f" "Screenshot" "Saved $f" >/dev/null 2>&1 || true
+fi
+
+_open_image() {
+	if command -v neuronix-launch >/dev/null 2>&1; then
+		neuronix-launch gtk-image "$f"
+	else
+		gtk-image "$f"
+	fi
+}
+
+if command -v gtk-image >/dev/null 2>&1; then
+	_open_image >/dev/null 2>&1 &
+fi
+exit 0

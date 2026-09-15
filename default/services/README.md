@@ -5,8 +5,8 @@ Stock services staged via `share/merge-personalize-dropins.sh`
 
 A service directory with `SCOPE=desktop` is skipped when the overlay is a
 server tree (`personalize-server`, or `NEURONIX_LIVE_HOSTNAME=*-server`).
-Calamares **Server** profile also strips remux / screensaver / gtksync if they
-were on the live squashfs. Active-User and HostReporter stay.
+Calamares **Server** profile also strips remux / screensaver / gtksync /
+activeuser (and `ydotool`) if they were on the live squashfs. HostReporter stays.
 
 Each `<name>/` → `/usr/local/lib/neuronix/services/<name>/`. Chroot hook
 `9930-neuronix-personalize-services.hook.chroot` runs each `install.sh`.
@@ -16,5 +16,5 @@ Each `<name>/` → `/usr/local/lib/neuronix/services/<name>/`. Chroot hook
 | gtksync | desktop | Waybar `custom/gtk-sync` status/menu for gtk-sync-client |
 | screensaver | desktop | GTK4 idle screensaver (`neuronix-screensaver-idle` user unit) |
 
-KvNix desktop personalize adds remux (desktop) plus activeuser/hostreporter
+KvNix desktop personalize adds remux and activeuser (desktop) plus hostreporter
 (both profiles). See `personalize.example/services/` for the drop-in contract.

@@ -38,10 +38,25 @@ ACTIVITY_TYPES = frozenset(
         ecodes.EV_KEY,
         ecodes.EV_REL,
         ecodes.EV_ABS,
-        ecodes.EV_MSC,
     }
     if evdev
     else ()
+)
+
+# Synthetic / firmware nodes that fire without a person at the desk.
+# Active-User jiggles the pointer via ydotoold about once a second — that
+# must not count as user activity or the screensaver never starts.
+SKIP_NAME_SUBSTR = (
+    "ydotool",
+    "uinput",
+    "virtual device",
+    "video bus",
+    "power button",
+    "sleep button",
+    "intel hid",
+    "wmi hotkey",
+    "hd audio",
+    "pc speaker",
 )
 
 
@@ -66,11 +81,43 @@ def session_env() -> dict[str, str]:
     """Environment for launching the GTK screensaver in the graphical session."""
     env = os.environ.copy()
     uid = os.getuid()
-    env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{uid}")
-    # User units often lack WAYLAND_DISPLAY; common Hyprland / wlroots default.
-    env.setdefault("WAYLAND_DISPLAY", "wayland-0")
+    runtime = Path(env.get("XDG_RUNTIME_DIR") or f"/run/user/{uid}")
+    env.setdefault("XDG_RUNTIME_DIR", str(runtime))
+    display = env.get("WAYLAND_DISPLAY", "")
+    socket = runtime / display if display else None
+    if not display or not socket or not socket.exists():
+        for path in sorted(runtime.glob("wayland-*")):
+            if path.is_socket() and not path.name.endswith(".lock"):
+                env["WAYLAND_DISPLAY"] = path.name
+                break
+        else:
+            env.setdefault("WAYLAND_DISPLAY", "wayland-1")
     env.setdefault("DISPLAY", ":0")
     return env
+
+
+def skip_device_name(name: str) -> bool:
+    lower = name.lower()
+    return any(part in lower for part in SKIP_NAME_SUBSTR)
+
+
+def is_keyboard_or_pointer(dev: InputDevice) -> bool:
+    """True for real keyboards, mice, and touchpads — not LED/hotkey-only nodes."""
+    caps = dev.capabilities(verbose=False)
+    keys = set(caps.get(ecodes.EV_KEY, ()))
+    rels = set(caps.get(ecodes.EV_REL, ()))
+    abses = set(caps.get(ecodes.EV_ABS, ()))
+    if ecodes.KEY_A in keys or ecodes.KEY_ENTER in keys:
+        return True
+    if ecodes.REL_X in rels or ecodes.REL_Y in rels:
+        return True
+    if ecodes.ABS_X in abses and (
+        ecodes.BTN_LEFT in keys
+        or ecodes.BTN_TOUCH in keys
+        or ecodes.BTN_TOOL_FINGER in keys
+    ):
+        return True
+    return False
 
 
 class IdleWatcher:
@@ -108,8 +155,6 @@ class IdleWatcher:
             self._proc = subprocess.Popen(
                 self.cmd,
                 env=session_env(),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
             )
             logging.info("screensaver started (pid %s)", self._proc.pid)
         except OSError as exc:
@@ -126,43 +171,91 @@ class IdleWatcher:
         self._proc = None
         self.bump()
 
+    def _close_dev(self, fds: dict[int, InputDevice], fd: int, reason: str) -> None:
+        """Unplug / hangup: drop the fd so select() cannot busy-loop on it."""
+        dev = fds.pop(fd, None)
+        if dev is None:
+            return
+        logging.info(
+            "stop watching %s (%s): %s",
+            getattr(dev, "name", "?"),
+            getattr(dev, "path", "?"),
+            reason,
+        )
+        try:
+            dev.close()
+        except OSError:
+            pass
+        try:
+            self._devices.remove(dev)
+        except ValueError:
+            pass
+
+    def _open_one(self, path: str, fds: dict[int, InputDevice] | None) -> bool:
+        watched = {dev.path for dev in (fds.values() if fds is not None else self._devices)}
+        if path in watched:
+            return False
+        try:
+            dev = InputDevice(path)
+        except (OSError, PermissionError) as exc:
+            logging.debug("skip %s: %s", path, exc)
+            return False
+        if skip_device_name(dev.name):
+            logging.info("ignore synthetic/firmware: %s (%s)", dev.name, path)
+            dev.close()
+            return False
+        if not is_keyboard_or_pointer(dev):
+            logging.debug("ignore non-pointer/keyboard: %s (%s)", dev.name, path)
+            dev.close()
+            return False
+        self._devices.append(dev)
+        if fds is not None:
+            fds[dev.fd] = dev
+        logging.info("watching input: %s (%s)", dev.name, path)
+        return True
+
     def open_input_devices(self) -> int:
         if evdev is None:
             return 0
         opened = 0
         for path in list_devices():
-            try:
-                dev = InputDevice(path)
-            except (OSError, PermissionError) as exc:
-                logging.debug("skip %s: %s", path, exc)
-                continue
-            # Keyboards, mice, touchpads, tablets — not power buttons etc.
-            caps = dev.capabilities(verbose=False)
-            if ecodes.EV_KEY not in caps and ecodes.EV_REL not in caps and ecodes.EV_ABS not in caps:
-                dev.close()
-                continue
-            self._devices.append(dev)
-            opened += 1
-            logging.info("watching input: %s (%s)", dev.name, path)
+            if self._open_one(path, None):
+                opened += 1
         return opened
 
     def input_thread(self) -> None:
-        if not self._devices:
-            return
         fds = {dev.fd: dev for dev in self._devices}
+        last_scan = time.monotonic()
         while self._running:
+            now = time.monotonic()
+            if now - last_scan >= 2.0:
+                if evdev is not None:
+                    for path in list_devices():
+                        self._open_one(path, fds)
+                last_scan = now
+            if not fds:
+                time.sleep(0.5)
+                continue
             try:
                 ready, _, _ = select.select(list(fds.keys()), [], [], 0.5)
             except OSError:
-                break
+                for fd in list(fds):
+                    try:
+                        os.fstat(fd)
+                    except OSError:
+                        self._close_dev(fds, fd, "invalid fd")
+                continue
             for fd in ready:
-                dev = fds[fd]
+                if fd not in fds:
+                    continue
                 try:
-                    for event in dev.read():
+                    for event in fds[fd].read():
                         if event.type in ACTIVITY_TYPES:
                             self.bump()
-                except (BlockingIOError, OSError):
+                except BlockingIOError:
                     continue
+                except OSError as exc:
+                    self._close_dev(fds, fd, str(exc))
 
     def run(self) -> int:
         n = self.open_input_devices()

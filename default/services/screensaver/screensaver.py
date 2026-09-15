@@ -14,8 +14,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import random
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -36,6 +38,48 @@ except (ValueError, ImportError):
 
 APP_ID = "org.neuronix.Screensaver"
 FPS = 30
+LAYER_NS = "neuronix-screensaver"
+
+
+def using_layer_shell() -> bool:
+    return bool(HAS_LAYER_SHELL and LayerShell.is_supported())
+
+
+def hypr_raise_screensaver() -> bool:
+    """HDMI floats stay above a normal fullscreen window; restack the saver."""
+    try:
+        clients = json.loads(
+            subprocess.check_output(["hyprctl", "-j", "clients"], text=True, timeout=2)
+        )
+    except (
+        OSError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        json.JSONDecodeError,
+    ):
+        return True
+    batch: list[str] = []
+    for win in clients:
+        cls = str(win.get("class") or "")
+        title = str(win.get("title") or "")
+        if cls != APP_ID and "screensaver" not in cls.lower() and title != "Screensaver":
+            continue
+        addr = win.get("address")
+        if not addr:
+            continue
+        target = str(addr) if str(addr).startswith("address:") else f"address:{addr}"
+        batch.append(f"dispatch alterzorder top,{target}")
+    if batch:
+        try:
+            subprocess.run(
+                ["hyprctl", "--batch", "; ".join(batch)],
+                timeout=2,
+                check=False,
+                capture_output=True,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -366,10 +410,12 @@ class SaverWindow(Gtk.Window):
     def _place_on_monitor(self, monitor: Gdk.Monitor) -> None:
         geo = monitor.get_geometry()
         self.set_default_size(geo.width, geo.height)
-        if HAS_LAYER_SHELL and LayerShell.is_supported():
+        if using_layer_shell():
             LayerShell.init_for_window(self)
             LayerShell.set_layer(self, LayerShell.Layer.OVERLAY)
             LayerShell.set_monitor(self, monitor)
+            if hasattr(LayerShell, "set_namespace"):
+                LayerShell.set_namespace(self, LAYER_NS)
             for edge in (
                 LayerShell.Edge.TOP,
                 LayerShell.Edge.BOTTOM,
@@ -381,9 +427,10 @@ class SaverWindow(Gtk.Window):
             LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.EXCLUSIVE)
 
     def _on_map(self, *_args) -> None:
-        if not (HAS_LAYER_SHELL and LayerShell.is_supported()):
+        if not using_layer_shell():
             # One fullscreen surface per monitor (GTK4 Wayland).
             self.fullscreen_on_monitor(self.monitor)
+            GLib.idle_add(hypr_raise_screensaver)
         blank = Gdk.Cursor.new_from_name("none")
         self.set_cursor(blank)
         GLib.timeout_add(500, self._arm)
@@ -465,6 +512,8 @@ class ScreensaverApp(Gtk.Application):
 
         self._last_tick = time.monotonic()
         GLib.timeout_add(int(1000 / FPS), self._frame)
+        if not using_layer_shell():
+            GLib.timeout_add(400, hypr_raise_screensaver)
         return GLib.SOURCE_REMOVE
 
     def _frame(self) -> bool:

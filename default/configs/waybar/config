@@ -23,7 +23,7 @@
   "custom/menu": {
     "format": "\uf0c9",
     "tooltip": "Applications",
-    "on-click": "fuzzel"
+    "on-click": "fuzzel --anchor top-left --x-margin 8 --y-margin 40"
   },
   "custom/gtk-sync": {
     "exec": "$HOME/.config/waybar/gtk-sync-status.sh",
@@ -31,7 +31,7 @@
     "interval": 3,
     "format": "{}",
     "tooltip": true,
-    "on-click": "gtk-sync-menu",
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" gtk-sync-menu",
     "on-click-right": "$HOME/.config/waybar/gtk-sync-status.sh"
   },
   "hyprland/workspaces": {
@@ -50,8 +50,7 @@
       "\uf027",
       "\uf028"
     ],
-    "on-click": "neuronix-cava",
-    "on-click-right": "pavucontrol",
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click volume",
     "on-scroll-up": "neuronix-volume +5",
     "on-scroll-down": "neuronix-volume -5",
     "on-click-middle": "neuronix-volume mute-toggle"
@@ -60,19 +59,21 @@
     "format-wifi": "\uf1eb {signalStrength}%",
     "format-ethernet": "\uf1e6",
     "format-disconnected": "\uf071",
-    "on-click": "nm-connection-editor"
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click network"
   },
   "cpu": {
     "interval": 2,
     "format": "\uf2db {usage}%",
     "tooltip": true,
-    "on-click": "foot -T btop -a org.neuronix.btop btop"
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click cpu",
+    "on-click-right": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click btop"
   },
   "memory": {
     "interval": 2,
     "format": "\uf1c0 {percentage}%",
     "tooltip-format": "{used:0.1f} GiB / {total:0.1f} GiB",
-    "on-click": "foot -T btop -a org.neuronix.btop btop"
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click memory",
+    "on-click-right": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click btop"
   },
   "battery": {
     "format": "{icon} {capacity}%",
@@ -85,30 +86,14 @@
       "\uf241",
       "\uf240"
     ],
-    "on-click": "neuronix-power-settings"
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click battery"
   },
   "clock": {
     "interval": 30,
     "format": "{:%a %b %d  %I:%M %p}",
-    "tooltip-format": "<big>{:%A, %B %d %Y}</big>\n\n<tt>{calendar}</tt>",
-    "calendar": {
-      "mode": "month",
-      "weeks-pos": "right",
-      "on-scroll": 1,
-      "format": {
-        "months": "<b>{}</b>",
-        "days": "{}",
-        "weeks": "<span color='#888888'><b>W{}</b></span>",
-        "weekdays": "<b>{}</b>",
-        "today": "<span color='#e02020'><b><u>{}</u></b></span>"
-      }
-    },
-    "actions": {
-      "on-scroll-up": "shift_up",
-      "on-scroll-down": "shift_down"
-    },
-    "on-click": "neuronix-datetime calendar",
-    "on-click-right": "neuronix-datetime"
+    "tooltip": false,
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-datetime calendar",
+    "on-click-right": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-datetime"
   },
   "tray": {
     "spacing": 8

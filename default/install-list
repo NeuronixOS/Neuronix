@@ -95,7 +95,9 @@ python3-evdev # screensaver idle watcher (reads /dev/input)
 python3-cairo # screensaver GTK4 drawing
 python3-dbus # gtk-files FileManager1 shim (replaces Thunar daemon)
 gir1.2-gtklayershell-0.1 # Python/GTK layer-shell bindings (calendar / settings)
+gir1.2-gtk4layershell-1.0 # GTK4 layer-shell (screensaver overlay above HDMI floats)
 libgtk-layer-shell0 # Wayland layer-shell library
+libgtk4-layer-shell0 # GTK4 layer-shell runtime
 gir1.2-nm-1.0 # GObject introspection data for libnm
 papirus-icon-theme # Default icon theme (Papirus); folders recolored yellow in hook 999
 adwaita-icon-theme # Fallback icons for apps that expect Adwaita names
@@ -115,6 +117,8 @@ python3-google-auth # Google auth for gtk-meetings calendar import
 python3-google-auth-httplib2 # Google auth HTTP transport
 python3-google-auth-oauthlib # Google OAuth for gtk-meetings
 python3-googleapi # Google API client for gtk-meetings
+grim # Wayland screenshot utility (Print / Super+Shift+S)
+slurp # Region selector for grim screenshots (Esc cancels via neuronix-escape)
 # Daily apps: gtk-term / gtk-files / gtk-edit / gtk-image / gtk-video / gtk-calc (+ gtk-neurond Self Driving)
 # Keep foot/thunar/mousepad as emergency fallbacks if binaries missing
 foot # Fallback Wayland terminal
@@ -137,8 +141,6 @@ python3-pip # pip for gtk-neuron cursor-sdk (optional repair)
 
 # --- desktop ---
 # Hyprland session as shipped (keybinds + settings hub + hyprpm plugins)
-grim # Wayland screenshot utility (Print / Super+Shift+S)
-slurp # Region selector for grim screenshots
 wf-recorder # Screen recording (Ctrl+Alt+Shift+R in hyprland.conf)
 kanshi # Monitor hot-plug profiles for Wayland compositors
 cmake # Build hyprpm plugins (hyprbars, Hyprspace)

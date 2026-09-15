@@ -119,7 +119,7 @@ These daemons/apps are launched by `neuronix-hyprland-session-start.sh` (or Hypr
 | Video trimmer | **gtk-video** | |
 | Terminal | **gtk-term** | `Super+Enter` / `Super+T` |
 | Monitor layout | **nwg-displays** | `Super+Shift+M` |
-| Screenshot region | **grim** + **slurp** → **wl-clipboard** | `Super+Print` |
+| Screenshot region | **grim** + **slurp** → clipboard + **gtk-image** (Esc cancels) | `Print` / `Super+Shift+S` |
 | Brightness | **brightnessctl** | Fn keys |
 | Volume | **PipeWire** / **wpctl** | Fn keys |
 

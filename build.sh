@@ -271,6 +271,14 @@ regen_package_lists() {
 	_info "wrote ${_dim}${live_purge#"$REPO_ROOT/"}${_reset}"
 
 	rm -f "${CALAMARES_ETC}/neuronix-desktop-purge.list"
+
+	# Keep overlay includes.chroot Calamares lists aligned (setup also merges from
+	# share/, but --lists-only must refresh the recipe tree for inspection/sync).
+	local overlay_cal="${REPO_ROOT}/neuronix-iso/overlay/includes.chroot/etc/calamares"
+	if [[ -d "$overlay_cal" ]]; then
+		cp -a "$desktop_pkgs" "$server_pkgs" "$live_purge" "$overlay_cal/"
+		_info "synced ${_dim}neuronix-iso/overlay/includes.chroot/etc/calamares/${_reset} lists"
+	fi
 }
 
 main() {

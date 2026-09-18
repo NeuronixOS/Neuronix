@@ -57,7 +57,16 @@ def _matches(c: dict, needle: str) -> bool:
     n = needle.lower()
     cls = str(c.get("class") or "").lower()
     initial = str(c.get("initialClass") or "").lower()
-    return n in cls or n in initial or cls == n or initial == n
+    title = str(c.get("title") or "").lower()
+    initial_title = str(c.get("initialTitle") or "").lower()
+    return (
+        n in cls
+        or n in initial
+        or cls == n
+        or initial == n
+        or n in title
+        or n in initial_title
+    )
 
 
 def _waybar_height(mon_name: str, fallback: int = 32) -> int:
@@ -153,10 +162,8 @@ def _find_class(needle: str) -> dict | None:
 
 def _process_running(klass: str) -> bool:
     n = (klass or "").lower()
-    if "pavucontrol" in n:
-        return subprocess.run(["pgrep", "-x", "pavucontrol"], stdout=subprocess.DEVNULL).returncode == 0
-    if "nm-connection-editor" in n:
-        return subprocess.run(["pgrep", "-x", "nm-connection-editor"], stdout=subprocess.DEVNULL).returncode == 0
+    if "btop" in n or "org.neuronix.btop" in n:
+        return subprocess.run(["pgrep", "-x", "btop"], stdout=subprocess.DEVNULL).returncode == 0
     return False
 
 

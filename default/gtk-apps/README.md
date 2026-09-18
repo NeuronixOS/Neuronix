@@ -17,15 +17,17 @@ wrappers and `/usr/share/applications/` desktop files.
 | `gtk-theme/` | Shared theme data (`profiles.json`, python helpers). The Rust crate is **statically linked** into each app; this tree is still required for tooling and reference profiles. |
 | `gtk-sync/` | LAN file sync installer used by gtk-files (Setup Sync): `install.sh` / `uninstall.sh`, systemd units, and prebuilt `target/release/gtk-sync{,-client}` so setup works without cargo on the ISO. |
 | `gtk-neuron/` | AI **Self Driving** daemon (`gtk-neurond`), Cursor worker (`python/cursor_worker.py` + optional `.venv`), and credentials template. Also staged as `bin/gtk-neurond` on PATH. |
+| `hide/` | `NoDisplay` stubs (`thunar`, `yelp`) staged to `/usr/local/share/applications/` |
 | `skel-config/theme.toml` | Stock `~/.config/gtk-apps/theme.toml` when personalize does not supply configs/gtk-apps |
+
+Configs editing is in **hypr-settings** Appearance (not a separate gtk-configs app).
 
 Self Driving (ꔮ / Ctrl+D) is built into gtk-files, gtk-term, gtk-edit, gtk-image, and gtk-video. On first use, paste a Gemini / Claude / Cursor API key in the panel (or copy `gtk-neuron/examples/credentials.toml` to `~/.config/gtk-apps/gtk-neuron/credentials.toml`).
 
-Refresh from Devices after rebuilding apps:
+Refresh after rebuilding apps (from the GTK-Apps tree):
 
 ```bash
-~/Dropbox/Devices/GTK-Apps/syn-to-devices.sh
-# or: PROJECTS_ROOT=/path/to/projects DEVICES_GTK_APPS=/path/to/GTK-Apps ./syn-to-devices.sh
+PROJECTS_ROOT=/path/to/LinuxOS DEVICES_GTK_APPS=/path/to/GTK-Apps ./syn-to-devices.sh
 ```
 
 That script copies the default suite into this tree and optional extras into
@@ -40,7 +42,7 @@ this tree is staged.
 
 ISO skel ships:
 
-- `~/.config/mimeapps.list` — gtk-edit / gtk-image / gtk-files defaults
+- `~/.config/mimeapps.list` — gtk-edit / gtk-image / gtk-files / zathura / mpv / xarchiver / Chrome
 - `~/.config/xdg-terminals.list` — gtk-term
 - `~/.local/bin/x-terminal-emulator` → `/usr/local/bin/gtk-term-launch.sh`
 - chroot hook `1001-x-terminal-emulator` — Debian `update-alternatives`

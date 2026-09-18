@@ -4,7 +4,7 @@
 # Only what is required to:
 #   live     — boot the slim ISO into Hyprland + Calamares
 #   server   — after Server install: console + SSH + network (mostly live keepers)
-#   desktop  — after Desktop install: Hyprland session + settings hub tools
+#   desktop  — after Desktop install: Hyprland session + hypr-settings backends
 #   installer — Calamares on the live ISO
 #
 # Everything else belongs in personalize/install-list (append-only).
@@ -49,7 +49,7 @@ rsyslog # reliable system and kernel logging daemon
 fontconfig # generic font configuration library - support binaries
 fonts-cascadia-code # Cascadia Code monospace (gtk-edit default editor font)
 fonts-noto-color-emoji # Color emoji for gtk-edit and other GTK apps
-zip # Archiver for .zip files
+zip # Create ZIP archives (gtk-files Compress + xarchiver)
 gdisk # GPT fdisk text-mode partitioning tool
 dconf-cli # simple configuration storage system - utilities
 cron # Vixie cron — user crontab from default|personalize/configs/crontab/crontab.conf
@@ -75,7 +75,6 @@ mako-notifier # Lightweight notification daemon for Wayland
 pipewire # audio and video processing engine multimedia server
 pipewire-pulse # PipeWire PulseAudio daemon
 wireplumber # modular session / policy manager for PipeWire
-pavucontrol # PulseAudio / PipeWire volume control (Waybar + settings)
 cava # Console-based Audio Visualizer (Waybar sound click → SDL window)
 swayosd # On-screen volume / brightness / mute OSD (swayosd-server + client)
 sound-theme-freedesktop # System sounds (audio-volume-change beep for neuronix-volume)
@@ -84,22 +83,26 @@ mate-polkit # MATE polkit agent (Neuronix starts it with GDK_BACKEND=x11 — nat
 
 gnome-keyring # Session keyring service
 libpam-gnome-keyring # PAM module to unlock the keyring upon login
-zenity # GTK dialog boxes (Neuronix settings hub menus)
+zenity # GTK dialog boxes (Neuronix choice dialogs)
 libnotify-bin # sends desktop notifications
 wl-clipboard # Wayland clipboard copy/paste CLI
 xdg-desktop-portal # Desktop integration portal for sandboxed apps (Flatpak)
 xdg-desktop-portal-gtk # GTK portal backend for xdg-desktop-portal
-nm-connection-editor # NetworkManager connection editor (settings hub)
 python3-gi # Python 3 bindings for gobject-introspection
+python3-pyside6.qtcore # hypr-settings (Qt6 core)
+python3-pyside6.qtgui # hypr-settings (Qt6 gui)
+python3-pyside6.qtwidgets # hypr-settings (Qt6 widgets)
+python3-pyside6.qtcharts # hypr-settings battery charts
 python3-evdev # screensaver idle watcher (reads /dev/input)
-python3-cairo # screensaver GTK4 drawing
+python3-cairo # screensaver GTK4 drawing (pycairo)
+python3-gi-cairo # GI cairo marshalling — required for DrawingArea draw_func
 python3-dbus # gtk-files FileManager1 shim (replaces Thunar daemon)
 gir1.2-gtklayershell-0.1 # Python/GTK layer-shell bindings (calendar / settings)
 gir1.2-gtk4layershell-1.0 # GTK4 layer-shell (screensaver overlay above HDMI floats)
 libgtk-layer-shell0 # Wayland layer-shell library
 libgtk4-layer-shell0 # GTK4 layer-shell runtime
 gir1.2-nm-1.0 # GObject introspection data for libnm
-papirus-icon-theme # Default icon theme (Papirus); folders recolored yellow in hook 999
+papirus-icon-theme # Default icon theme (Papirus-Dark on dark chrome); folders recolored yellow in hook 999
 adwaita-icon-theme # Fallback icons for apps that expect Adwaita names
 libgtk-4-1 # GTK4 runtime for Neuronix gtk-apps (default/gtk-apps)
 gir1.2-gtk-4.0 # GTK4 GObject introspection (Python gtk-colors / suite apps)
@@ -120,15 +123,18 @@ python3-googleapi # Google API client for gtk-meetings
 grim # Wayland screenshot utility (Print / Super+Shift+S)
 slurp # Region selector for grim screenshots (Esc cancels via neuronix-escape)
 # Daily apps: gtk-term / gtk-files / gtk-edit / gtk-image / gtk-video / gtk-calc (+ gtk-neurond Self Driving)
-# Keep foot/thunar/mousepad as emergency fallbacks if binaries missing
-foot # Fallback Wayland terminal
+# Keep mousepad as an emergency editor fallback if gtk-edit is missing
 firefox-esr # Live-session browser (Desktop may add Chrome via Calamares)
-thunar # Fallback file manager
 gvfs # userspace virtual filesystem - GIO module
 gvfs-backends # userspace virtual filesystem - backends
 mousepad # Fallback text editor
 xfce4-power-manager # Power, sleep, and battery settings
+powertop # Diagnose power use (hypr-settings Battery → Power by process)
 brightnessctl # Backlight brightness control from keybinds
+xarchiver # Archive manager GUI (zip/tar/…; MIME default + Open With)
+unzip # Extract ZIP archives (gtk-files Extract + xarchiver)
+zathura # PDF / document viewer (mimeapps default)
+zathura-pdf-poppler # PDF support for zathura via poppler
 # Cursor Self Driving worker (venv ships prebuilt under gtk-apps/gtk-neuron/python/.venv)
 python3-venv # Create/repair Cursor SDK venv if needed
 python3-pip # pip for gtk-neuron cursor-sdk (optional repair)
@@ -140,7 +146,7 @@ python3-pip # pip for gtk-neuron cursor-sdk (optional repair)
 # neuronix-apply-server-profile.sh.
 
 # --- desktop ---
-# Hyprland session as shipped (keybinds + settings hub + hyprpm plugins)
+# Hyprland session as shipped (keybinds + settings panel + hyprpm plugins)
 wf-recorder # Screen recording (Ctrl+Alt+Shift+R in hyprland.conf)
 kanshi # Monitor hot-plug profiles for Wayland compositors
 cmake # Build hyprpm plugins (hyprbars, Hyprspace)
@@ -152,26 +158,20 @@ hyprland-dev # Hyprland headers for hyprpm plugins
 libpixman-1-dev # pixman headers required to compile hyprpm plugins
 libpango1.0-dev # pangocairo headers required to compile Hyprspace
 libcairo2-dev # Cairo headers (pangocairo) for hyprpm plugins
-nwg-displays # Monitor layout (settings hub Display)
-nwg-look # GTK theme/icons/cursors (settings hub Appearance)
 nwg-bar # Session / power quick-action bar (Ctrl+Alt+Delete)
-nwg-clipman # Clipboard history GUI (optional; launch from menu)
-xsettingsd # Xsettings daemon (nwg-look exports ~/.config/xsettingsd/)
-gparted # Partition editor (settings hub Disks)
+xsettingsd # Xsettings daemon (Appearance / gtk-theme bridge → ~/.config/xsettingsd/)
+gparted # Partition editor (settings panel Disks)
 baobab # Disk usage analyzer (GUI)
 gdebi # Install .deb packages with dependency resolution (GUI)
 hardinfo # System information and benchmarks (GUI)
 synaptic # Graphical package manager
-blueman # Bluetooth manager GUI (settings hub Bluetooth)
 imv # Wayland image viewer (mimeapps default)
 mpv # Lightweight media player (mimeapps default for video/audio)
 chromium # Debian Chromium (neuronix-chromium loads personalize browser-extensions)
 gnome-snapshot # Webcam photo/video (Cheese successor; Recommends: libcamera-ipa, libspa-0.2-libcamera)
-zathura # Minimalist document viewer
-zathura-pdf-poppler # PDF support for zathura via poppler
 gvfs-fuse # userspace virtual filesystem - fuse server
-dconf-editor # GTK keys (settings hub Advanced)
-system-config-printer # Printers (settings hub)
+dconf-editor # GTK keys (settings panel Advanced)
+system-config-printer # Printers (settings panel)
 mediainfo # command-line utility for reading information from audio/video files
 x265 # H.265/HEVC video stream encoder
 ffmpeg # Tools for transcoding, streaming and playing of multimedia files

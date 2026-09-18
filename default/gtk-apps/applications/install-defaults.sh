@@ -22,6 +22,7 @@ DESKTOPS=(
 	gtk-term.desktop
 	gtk-calc.desktop
 	gtk-colors.desktop
+	zathura.desktop
 )
 
 # Prefer system desktops staged by the ISO; fall back to this directory.
@@ -113,11 +114,70 @@ xdg-mime default gtk-files.desktop inode/mount-point 2>/dev/null || true
 xdg-mime default gtk-files.desktop x-directory/normal 2>/dev/null || true
 xdg-mime default gtk-files.desktop application/x-directory 2>/dev/null || true
 
+xdg-mime default zathura.desktop application/pdf 2>/dev/null || true
+xdg-mime default zathura.desktop application/x-pdf 2>/dev/null || true
+
+for mime in \
+	video/mp4 \
+	video/x-matroska \
+	video/webm \
+	video/quicktime \
+	video/x-msvideo
+do
+	xdg-mime default mpv.desktop "$mime" 2>/dev/null || true
+done
+
+for mime in \
+	audio/mpeg \
+	audio/mp4 \
+	audio/ogg \
+	audio/flac \
+	audio/x-flac \
+	audio/x-vorbis+ogg
+do
+	xdg-mime default mpv.desktop "$mime" 2>/dev/null || true
+done
+
+for mime in \
+	application/zip \
+	application/x-zip-compressed \
+	application/x-tar \
+	application/gzip \
+	application/x-compressed-tar
+do
+	xdg-mime default xarchiver.desktop "$mime" 2>/dev/null || true
+done
+
+_browser=""
+if [[ -f /usr/share/applications/neuronix-chrome.desktop ]]; then
+	_browser=neuronix-chrome.desktop
+elif [[ -f /usr/share/applications/google-chrome.desktop ]]; then
+	_browser=google-chrome.desktop
+fi
+if [[ -n "${_browser}" ]]; then
+	for mime in \
+		x-scheme-handler/http \
+		x-scheme-handler/https \
+		text/html \
+		x-scheme-handler/about \
+		x-scheme-handler/unknown
+	do
+		xdg-mime default "${_browser}" "$mime" 2>/dev/null || true
+	done
+fi
+
 # Hide vendor Thunar from menus; ISO also stages /usr/local/share/applications/thunar.desktop
 if [[ -f /usr/local/share/applications/thunar.desktop ]]; then
 	cp -a /usr/local/share/applications/thunar.desktop "$APP_DIR/thunar.desktop"
 elif [[ -f "$SCRIPT_DIR/../hide/thunar.desktop" ]]; then
 	cp -a "$SCRIPT_DIR/../hide/thunar.desktop" "$APP_DIR/thunar.desktop"
+fi
+
+# Hide GNOME Help (yelp) — pulled in as a recommend of baobab/etc.
+if [[ -f /usr/local/share/applications/yelp.desktop ]]; then
+	cp -a /usr/local/share/applications/yelp.desktop "$APP_DIR/yelp.desktop"
+elif [[ -f "$SCRIPT_DIR/../hide/yelp.desktop" ]]; then
+	cp -a "$SCRIPT_DIR/../hide/yelp.desktop" "$APP_DIR/yelp.desktop"
 fi
 
 printf '%s\n' 'gtk-term.desktop' >"$CONFIG_DIR/xdg-terminals.list"
@@ -154,8 +214,12 @@ echo ""
 echo "Installed GTK-Apps as defaults:"
 echo "  Text editor : gtk-edit.desktop"
 echo "  Image viewer: gtk-image.desktop"
-echo "  Video trimmer: gtk-video.desktop (launcher; mpv stays the default player)"
-echo "  File manager: gtk-files.desktop (FileManager1; Thunar hidden)"
+echo "  Video player: mpv.desktop (gtk-video stays a trimmer launcher)"
+echo "  Music player: mpv.desktop"
+echo "  PDF viewer  : zathura.desktop"
+echo "  Archives    : xarchiver.desktop"
+echo "  File manager: gtk-files.desktop (FileManager1)"
+echo "  Browser     : ${_browser:-unset}"
 echo "  Terminal    : gtk-term.desktop / gtk-term-launch.sh"
 echo "  Calculator  : gtk-calc.desktop (launcher only)"
 echo "  Colors      : gtk-colors.desktop (launcher only)"
@@ -164,6 +228,8 @@ echo "Verify:"
 echo "  xdg-mime query default text/plain"
 echo "  xdg-mime query default image/png"
 echo "  xdg-mime query default inode/directory"
+echo "  xdg-mime query default application/pdf"
+echo "  xdg-mime query default video/mp4"
 echo "  cat ~/.config/xdg-terminals.list"
 echo "  readlink -f \"\$(command -v x-terminal-emulator)\""
 echo "  gsettings get org.gnome.desktop.default-applications.terminal exec"

@@ -101,6 +101,8 @@ rm -f /usr/local/bin/gtk-* \
 	/usr/share/neuronix/neuronix-hyprland-session-env.sh \
 	/usr/share/neuronix/neuronix-wallpaper-hyprpaper.sh \
 	/usr/share/applications/neuronix-files.desktop \
+	/usr/share/applications/neuronix-settings.desktop \
+	/usr/share/applications/hypr-settings.desktop \
 	/usr/share/applications/neuronix-logout.desktop \
 	/usr/share/applications/neuronix-restart.desktop \
 	/usr/share/applications/neuronix-reboot.desktop \
@@ -111,6 +113,8 @@ rm -f /usr/local/bin/gtk-* \
 	/etc/xdg/xfce4/helpers.rc 2>/dev/null || true
 rm -rf /usr/local/share/dbus-1/services 2>/dev/null || true
 rm -f /usr/local/bin/neuronix-settings \
+	/usr/local/bin/neuronix-settings-panel \
+	/usr/local/bin/hypr-settings \
 	/usr/local/bin/neuronix-change-background \
 	/usr/local/bin/neuronix-desktop-rmb \
 	/usr/local/bin/neuronix-datetime \

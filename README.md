@@ -112,13 +112,13 @@ These daemons/apps are launched by `neuronix-hyprland-session-start.sh` (or Hypr
 |------|-----|--------------|
 | App launcher | **Fuzzel** | `Ctrl+Super`, `Super+A` |
 | Workspace overview | **Hyprspace** (4 persistent desktops) | `Super` (release alone) |
-| Settings hub | **neuronix-settings** (layer-shell card menu) | `Super+,` |
+| Settings | **hypr-settings** | `Super+,` / `Alt+Space` |
 | File manager | **gtk-files** | `Super+E` |
 | Text editor | **gtk-edit** | `Super+G` |
 | Image viewer | **gtk-image** | |
 | Video trimmer | **gtk-video** | |
 | Terminal | **gtk-term** | `Super+Enter` / `Super+T` |
-| Monitor layout | **nwg-displays** | `Super+Shift+M` |
+| Monitor layout | **hypr-settings** Displays | `Super+,` / `hypr-settings --displays` |
 | Screenshot region | **grim** + **slurp** → clipboard + **gtk-image** (Esc cancels) | `Print` / `Super+Shift+S` |
 | Brightness | **brightnessctl** | Fn keys |
 | Volume | **PipeWire** / **wpctl** | Fn keys |
@@ -134,39 +134,24 @@ Applied in `hyprland.conf`, `neuronix-hyprland-session-env.sh`, and `dbus-update
 | `QT_QPA_PLATFORM=wayland;xcb` | Qt apps (VLC, Kdenlive, …) |
 | `XDG_CURRENT_DESKTOP=Hyprland` | Session identity for apps and portals |
 | **PipeWire** + **wireplumber** | Audio in/out |
-| **NetworkManager** | Wi-Fi / Ethernet (`nm-connection-editor` from settings) |
+| **NetworkManager** | Wi-Fi / Ethernet (`hypr-settings` Wi‑Fi tab + Waybar network panel) |
 
-### Settings hub (`neuronix-settings`)
+### Settings (`hypr-settings`)
 
-Layer-shell card menu (shared `neuronix_choice_dialog.py`) — **no GNOME Control Center**. Each item launches a focused tool:
+System settings app for Hyprland (Wi‑Fi, Ethernet, Bluetooth, Displays, Sound, Battery, Apps, Appearance/configs, Screensaver, System, GTK-Sync, Date & Time, Keyboard). Opens with `Super+,`, `Alt+Space`, or the Waybar gear. Waybar volume/network/cpu/memory/battery/sync/clock/power keep their own popovers and menus. The power icon (right of battery) opens Log Out / Reboot / Shut Down. Appearance edits `~/configs` (former gtk-configs app). Screensaver configures the idle service under `default/services/screensaver`.
 
-| Category | App |
-|----------|-----|
-| Display | **nwg-displays** |
-| Network | **nm-connection-editor** |
-| Sound | **pavucontrol** |
-| Bluetooth | **blueman-manager** |
-| Appearance | **nwg-look** |
-| Background | **neuronix-change-background** (hyprpaper) |
-| Keyboard | **gtk-edit** → `~/.config/hypr/hyprland.conf` |
-| Power | **xfce4-power-manager** |
-| Printers | **system-config-printer** |
-| Disks | **gparted** |
-| Advanced | **dconf-editor** |
+Related tools still available directly: **neuronix-change-background**, **xfce4-power-manager**, **system-config-printer**, **gparted**, **baobab**, **dconf-editor**, **xarchiver**. Volume / Wi‑Fi / Bluetooth / Displays / Appearance live in **hypr-settings** (and Waybar quick panels for sound/network/cpu/memory/power). Do **not** ship separate GUIs for those (no pavucontrol / nm-connection-editor / blueman / nwg-look / nwg-displays / nwg-clipman / yelp / Dropbox).
 
 ### nwg-* tools (Debian packages — installed, not full nwg-shell)
 
-Neuronix ships the **nwg-* packages available in Debian Trixie**, not the full upstream nwg-shell stack (no nwg-panel / nwg-drawer in apt). Waybar + Fuzzel + Mako remain the primary shell chrome.
+Neuronix ships a **subset of nwg-* packages available in Debian Trixie**, not the full upstream nwg-shell stack (no nwg-panel / nwg-drawer in apt). Waybar + Fuzzel + Mako remain the primary shell chrome. Display layout, GTK appearance, and clipboard are handled by **hypr-settings** / **wl-clipboard** (not nwg-displays / nwg-look / nwg-clipman).
 
 | Package | Role | Auto-started? |
 |---------|------|---------------|
-| **nwg-displays** | Monitor resolution and layout | Via keybind / settings |
-| **nwg-look** | GTK theme, icons, cursors | Via settings |
-| **nwg-bar** | GTK quick-action button bar | No — launch from menu when needed |
-| **nwg-clipman** | Clipboard history GUI (cliphist) | No — launch when needed |
+| **nwg-bar** | GTK quick-action button bar | No — `Ctrl+Alt+Delete` / menu (Waybar power icon is the daily Log Out / Reboot / Shut Down menu) |
 | **nwg-hello** | greetd greeter UI | No — LightDM stays default; optional future use |
 
-Also installed: **kanshi** (monitor hot-plug profiles), **blueman**. Display tool **wdisplays** was replaced by **nwg-displays**.
+Also installed: **kanshi** (monitor hot-plug profiles).
 
 ### Problem apps (Layer C wrappers)
 
@@ -185,7 +170,7 @@ Live browser is **firefox-esr**.
 
 ### Primary daily apps (Layer B)
 
-**gtk-term** (terminal), **gtk-files** (files), **gtk-edit** (editor), **gtk-image** (images), and **gtk-video** (trimmer) are the Hyprland daily apps (binaries from `default/gtk-apps/`). foot / thunar / mousepad remain as package fallbacks.
+**gtk-term** (terminal), **gtk-files** (files), **gtk-edit** (editor), **gtk-image** (images), and **gtk-video** (trimmer) are the Hyprland daily apps (binaries from `default/gtk-apps/`). mousepad remains as an editor package fallback. Archives: **xarchiver** (+ gtk-files Extract/Compress). Power diagnostics: **powertop** via hypr-settings Battery.
 
 ### What this is *not*
 
@@ -343,7 +328,7 @@ The full install-list does **not** need per-app Hyprland rules. Compatibility is
 |-----|---------|
 | **audacity** | `audacity.desktop` → `neuronix-x11-app audacity` (wxWidgets / XWayland) |
 | **blender** | `blender.desktop` → `neuronix-x11-app blender` (GPU / XWayland) |
-| **Settings** | `neuronix-settings` hub (nwg-displays, nm-connection-editor, nwg-look, xfce4-power-manager, …) |
+| **Settings** | `hypr-settings` |
 
 Shared launcher: `/usr/local/bin/neuronix-x11-app` runs `GDK_BACKEND=x11` for apps that refuse native Wayland.
 
@@ -359,10 +344,10 @@ Shared launcher: `/usr/local/bin/neuronix-x11-app` runs `GDK_BACKEND=x11` for ap
 
 | Layer | Apps |
 |-------|------|
-| **B** default | gtk-term, gtk-files, gtk-edit, gtk-calc, gtk-image, gtk-video, imv, zathura, xarchiver, gparted, synaptic, remmina, kicad, mpv, gimp, pavucontrol, deskflow, … |
+| **B** default | gtk-term, gtk-files, gtk-edit, gtk-calc, gtk-image, gtk-video, imv, zathura, xarchiver, powertop, gparted, synaptic, remmina, kicad, mpv, gimp, deskflow, … |
 | **C1** x11 | audacity |
 | **C3** + **D** GPU | blender, kdenlive, openshot-qt, handbrake, vlc, smplayer |
-| **native** | waybar, fuzzel, mako-notifier, nwg-displays, nwg-bar, nwg-clipman, blueman, kanshi |
+| **native** | waybar, fuzzel, mako-notifier, nwg-bar, kanshi, hypr-settings |
 
 Run [`validate-apps-hyprland.sh`](neuronix-iso/packages/validate-apps-hyprland.sh) before building to verify overlay files and layer categorization. Add `--smoke` on a Hyprland host to version-check representative apps.
 
@@ -550,9 +535,9 @@ Root: `neuronix-iso/overlay/includes.chroot/`
 Notable areas:
 
 - **Session:** `usr/share/neuronix/neuronix-hyprland-session*.sh`, `usr/share/wayland-sessions/neuronix-hyprland.desktop`
-- **Skel desktop:** `etc/skel/.config/hypr/`, `waybar/`, `fuzzel/`, `mako/`, GTK, portals
+- **Stock desktop configs:** `default/configs/` (hypr, waybar, fuzzel, mako, GTK, …) staged to `etc/skel/configs` by `share/merge-personalize-dropins.sh` (`personalize/configs` overlays). Waybar power: `custom/power` → `neuronix-waybar-click power` → `neuronix_quick_settings.py` (Log Out / Reboot / Shut Down) → `neuronix-session-action`.
 - **LightDM:** `etc/lightdm/` (live autologin, Hyprland session, greeter)
-- **Helpers:** `usr/local/bin/neuronix-*` (settings, launchers, X11 wrappers, Calamares live)
+- **Helpers:** `usr/local/bin/neuronix-*` (settings, launchers, X11 wrappers, Calamares live, `neuronix-waybar-click`, `neuronix-session-action`) plus `usr/share/neuronix/neuronix_quick_settings.py`
 - **APT:** `etc/apt/sources.list.d/neuronix-backports.list`, `preferences.d/neuronix-backports-kernel`
 - **SSH live:** `etc/ssh/`, systemd prep units
 - **Desktop entries:** Audacity/Blender wrappers, Neuronix settings apps
@@ -561,17 +546,45 @@ Notable areas:
 
 | Hook | Role |
 |------|------|
+| `989` | Live autologin group |
 | `990` | Live SSH |
 | `991` chmod | Fix +x on helper scripts |
+| `991` calamares-live-prep | Calamares live desktop icon / prep |
 | `991` binary / `992` chroot | GRUB branding |
+| `9925`–`9927` | Personalize SSH / crontab / flatpak (when personalize present) |
+| `9928` | **Purge `yelp` (GNOME Help)** — baobab recommends it; we do not ship a help browser |
+| `9930`–`9933` | Personalize services install / system-config links / git restore |
 | `993` | Enable bluetooth |
 | `994` | `dconf update` |
 | `9945` **`.disabled`** | Cursor on live |
 | `995` | contrib/non-free |
 | `996` **`.disabled`** | Chrome on live |
 | `997` | **trixie-backports:** kernel ~7.0 + Hyprland stack |
+| `998` | Hyprspace plugin |
 | `999` | Icon cache + perms |
 | `1000` | `x-www-browser` alternatives |
+| `1001` | `x-terminal-emulator` → gtk-term |
+
+#### Menu hides (`default/gtk-apps/hide/`)
+
+`setup.sh` stages these into `/usr/local/share/applications/` (`NoDisplay` / `Hidden`) so vendor menus stay clean:
+
+| Stub | Why |
+|------|-----|
+| `thunar.desktop` | Folders open in **gtk-files** |
+| `yelp.desktop` | GNOME **Help** not used (hook `9928` also purges the package) |
+
+#### Intentionally not on the ISO
+
+| Item | Notes |
+|------|-------|
+| **yelp** / Help | Purged by hook `9928`; hide stub if recommends reinstall |
+| **Dropbox** | Not in `install-list`; do not add Dropbox apt repos to the overlay |
+| **nwg-look / nwg-displays / nwg-clipman** | Settings + clipboard → **hypr-settings** / wl-clipboard |
+| **pavucontrol / nm-connection-editor / blueman** | Sound / Wi‑Fi / BT → **hypr-settings** (+ Waybar panels) |
+| **gtk-configs / gtk-workspaces / gtk-worktimezone** | Merged into **hypr-settings** Appearance or removed |
+
+Stock utilities that **are** shipped: **xarchiver** (archives + MIME), **powertop** (hypr-settings Battery), **baobab**, **gparted**.
 
 #### Bootloaders
 
@@ -637,6 +650,7 @@ Override output dir: `NEURONIX_BUILD_ROOT=...`
    - `neuronix-iso/overlay/package-lists/live.list.chroot`
    - `neuronix-iso/overlay/package-lists/installer.list.chroot`
    - `share/calamares-neuronix/etc/calamares/neuronix-{server,desktop,live-purge}.list`
+   - `neuronix-iso/overlay/includes.chroot/etc/calamares/` (same three lists; also refreshed by `setup.sh` merge)
 3. If Hyprland/kernel/Chrome/Cursor change, also keep in sync:
    - Hook **`997-neuronix-backports.hook.chroot`**
    - **`neuronix-install-hyprland-backports.sh`**
@@ -650,8 +664,8 @@ Keep these consistent together:
 
 - `etc/skel/.config/hypr/hyprland.conf` ↔ `neuronix-hyprland-session-start.sh` ↔ `neuronix-hyprland-session-env.sh` ↔ `neuronix-hyprland.desktop`
 - LightDM drop-ins ↔ `NEURONIX_DESKTOP_SESSION=neuronix-hyprland` in metadata
-- Waybar/Fuzzel/Mako skel configs ↔ packages in `live` section
-- `neuronix-settings` / keybinds in `hyprland.conf` ↔ tools actually in live or desktop lists
+- Waybar/Fuzzel/Mako: `default/configs/{waybar,fuzzel,mako}` ↔ overlay `neuronix-waybar-click` / `neuronix_quick_settings.py` / `neuronix-session-action` ↔ packages in `live` section
+- `hypr-settings` / keybinds in `hyprland.conf` ↔ tools actually in live or desktop lists
 - Layer C wrappers: `audacity.desktop` / `blender.desktop` ↔ `neuronix-x11-app`
 
 #### Install vs live divergence
@@ -724,6 +738,7 @@ Keep these consistent together:
 | `default/gtk-apps/` | Core GTK daily-app binaries staged into the ISO |
 | `default/services/` | Stock services (e.g. gtksync Waybar); personalize/services overlays |
 | `personalize/gtk-apps/` | Optional extra/override GTK binaries (same layout) |
+| `default/configs/` | Stock Hyprland/Waybar/Fuzzel/Mako/GTK (staged to skel; personalize overlays) |
 | `default/configs/crontab/crontab.conf` | Stock blank user crontab (comments only) |
 | `personalize/configs/crontab/crontab.conf` | Optional override installed for the default user |
 | `build.sh` | Build the ISO; regenerates slim `live`/`installer` lists + Calamares server/desktop/live-purge lists (`--lists-only` to stop after) |
@@ -839,16 +854,23 @@ Do not add extra icons here — only this file is copied by the build scripts. `
 
 | Hook | Purpose |
 |------|---------|
+| 989 | Live autologin group |
 | 990 | SSH on live |
+| 991 chmod / calamares-live-prep | Helper +x; Calamares live prep |
 | 991–992 | GRUB branding |
+| 9925–9927 | Personalize SSH / crontab / flatpak (optional) |
+| 9928 | Purge **yelp** (GNOME Help) from the live image |
+| 9930–9933 | Personalize services / config links / git restore |
 | 993 | Bluetooth |
 | 994 | dconf compile |
 | 9945 | Cursor on live — **disabled**; stock Desktop also skips Cursor (`personalize/install`) |
 | 995 | APT contrib/non-free |
 | 996 | Google Chrome — **disabled** on slim live (Calamares Desktop only) |
 | 997 | trixie-backports: kernel ~7.0.x + Hyprland stack |
+| 998 | Hyprspace |
 | 999 | Papirus yellow folders + icon cache + script permissions |
 | 1000 | x-www-browser alternative (Chrome if present) |
+| 1001 | x-terminal-emulator → gtk-term |
 
 ## Verification checklist
 
@@ -858,7 +880,8 @@ Do not add extra icons here — only this file is copied by the build scripts. `
 4. **Desktop** install (with network) → reboot → autologin lands in Hyprland; Chrome present (Cursor only if `personalize/install/cursor.sh`).
 5. **Server** install (with network) → reboot → console + SSH; live GUI purged.
 6. `uname -r` shows **7.0.x**; `apt-cache policy linux-image-amd64` shows `trixie-backports` `~bpo13+1`.
-7. Desktop: `hyprland`, `waybar`, `fuzzel`, `mako`, `nwg-displays`, `nwg-look`, `gtk-term`, `gtk-files`, `gtk-edit`, `gtk-image`, `gtk-video`, `google-chrome-stable`, SSH.
-8. **Super+Return** opens gtk-term; **Super+E** opens gtk-files; **Super+G** opens gtk-edit; **Super+,** opens `neuronix-settings`.
+7. Desktop: `hyprland`, `waybar`, `fuzzel`, `mako`, `hypr-settings`, `gtk-term`, `gtk-files`, `gtk-edit`, `gtk-image`, `gtk-video`, `xarchiver`, `google-chrome-stable`, SSH.
+8. **Super+Return** opens gtk-term; **Super+E** opens gtk-files; **Super+G** opens gtk-edit; **Super+,** opens `hypr-settings`.
 9. Audacity and Blender launch from menu (XWayland wrappers).
-10. Optional: `cursor --version`, `mariadb --version`, `docker --version`.
+10. Menus: no **Help** (yelp), no Dropbox, no nwg-clipman / pavucontrol / separate Wi‑Fi·BT editors.
+11. Optional: `cursor --version`, `mariadb --version`, `docker --version`.

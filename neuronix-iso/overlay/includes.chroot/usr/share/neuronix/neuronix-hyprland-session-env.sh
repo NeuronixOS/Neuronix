@@ -10,9 +10,9 @@ from gi.repository import Gio
 
 iface = Gio.Settings.new("org.gnome.desktop.interface")
 iface.set_string("color-scheme", "prefer-dark")
-iface.set_string("gtk-theme", "Adwaita-dark")
-if iface.get_string("icon-theme") != "Papirus":
-    iface.set_string("icon-theme", "Papirus")
+iface.set_string("gtk-theme", "neuronix")
+if iface.get_string("icon-theme") != "Papirus-Dark":
+    iface.set_string("icon-theme", "Papirus-Dark")
 PY
 }
 
@@ -27,15 +27,15 @@ neuronix_hyprland_session_env() {
 	fi
 	export PATH="${_local_bin}/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
 
-	export GTK_THEME=Adwaita-dark
+	export GTK_THEME=neuronix
 	export GSK_RENDERER=cairo
 	export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland;xcb}"
 	# Make Qt5/Qt6 apps follow GTK Adwaita-dark (Deskflow, VLC, …)
 	export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-gtk3}"
 	export XDG_CURRENT_DESKTOP=Hyprland
 	export XDG_SESSION_DESKTOP=Hyprland
-	export GTK_ICON_THEME=Papirus
-	export XDG_ICON_THEME=Papirus
+	export GTK_ICON_THEME=Papirus-Dark
+	export XDG_ICON_THEME=Papirus-Dark
 
 	# XWayland for root/X11 GUI helpers (pkexec apps).
 	if [ -z "${DISPLAY:-}" ]; then

@@ -46,32 +46,10 @@ _quick() {
 case "${1:-}" in
 	volume)
 		_quick sound && exit 0
-		exec neuronix-waybar-popover --class pavucontrol --width 760 --height 520 -- pavucontrol
-		;;
-	network)
-		_quick network && exit 0
-		exec neuronix-waybar-popover --class nm-connection-editor --width 720 --height 520 -- nm-connection-editor
-		;;
-	cpu)
-		_quick cpu && exit 0
-		exec neuronix-waybar-popover --class org.neuronix.btop --width 960 --height 640 -- foot -T btop -a org.neuronix.btop btop
-		;;
-	memory)
-		_quick memory && exit 0
-		exec neuronix-waybar-popover --class org.neuronix.btop --width 960 --height 640 -- foot -T btop -a org.neuronix.btop btop
-		;;
-	btop | cpu-btop | memory-btop)
-		exec neuronix-waybar-popover --class org.neuronix.btop --width 960 --height 640 -- foot -T btop -a org.neuronix.btop btop
-		;;
-	battery)
-		exec neuronix-waybar-popover --class xfce4-power-manager-settings --width 640 --height 520 -- neuronix-power-settings
-		;;
-	settings)
-		# Detach: waybar kills the click process group when this script exits.
+		# Fallback: full Sound tab in hypr-settings (pavucontrol removed).
 		if command -v systemd-run >/dev/null 2>&1; then
 			systemd-run --user --collect --quiet \
 				--property=KillMode=process \
-				--setenv="NEURONIX_CLICK_XY=${NEURONIX_CLICK_XY}" \
 				--setenv="PATH=${PATH}" \
 				--setenv="WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" \
 				--setenv="XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}" \
@@ -79,10 +57,80 @@ case "${1:-}" in
 				--setenv="DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" \
 				--setenv="DISPLAY=${DISPLAY:-}" \
 				--setenv="HOME=${HOME}" \
-				-- neuronix-settings
+				-- hypr-settings --sound
 			exit 0
 		fi
-		setsid -f env NEURONIX_CLICK_XY="${NEURONIX_CLICK_XY}" neuronix-settings >/dev/null 2>&1 || true
+		setsid -f hypr-settings --sound >/dev/null 2>&1 || true
+		exit 0
+		;;
+	network)
+		_quick network && exit 0
+		# Fallback: full Wi-Fi tab in hypr-settings (nm-connection-editor removed).
+		if command -v systemd-run >/dev/null 2>&1; then
+			systemd-run --user --collect --quiet \
+				--property=KillMode=process \
+				--setenv="PATH=${PATH}" \
+				--setenv="WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" \
+				--setenv="XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}" \
+				--setenv="HYPRLAND_INSTANCE_SIGNATURE=${HYPRLAND_INSTANCE_SIGNATURE:-}" \
+				--setenv="DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" \
+				--setenv="DISPLAY=${DISPLAY:-}" \
+				--setenv="HOME=${HOME}" \
+				-- hypr-settings --wifi
+			exit 0
+		fi
+		setsid -f hypr-settings --wifi >/dev/null 2>&1 || true
+		exit 0
+		;;
+	cpu)
+		_quick cpu && exit 0
+		exec neuronix-waybar-popover --class btop --width 960 --height 640 -- gtk-term-launch.sh -e btop
+		;;
+	memory)
+		_quick memory && exit 0
+		exec neuronix-waybar-popover --class btop --width 960 --height 640 -- gtk-term-launch.sh -e btop
+		;;
+	btop | cpu-btop | memory-btop)
+		exec neuronix-waybar-popover --class btop --width 960 --height 640 -- gtk-term-launch.sh -e btop
+		;;
+	battery)
+		exec neuronix-waybar-popover --class xfce4-power-manager-settings --width 640 --height 520 -- neuronix-power-settings
+		;;
+	power | session)
+		_quick power && exit 0
+		if command -v systemd-run >/dev/null 2>&1; then
+			systemd-run --user --collect --quiet \
+				--property=KillMode=process \
+				--setenv="PATH=${PATH}" \
+				--setenv="WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" \
+				--setenv="XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}" \
+				--setenv="HYPRLAND_INSTANCE_SIGNATURE=${HYPRLAND_INSTANCE_SIGNATURE:-}" \
+				--setenv="DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" \
+				--setenv="DISPLAY=${DISPLAY:-}" \
+				--setenv="HOME=${HOME}" \
+				-- neuronix-session-action shutdown
+			exit 0
+		fi
+		setsid -f neuronix-session-action shutdown >/dev/null 2>&1 || true
+		exit 0
+		;;
+	settings)
+		# Detach: waybar kills the click process group when this script exits.
+		# Standard Settings app is hypr-settings (not the removed right-edge panel).
+		if command -v systemd-run >/dev/null 2>&1; then
+			systemd-run --user --collect --quiet \
+				--property=KillMode=process \
+				--setenv="PATH=${PATH}" \
+				--setenv="WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" \
+				--setenv="XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}" \
+				--setenv="HYPRLAND_INSTANCE_SIGNATURE=${HYPRLAND_INSTANCE_SIGNATURE:-}" \
+				--setenv="DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" \
+				--setenv="DISPLAY=${DISPLAY:-}" \
+				--setenv="HOME=${HOME}" \
+				-- hypr-settings
+			exit 0
+		fi
+		setsid -f hypr-settings >/dev/null 2>&1 || true
 		exit 0
 		;;
 	menu)
@@ -93,7 +141,7 @@ case "${1:-}" in
 		exec fuzzel --anchor top-left --x-margin 8 --y-margin 40
 		;;
 	*)
-		echo "Usage: neuronix-waybar-click volume|network|cpu|memory|btop|battery|settings|menu" >&2
+		echo "Usage: neuronix-waybar-click volume|network|cpu|memory|btop|battery|power|settings|menu" >&2
 		exit 1
 		;;
 esac

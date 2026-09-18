@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Neuronix hypr-settings launcher
+set -euo pipefail
+APP=/usr/local/lib/neuronix/hypr-settings
+# Suite theme module (Profile menu / theme.toml)
+for _theme in \
+	/usr/share/neuronix/gtk-theme/python \
+	/usr/local/lib/neuronix/gtk-apps/gtk-theme/python; do
+	if [[ -f "$_theme/gtk_theme.py" ]]; then
+		export PYTHONPATH="${_theme}${PYTHONPATH:+:$PYTHONPATH}"
+		break
+	fi
+done
+cd "$APP"
+exec /usr/bin/python3 "$APP/main.py" "$@"

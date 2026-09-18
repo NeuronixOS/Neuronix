@@ -9,6 +9,7 @@
 # Chrome 137+ ignores --load-extension unless the wrapper passes
 # --disable-features=DisableLoadExtensionCommandLineSwitch. Packing as root
 # also requires --no-sandbox + an isolated --user-data-dir (Calamares/chroot).
+# Packed CRXs must be world-readable (0644) — Chrome runs as the desktop user.
 set -euo pipefail
 
 EXT_ROOT="/usr/share/neuronix/browser-extensions"

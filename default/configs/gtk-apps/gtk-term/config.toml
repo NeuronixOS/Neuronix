@@ -1,0 +1,39 @@
+font = "monospace 12"
+use_custom_font = false
+columns = 80
+rows = 24
+cell_width_scale = 1.0
+cell_height_scale = 1.0
+text_blink = "always"
+cursor_shape = "ibeam"
+cursor_blink_mode = "system"
+audible_bell = true
+show_scrollbar = true
+scroll_on_output = false
+scroll_on_keystroke = true
+scroll_on_paste = true
+limit_scrollback = false
+scrollback_lines = 10000
+
+# gtk-themes Base overwrites [colors] on Apply / session sync.
+[colors]
+foreground = "#f8f8f2"
+background = "#272822"
+palette = [
+    "#272822",
+    "#f92672",
+    "#a6e22e",
+    "#f4bf75",
+    "#693400",
+    "#ae81ff",
+    "#a1efe4",
+    "#f8f8f2",
+    "#75715e",
+    "#f92672",
+    "#a6e22e",
+    "#f4bf75",
+    "#66d9ef",
+    "#ae81ff",
+    "#a1efe4",
+    "#f9f8f5",
+]

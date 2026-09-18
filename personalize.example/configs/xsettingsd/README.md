@@ -1,6 +1,6 @@
 # personalize/configs/xsettingsd/
 
-Xsettings bridge for XWayland / GTK (nwg-look) → `~/.config/xsettingsd`.
+Xsettings bridge for XWayland / GTK (Appearance / gtk-theme) → `~/.config/xsettingsd`.
 
 ## Example `xsettingsd.conf`
 

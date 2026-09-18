@@ -58,6 +58,11 @@ if ! neuronix_wallpaper_set "${_chosen}"; then
 	exit 1
 fi
 
+# Keep the settings-panel Recent list in sync (desktop RMB + Choose image…).
+PYTHONPATH="${HOME}/.local/share/neuronix:/usr/share/neuronix${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+python3 -c 'from neuronix_background_settings import _remember; import sys; _remember(sys.argv[1])' "${_chosen}" 2>/dev/null || true
+
 if command -v notify-send >/dev/null 2>&1; then
 	notify-send -a Neuronix -t 2500 "Desktop background" \
 		"Wallpaper: $(neuronix_wallpaper_label "${_chosen}")" 2>/dev/null || true

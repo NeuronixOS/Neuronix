@@ -1,6 +1,6 @@
 # personalize/configs/gtk-3.0/
 
-GTK 3 settings (nwg-look) → `~/.config/gtk-3.0`.
+GTK 3 settings (Appearance / gtk-theme) → `~/.config/gtk-3.0`.
 
 ## Example `settings.ini`
 

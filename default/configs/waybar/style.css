@@ -1,22 +1,33 @@
-/* Neuronix Waybar — black / grey / white (neutral on any wallpaper) */
+/* BEGIN gtk-theme:waybar-vars */
+@define-color wb_fg #f8f8f2;
+@define-color wb_bg #272822;
+@define-color wb_surface #3c3d37;
+@define-color wb_dim #b6b7b1;
+@define-color wb_muted #dcdcd6;
+@define-color wb_inactive0 #3c3d37;
+@define-color wb_inactive1 #34352f;
+@define-color wb_hover rgba(60, 61, 55, 0.45);
+/* END gtk-theme:waybar-vars */
+
+/* Neuronix Waybar — chrome colors come from gtk-themes Base (@wb_*). */
 
 * {
   font-family: "Cantarell", "DejaVu Sans", sans-serif;
   font-size: 13px;
   min-height: 0;
-  color: #f5f5f5;
+  color: @wb_fg;
 }
 
 window#waybar {
-  background-color: #272822;
-  color: #f8f8f2;
+  background-color: @wb_bg;
+  color: @wb_fg;
   border-bottom: none;
   padding-bottom: 10px;
   background-image: linear-gradient(
     90deg,
-    #34352f 0%,
-    #3c3d37 50%,
-    #34352f 100%
+    @wb_inactive1 0%,
+    @wb_inactive0 50%,
+    @wb_inactive1 100%
   );
   background-size: 100% 10px;
   background-position: left bottom;
@@ -25,7 +36,7 @@ window#waybar {
 
 #workspaces button {
   padding: 0 10px;
-  color: #888888;
+  color: @wb_dim;
   background: transparent;
   border: none;
   border-radius: 4px;
@@ -34,24 +45,24 @@ window#waybar {
 }
 
 #workspaces button.active {
-  color: #ffffff;
-  background: #2e2e2e;
+  color: @wb_fg;
+  background: @wb_surface;
 }
 
 #workspaces button:hover {
-  color: #ffffff;
-  background: rgba(70, 70, 70, 0.45);
+  color: @wb_fg;
+  background: @wb_hover;
 }
 
 #window {
   padding: 0 12px;
-  color: #cccccc;
+  color: @wb_muted;
   font-weight: 500;
 }
 
 #clock {
   padding: 0 12px;
-  color: #ffffff;
+  color: @wb_fg;
   font-weight: 600;
 }
 
@@ -62,6 +73,7 @@ window#waybar {
 #custom-menu,
 #custom-gtk-sync,
 #custom-settings,
+#custom-power,
 #battery,
 #network,
 #pulseaudio,
@@ -69,36 +81,37 @@ window#waybar {
 #memory {
   padding: 0 12px;
   font-family: "FontAwesome", "Cantarell", "DejaVu Sans", sans-serif;
-  color: #cccccc;
+  color: @wb_muted;
 }
 
 #custom-menu {
   font-size: 14px;
 }
 
-#custom-settings {
+#custom-settings,
+#custom-power {
   font-size: 14px;
-  color: #f5f5f5;
+  color: @wb_fg;
 }
 
 #custom-gtk-sync {
   font-weight: 600;
-  color: #f5f5f5;
+  color: @wb_fg;
   min-width: 4.5em;
 }
 
 #custom-gtk-sync.ok {
-  color: #cccccc;
+  color: @wb_muted;
 }
 
 #custom-gtk-sync.syncing {
-  color: #ffffff;
+  color: @wb_fg;
 }
 
 #custom-gtk-sync.stopped,
 #custom-gtk-sync.missing,
 #custom-gtk-sync.warning {
-  color: #888888;
+  color: @wb_dim;
 }
 
 #battery,
@@ -106,7 +119,7 @@ window#waybar {
 #pulseaudio,
 #cpu,
 #memory {
-  color: #f5f5f5;
+  color: @wb_fg;
 }
 
 /* Even gap across volume / wifi / cpu / ram */
@@ -122,24 +135,24 @@ window#waybar {
 
 #cpu.warning,
 #memory.warning {
-  color: #cccccc;
+  color: @wb_muted;
 }
 
 #cpu.critical,
 #memory.critical {
-  color: #ffffff;
+  color: @wb_fg;
   font-weight: 700;
 }
 
 #battery.charging,
 #battery.plugged {
-  color: #cccccc;
+  color: @wb_muted;
 }
 
 #network.disconnected {
-  color: #888888;
+  color: @wb_dim;
 }
 
 #pulseaudio.muted {
-  color: #888888;
+  color: @wb_dim;
 }

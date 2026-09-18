@@ -1,6 +1,6 @@
 # personalize/configs/icons/default/
 
-Cursor theme for the session (nwg-look) → `~/.icons/default`.
+Cursor theme for the session (Appearance / xsettingsd) → `~/.icons/default`.
 
 ## Example `index.theme`
 

@@ -2,4 +2,4 @@
 # Window chrome comes from hyprbars (not GTK CSD button-layout).
 [org/gnome/desktop/interface]
 color-scheme='prefer-dark'
-icon-theme='Papirus'
+icon-theme='Papirus-Dark'

@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 import sys
-from typing import Optional
+from typing import Callable, Optional
 
 import gi
 
@@ -19,6 +19,7 @@ from neuronix_choice_dialog import (  # noqa: E402
     _action_row,
     _apply_css,
     _base_panel,
+    _make_tile,
     entry as prompt_entry,
     freeze_click_xy,
 )
@@ -150,12 +151,14 @@ def _set_default_sink(name: str) -> None:
     _run_ok(["pactl", "set-default-sink", name])
 
 
-def show_sound_panel() -> None:
-    freeze_click_xy()
-    _apply_css()
-    win, outer, _result = _base_panel("Sound", width=420, height=480, subtitle="Output volume")
-
-    default = _default_sink()
+def pack_sound_controls(
+    outer: Gtk.Box,
+    *,
+    quit_on_advanced: bool = True,
+    compact: bool = False,
+    on_advanced: Optional[Callable[..., None]] = None,
+) -> None:
+    """Embed Sound controls into an existing container (popover or accordion)."""
     vol_lbl = Gtk.Label(label=f"{_sink_volume_pct()}%", xalign=1.0)
     vol_lbl.get_style_context().add_class("neuronix-pct")
 
@@ -201,7 +204,6 @@ def show_sound_panel() -> None:
     outer.pack_start(vol_row, False, False, 0)
     outer.pack_start(mute_btn, False, False, 0)
 
-    # Output devices
     devices_lbl = Gtk.Label(label="Output device", xalign=0.0)
     devices_lbl.get_style_context().add_class("neuronix-subtitle")
     outer.pack_start(devices_lbl, False, False, 0)
@@ -249,22 +251,17 @@ def show_sound_panel() -> None:
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
     scroll.get_style_context().add_class("neuronix-list-frame")
-    scroll.set_vexpand(True)
+    scroll.set_size_request(-1, 140 if compact else 160)
+    scroll.set_vexpand(not compact)
     scroll.add(listbox)
-    outer.pack_start(scroll, True, True, 0)
+    outer.pack_start(scroll, not compact, not compact, 0)
 
-    advanced = Gtk.Button(label="Advanced mixer…")
-    advanced.get_style_context().add_class("neuronix-secondary")
 
-    def _open_pavu(*_a) -> None:
-        # Full mixer: centered floating window (hyprland.conf), not under the bar click.
-        pavu = _which("pavucontrol") or "pavucontrol"
-        _launch_detached([pavu])
-        GLib.idle_add(Gtk.main_quit)
-
-    advanced.connect("clicked", _open_pavu)
-    outer.pack_start(_action_row(advanced), False, False, 0)
-
+def show_sound_panel() -> None:
+    freeze_click_xy()
+    _apply_css()
+    win, outer, _result = _base_panel("Sound", width=420, height=480, subtitle="Output volume")
+    pack_sound_controls(outer, quit_on_advanced=True)
     win.show_all()
     win.present()
     Gtk.main()
@@ -334,12 +331,19 @@ def _connect_wifi(ssid: str, password: Optional[str] = None) -> bool:
     return _run_ok(["nmcli", "device", "wifi", "connect", ssid], timeout=30)
 
 
-def show_network_panel() -> None:
-    freeze_click_xy()
-    _apply_css()
-    win, outer, _result = _base_panel("Network", width=440, height=560, subtitle=_active_summary())
+def pack_network_controls(
+    outer: Gtk.Box,
+    *,
+    quit_on_advanced: bool = True,
+    compact: bool = False,
+    on_advanced: Optional[Callable[..., None]] = None,
+) -> None:
+    """Embed Network controls into an existing container (popover or accordion)."""
+    summary = Gtk.Label(label=_active_summary(), xalign=0.0)
+    summary.get_style_context().add_class("neuronix-subtitle")
+    summary.set_line_wrap(True)
+    outer.pack_start(summary, False, False, 0)
 
-    # Wi-Fi radio toggle
     wifi_btn = Gtk.Button()
     wifi_btn.set_relief(Gtk.ReliefStyle.NONE)
 
@@ -373,6 +377,7 @@ def show_network_panel() -> None:
     def _rebuild_wifi() -> None:
         for child in list(listbox.get_children()):
             listbox.remove(child)
+        summary.set_text(_active_summary())
         if not _wifi_radio_on():
             status.set_text("Wi‑Fi is turned off.")
             listbox.show_all()
@@ -423,7 +428,6 @@ def show_network_panel() -> None:
                 status.set_text(f"Could not connect to {ssid}")
             return False
 
-        # Defer so UI can paint status first
         GLib.idle_add(_do)
 
     listbox.connect("row-activated", _pick_wifi)
@@ -432,9 +436,10 @@ def show_network_panel() -> None:
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
     scroll.get_style_context().add_class("neuronix-list-frame")
-    scroll.set_vexpand(True)
+    scroll.set_size_request(-1, 160 if compact else 180)
+    scroll.set_vexpand(not compact)
     scroll.add(listbox)
-    outer.pack_start(scroll, True, True, 0)
+    outer.pack_start(scroll, not compact, not compact, 0)
     outer.pack_start(status, False, False, 0)
 
     refresh = Gtk.Button(label="Refresh")
@@ -446,18 +451,14 @@ def show_network_panel() -> None:
             GLib.timeout_add(800, lambda: (_rebuild_wifi(), False)[1]),
         ),
     )
-    advanced = Gtk.Button(label="Advanced…")
-    advanced.get_style_context().add_class("neuronix-secondary")
+    outer.pack_start(_action_row(refresh), False, False, 0)
 
-    def _open_nm(*_a) -> None:
-        # Full editor: centered floating window (hyprland.conf), not under the bar click.
-        nm = _which("nm-connection-editor") or "nm-connection-editor"
-        _launch_detached([nm])
-        GLib.idle_add(Gtk.main_quit)
 
-    advanced.connect("clicked", _open_nm)
-    outer.pack_start(_action_row(refresh, advanced), False, False, 0)
-
+def show_network_panel() -> None:
+    freeze_click_xy()
+    _apply_css()
+    win, outer, _result = _base_panel("Network", width=440, height=560, subtitle=_active_summary())
+    pack_network_controls(outer, quit_on_advanced=True)
     win.show_all()
     win.present()
     Gtk.main()
@@ -536,19 +537,45 @@ def _fmt_gib(kib: float) -> str:
     return f"{kib / (1024 * 1024):.1f} GiB"
 
 
-def show_cpu_panel() -> None:
-    freeze_click_xy()
-    _apply_css()
+def _open_btop_detached(*, quit_after: bool = True) -> None:
+    popover = _which("neuronix-waybar-popover")
+    term = _which("gtk-term-launch.sh") or "gtk-term-launch.sh"
+    btop = _which("btop") or "btop"
+    if popover:
+        _launch_detached(
+            [
+                popover,
+                "--class",
+                "btop",
+                "--width",
+                "960",
+                "--height",
+                "640",
+                "--",
+                term,
+                "-e",
+                btop,
+            ]
+        )
+    else:
+        _launch_detached([term, "-e", btop])
+    if quit_after:
+        GLib.idle_add(Gtk.main_quit)
+
+
+def pack_cpu_controls(
+    outer: Gtk.Box, *, quit_on_advanced: bool = True, compact: bool = False
+) -> None:
+    """Embed CPU stats into an existing container."""
     usage = _cpu_usage_pct()
     load1, load5, load15 = _read_loadavg()
     cores = _cpu_count()
     model = _cpu_model()
-    win, outer, _result = _base_panel(
-        "CPU",
-        width=420,
-        height=360,
-        subtitle=model[:72],
-    )
+
+    model_lbl = Gtk.Label(label=model[:72], xalign=0.0)
+    model_lbl.get_style_context().add_class("neuronix-subtitle")
+    model_lbl.set_line_wrap(True)
+    outer.pack_start(model_lbl, False, False, 0)
 
     listbox = Gtk.ListBox()
     listbox.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -573,7 +600,6 @@ def show_cpu_panel() -> None:
     _add("Usage", f"{usage:.0f}%")
     _add("Cores / threads", str(cores))
     _add("Load average", f"{load1:.2f}  ·  {load5:.2f}  ·  {load15:.2f}")
-    # uptime
     try:
         with open("/proc/uptime", encoding="utf-8") as f:
             secs = float(f.read().split()[0])
@@ -588,51 +614,38 @@ def show_cpu_panel() -> None:
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
     scroll.get_style_context().add_class("neuronix-list-frame")
-    scroll.set_vexpand(True)
+    scroll.set_size_request(-1, 120 if compact else 140)
+    scroll.set_vexpand(not compact)
     scroll.add(listbox)
-    outer.pack_start(scroll, True, True, 0)
+    outer.pack_start(scroll, not compact, not compact, 0)
 
     btop_btn = Gtk.Button(label="Open btop…")
     btop_btn.get_style_context().add_class("neuronix-secondary")
-
-    def _open_btop(*_a) -> None:
-        popover = _which("neuronix-waybar-popover")
-        foot = _which("foot") or "foot"
-        btop = _which("btop") or "btop"
-        if popover:
-            _launch_detached(
-                [
-                    popover,
-                    "--class",
-                    "org.neuronix.btop",
-                    "--width",
-                    "960",
-                    "--height",
-                    "640",
-                    "--",
-                    foot,
-                    "-T",
-                    "btop",
-                    "-a",
-                    "org.neuronix.btop",
-                    btop,
-                ]
-            )
-        else:
-            _launch_detached([foot, "-T", "btop", "-a", "org.neuronix.btop", btop])
-        GLib.idle_add(Gtk.main_quit)
-
-    btop_btn.connect("clicked", _open_btop)
+    btop_btn.connect(
+        "clicked", lambda *_: _open_btop_detached(quit_after=quit_on_advanced)
+    )
     outer.pack_start(_action_row(btop_btn), False, False, 0)
 
+
+def show_cpu_panel() -> None:
+    freeze_click_xy()
+    _apply_css()
+    win, outer, _result = _base_panel(
+        "CPU",
+        width=420,
+        height=360,
+        subtitle=_cpu_model()[:72],
+    )
+    pack_cpu_controls(outer, quit_on_advanced=True)
     win.show_all()
     win.present()
     Gtk.main()
 
 
-def show_memory_panel() -> None:
-    freeze_click_xy()
-    _apply_css()
+def pack_memory_controls(
+    outer: Gtk.Box, *, quit_on_advanced: bool = True, compact: bool = False
+) -> None:
+    """Embed Memory stats into an existing container."""
     info = _meminfo()
     total = float(info.get("MemTotal", 0))
     avail = float(info.get("MemAvailable", info.get("MemFree", 0)))
@@ -642,12 +655,12 @@ def show_memory_panel() -> None:
     swap_f = float(info.get("SwapFree", 0))
     swap_u = max(0.0, swap_t - swap_f)
 
-    win, outer, _result = _base_panel(
-        "Memory",
-        width=420,
-        height=340,
-        subtitle=f"{_fmt_gib(used)} used of {_fmt_gib(total)}",
+    summary = Gtk.Label(
+        label=f"{_fmt_gib(used)} used of {_fmt_gib(total)}",
+        xalign=0.0,
     )
+    summary.get_style_context().add_class("neuronix-subtitle")
+    outer.pack_start(summary, False, False, 0)
 
     listbox = Gtk.ListBox()
     listbox.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -682,43 +695,68 @@ def show_memory_panel() -> None:
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
     scroll.get_style_context().add_class("neuronix-list-frame")
-    scroll.set_vexpand(True)
+    scroll.set_size_request(-1, 120 if compact else 140)
+    scroll.set_vexpand(not compact)
     scroll.add(listbox)
-    outer.pack_start(scroll, True, True, 0)
+    outer.pack_start(scroll, not compact, not compact, 0)
 
     btop_btn = Gtk.Button(label="Open btop…")
     btop_btn.get_style_context().add_class("neuronix-secondary")
-
-    def _open_btop(*_a) -> None:
-        popover = _which("neuronix-waybar-popover")
-        foot = _which("foot") or "foot"
-        btop = _which("btop") or "btop"
-        if popover:
-            _launch_detached(
-                [
-                    popover,
-                    "--class",
-                    "org.neuronix.btop",
-                    "--width",
-                    "960",
-                    "--height",
-                    "640",
-                    "--",
-                    foot,
-                    "-T",
-                    "btop",
-                    "-a",
-                    "org.neuronix.btop",
-                    btop,
-                ]
-            )
-        else:
-            _launch_detached([foot, "-T", "btop", "-a", "org.neuronix.btop", btop])
-        GLib.idle_add(Gtk.main_quit)
-
-    btop_btn.connect("clicked", _open_btop)
+    btop_btn.connect(
+        "clicked", lambda *_: _open_btop_detached(quit_after=quit_on_advanced)
+    )
     outer.pack_start(_action_row(btop_btn), False, False, 0)
 
+
+def show_memory_panel() -> None:
+    freeze_click_xy()
+    _apply_css()
+    info = _meminfo()
+    total = float(info.get("MemTotal", 0))
+    avail = float(info.get("MemAvailable", info.get("MemFree", 0)))
+    used = max(0.0, total - avail)
+    win, outer, _result = _base_panel(
+        "Memory",
+        width=420,
+        height=340,
+        subtitle=f"{_fmt_gib(used)} used of {_fmt_gib(total)}",
+    )
+    pack_memory_controls(outer, quit_on_advanced=True)
+    win.show_all()
+    win.present()
+    Gtk.main()
+
+
+def show_power_panel() -> None:
+    freeze_click_xy()
+    _apply_css()
+    win, outer, _result = _base_panel("Power", width=340, height=256)
+
+    def _go(action: str) -> None:
+        helper = _which("neuronix-session-action") or "neuronix-session-action"
+        _launch_detached([helper, action])
+        GLib.idle_add(Gtk.main_quit)
+
+    col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    col.pack_start(
+        _make_tile("logout", "Log Out", "End this session", _go),
+        False,
+        False,
+        0,
+    )
+    col.pack_start(
+        _make_tile("reboot", "Reboot", "Restart this computer", _go),
+        False,
+        False,
+        0,
+    )
+    col.pack_start(
+        _make_tile("shutdown", "Shut Down", "Power off this computer", _go),
+        False,
+        False,
+        0,
+    )
+    outer.pack_start(col, True, True, 0)
     win.show_all()
     win.present()
     Gtk.main()
@@ -748,7 +786,10 @@ def main() -> int:
     if mode in ("memory", "ram", "mem"):
         show_memory_panel()
         return 0
-    print("Usage: neuronix_quick_settings.py sound|network|cpu|memory", file=sys.stderr)
+    if mode in ("power", "session"):
+        show_power_panel()
+        return 0
+    print("Usage: neuronix_quick_settings.py sound|network|cpu|memory|power", file=sys.stderr)
     return 2
 
 

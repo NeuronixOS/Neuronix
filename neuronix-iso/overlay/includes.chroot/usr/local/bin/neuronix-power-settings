@@ -32,7 +32,15 @@ else
 	printf '%s\n' 'gtk-decoration-layout=icon:' >>"${_css_home}/gtk-3.0/settings.ini"
 fi
 
-cat >"${_css_home}/gtk-3.0/gtk.css" <<'EOF'
+# Keep suite gtk-theme chrome (switches, notebook tabs, …). Replacing gtk.css
+# entirely left XFCE Power Manager on stock Adwaita blue.
+if [ -f "${_user_cfg}/gtk-3.0/gtk.css" ]; then
+	cp "${_user_cfg}/gtk-3.0/gtk.css" "${_css_home}/gtk-3.0/gtk.css"
+else
+	: >"${_css_home}/gtk-3.0/gtk.css"
+fi
+cat >>"${_css_home}/gtk-3.0/gtk.css" <<'EOF'
+
 /* Hide any remaining XFCE/GTK header close control for this process only */
 headerbar button.titlebutton.close,
 headerbar button.close,
@@ -51,5 +59,6 @@ headerbar > box:last-child > button {
 }
 EOF
 
+export GTK_THEME="${GTK_THEME:-neuronix}"
 export XDG_CONFIG_HOME="${_css_home}"
 exec xfce4-power-manager-settings "$@"

@@ -1,35 +1,61 @@
 #!/bin/sh
-# Cycle HDMI desks 1–4 only (wrap). Portrait desks 11/12 are left alone.
+# Cycle workspaces on the focused monitor (wrap). Personalize may replace this.
 # Usage: workspace-cycle.sh [+1|-1] [move]
 set -eu
 dir="${1:-+1}"
 move="${2:-}"
 
-ws=$(hyprctl -j activeworkspace 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' 2>/dev/null || true)
-[ -n "${ws:-}" ] || exit 0
+python3 - "$dir" "$move" <<'PY'
+import json, subprocess, sys
 
-case "$ws" in
-11|12)
-	exit 0
-	;;
-esac
+dir_, move = sys.argv[1], sys.argv[2]
 
-case "$dir" in
-+1|next|1)
-	next=$((ws + 1))
-	[ "$next" -gt 4 ] && next=1
-	;;
--1|prev)
-	next=$((ws - 1))
-	[ "$next" -lt 1 ] && next=4
-	;;
-*)
-	exit 1
-	;;
-esac
 
-if [ "$move" = "move" ]; then
-	hyprctl dispatch movetoworkspace "$next"
-else
-	hyprctl dispatch workspace "$next"
-fi
+def hypr(*args: str) -> str:
+    return subprocess.check_output(["hyprctl", *args], text=True)
+
+
+try:
+    monitors = json.loads(hypr("monitors", "-j"))
+except Exception:
+    raise SystemExit(0)
+
+mon = next((m for m in monitors if m.get("focused")), monitors[0] if monitors else None)
+if not mon:
+    raise SystemExit(0)
+
+aws = mon.get("activeWorkspace") or {}
+try:
+    cur = int(aws.get("id") or 0)
+except (TypeError, ValueError):
+    raise SystemExit(0)
+
+try:
+    workspaces = json.loads(hypr("workspaces", "-j"))
+except Exception:
+    raise SystemExit(0)
+
+ids = sorted(
+    {
+        int(w["id"])
+        for w in workspaces
+        if w.get("monitor") == mon.get("name")
+        and not str(w.get("name") or "").startswith("special")
+        and str(w.get("id", "")).lstrip("-").isdigit()
+    }
+)
+if cur and cur not in ids:
+    ids = sorted(set(ids) | {cur})
+if not ids:
+    raise SystemExit(0)
+
+i = ids.index(cur) if cur in ids else 0
+step = 1 if dir_ in ("+1", "next", "1") else -1
+nxt = ids[(i + step) % len(ids)]
+argv = ["hyprctl", "dispatch"]
+if move == "move":
+    argv += ["movetoworkspace", str(nxt)]
+else:
+    argv += ["workspace", str(nxt)]
+subprocess.run(argv, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+PY

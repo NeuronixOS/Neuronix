@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Zathura
+Comment=PDF and document viewer
+Exec=zathura %U
+TryExec=zathura
+Icon=org.pwmt.zathura
+Terminal=false
+MimeType=application/pdf;application/x-pdf;application/epub+zip;
+Categories=Office;Viewer;
+StartupNotify=true
+StartupWMClass=org.pwmt.zathura

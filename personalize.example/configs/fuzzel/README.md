@@ -7,7 +7,7 @@ Application launcher config → `~/.config/fuzzel` via `links.json`.
 ```ini
 [main]
 font=Sans:size=11
-terminal=foot -e
+terminal=gtk-term-launch.sh -e
 launch-prefix=neuronix-desktop-exec
 prompt="❯ "
 lines=12

@@ -19,17 +19,23 @@
     "memory",
     "custom/settings",
     "battery",
+    "custom/power",
     "tray"
   ],
   "custom/menu": {
     "format": "\uf0c9",
     "tooltip": "Applications",
-    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click menu"
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-fuzzel"
   },
   "custom/settings": {
     "format": "\uf013",
     "tooltip": "Settings",
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click settings"
+  },
+  "custom/power": {
+    "format": "\uf011",
+    "tooltip": "Power",
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click power"
   },
   "custom/gtk-sync": {
     "exec": "$HOME/.config/waybar/gtk-sync-status.sh",

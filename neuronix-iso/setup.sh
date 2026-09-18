@@ -205,7 +205,7 @@ if [[ -d "$_gtk_apps/bin" ]]; then
     install -m 0755 "$_gtk_apps/applications/install-defaults.sh" \
       "$BUILD_ROOT/config/includes.chroot/usr/share/neuronix/gtk-apps/install-defaults.sh"
   fi
-  # gtk-files owns FileManager1 / xfce file-manager D-Bus names (Thunar stays installed as fallback)
+  # gtk-files owns FileManager1 / xfce file-manager D-Bus names
   if [[ -f "$_gtk_apps/applications/gtk-files-filemanager1" ]]; then
     _chroot="$BUILD_ROOT/config/includes.chroot"
     install -m 0755 "$_gtk_apps/applications/gtk-files-filemanager1" \
@@ -225,6 +225,11 @@ if [[ -d "$_gtk_apps/bin" ]]; then
       install -m 0644 "$_gtk_apps/hide/thunar.desktop" \
         "$_chroot/usr/local/share/applications/thunar.desktop"
     fi
+    if [[ -f "$_gtk_apps/hide/yelp.desktop" ]]; then
+      mkdir -p "$_chroot/usr/local/share/applications"
+      install -m 0644 "$_gtk_apps/hide/yelp.desktop" \
+        "$_chroot/usr/local/share/applications/yelp.desktop"
+    fi
     if [[ -f "$_gtk_apps/environment.d/50-neuronix-gtk-apps.conf" ]]; then
       mkdir -p "$_chroot/usr/lib/environment.d"
       install -m 0644 "$_gtk_apps/environment.d/50-neuronix-gtk-apps.conf" \
@@ -237,7 +242,7 @@ if [[ -d "$_gtk_apps/bin" ]]; then
       install -m 0644 "$_gtk_apps/xfce4/helpers.rc" \
         "$_chroot/etc/skel/.config/xfce4/helpers.rc"
     fi
-    echo "Staged gtk-files as FileManager1 (overrides Thunar daemon)"
+    echo "Staged gtk-files as FileManager1"
   fi
   # User-local x-terminal-emulator early on PATH (skel)
   _skel_local_bin="$BUILD_ROOT/config/includes.chroot/etc/skel/.local/bin"
@@ -280,6 +285,13 @@ if [[ -d "$_gtk_apps/bin" ]]; then
   # Stock gtk-apps theme.toml lives in default/configs/gtk-apps/ (→ ~/configs via merge).
   # Do not write ~/.config/gtk-apps here; merge-personalize-dropins creates the symlink.
   echo "Staged default/gtk-apps (suite + gtk-theme-editor + gtk-theme data + gtk-sync + gtk-neuron + MIME defaults) into includes.chroot"
+fi
+
+# hypr-settings — system settings GUI (Wi‑Fi / BT / Displays / Sound / …)
+_hypr_settings="$REPO_ROOT/default/hypr-settings"
+if [[ -x "$_hypr_settings/neuronix-install.sh" ]]; then
+  echo "Staging hypr-settings into includes.chroot…"
+  DESTDIR="$BUILD_ROOT/config/includes.chroot" "$_hypr_settings/neuronix-install.sh"
 fi
 
 # crontab.conf: personalize/configs/crontab wins over default/configs/crontab → /usr/share/neuronix/crontab.conf

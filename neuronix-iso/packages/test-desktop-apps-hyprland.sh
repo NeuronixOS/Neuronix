@@ -108,12 +108,8 @@ _test mpv "neuronix-launch mpv" mpv
 _test mplayer "neuronix-launch mplayer" mplayer
 _test audacity "neuronix-x11-app audacity" audacity
 _test blender "neuronix-x11-app blender" blender
-_test nwg-displays "neuronix-launch nwg-displays" nwg-displays
-_test nwg-look "neuronix-launch nwg-look" nwg-look
 _test nwg-bar "neuronix-launch nwg-bar" nwg-bar
-_test nwg-clipman "neuronix-launch nwg-clipman" nwg-clipman
-_test pavucontrol "neuronix-launch pavucontrol" pavucontrol
-_test blueman "neuronix-launch blueman-manager" blueman-manager
+_test hypr-settings "neuronix-launch hypr-settings" hypr-settings
 
 echo
 echo "=== Summary: OK=$ok FAIL=$fail MISSING=$missing ==="

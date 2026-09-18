@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Help
+Comment=Hidden; GNOME help browser not used on Neuronix
+Exec=yelp %u
+TryExec=yelp
+Icon=org.gnome.Yelp
+Terminal=false
+NoDisplay=true
+Hidden=true
+StartupNotify=true

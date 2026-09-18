@@ -1,0 +1,16 @@
+#!/bin/sh
+# Drop GNOME Help (yelp). baobab recommends it; we do not ship a help browser.
+set -e
+export DEBIAN_FRONTEND=noninteractive
+if dpkg -l yelp 2>/dev/null | grep -q '^ii'; then
+	apt-get purge -y yelp || true
+	apt-get autoremove -y --purge || true
+fi
+# Keep a NoDisplay stub so a later recommends install stays out of menus.
+if [ -f /usr/local/share/applications/yelp.desktop ]; then
+	:
+elif [ -f /usr/share/neuronix/gtk-apps/hide/yelp.desktop ]; then
+	mkdir -p /usr/local/share/applications
+	install -m 0644 /usr/share/neuronix/gtk-apps/hide/yelp.desktop \
+		/usr/local/share/applications/yelp.desktop
+fi

@@ -1,7 +1,8 @@
 # personalize/configs/waybar/
 
-Override stock bar from `default/configs/waybar/` (CPU/RAM %, click → `btop`).
+Override stock bar from `default/configs/waybar/` (CPU/RAM %, click popovers, power icon).
 Drop `config` and/or `style.css` here; they merge into `~/configs/waybar` → `~/.config/waybar`.
+Keep `custom/power` if you replace the full module list (Log Out / Reboot / Shut Down).
 
 ## Example `config` (snippet)
 
@@ -12,16 +13,16 @@ Drop `config` and/or `style.css` here; they merge into `~/configs/waybar` → `~
   "height": 32,
   "modules-left": ["custom/menu", "hyprland/workspaces"],
   "modules-center": ["hyprland/window"],
-  "modules-right": ["pulseaudio", "network", "cpu", "memory", "battery", "clock", "tray"],
+  "modules-right": ["pulseaudio", "network", "cpu", "memory", "battery", "custom/power", "tray"],
   "cpu": {
     "interval": 2,
     "format": "\uf2db {usage}%",
-    "on-click": "foot -T btop -a org.neuronix.btop btop"
+    "on-click": "neuronix-waybar-click cpu"
   },
   "memory": {
     "interval": 2,
     "format": "\uf1c0 {percentage}%",
-    "on-click": "foot -T btop -a org.neuronix.btop btop"
+    "on-click": "neuronix-waybar-click memory"
   }
 }
 ```

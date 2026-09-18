@@ -1,6 +1,6 @@
 # personalize/configs/gtk-4.0/
 
-GTK 4 settings (nwg-look) → `~/.config/gtk-4.0`.
+GTK 4 settings (Appearance / gtk-theme) → `~/.config/gtk-4.0`.
 
 ## Example `settings.ini`
 

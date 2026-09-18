@@ -9,7 +9,7 @@
 #   neuronix_manifest_load /path/to/default/install-list
 #   printf '%s\n' "${NEURONIX_MANIFEST_PKGS[@]}"
 #   echo "${NEURONIX_MANIFEST_DESC[sudo]}"
-#   echo "${NEURONIX_MANIFEST_SECTION[nwg-look]}"
+#   echo "${NEURONIX_MANIFEST_SECTION[nwg-bar]}"
 
 if [[ -n "${NEURONIX_MANIFEST_LIB_LOADED:-}" ]]; then
 	return 0 2>/dev/null || exit 0

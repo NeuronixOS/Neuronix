@@ -40,10 +40,10 @@ declare -A LAYER
 _layer() { LAYER["$1"]="$2"; }
 
 # Layer B — GTK/Qt session defaults (Hyprland daily + utilities)
-for pkg in foot thunar mousepad imv galculator zathura xarchiver \
-	gparted synaptic remmina kicad mpv mplayer pavucontrol cava \
-	dconf-editor system-config-printer zenity nwg-displays blueman \
-	nm-connection-editor btop gimp nwg-look xfce4-power-manager deskflow \
+for pkg in mousepad imv galculator zathura xarchiver \
+	gparted synaptic remmina kicad mpv mplayer cava \
+	dconf-editor system-config-printer zenity \
+	btop gimp xfce4-power-manager deskflow \
 	chromium gnome-snapshot \
 	libgtk-4-1 libvte-2.91-gtk4-0 libgtksourceview-5-0 \
 	gstreamer1.0-plugins-good gstreamer1.0-libav gstreamer1.0-gtk4 ffmpeg; do
@@ -51,7 +51,7 @@ for pkg in foot thunar mousepad imv galculator zathura xarchiver \
 done
 
 # Hyprland-native shell
-for pkg in waybar fuzzel mako-notifier brightnessctl kanshi; do
+for pkg in waybar fuzzel mako-notifier brightnessctl kanshi nwg-bar; do
 	_layer "$pkg" "native"
 done
 
@@ -118,17 +118,117 @@ _check() {
 OVERLAY="${ISO_ROOT}/overlay/includes.chroot"
 _check "neuronix-hyprland-session-env.sh" "$OVERLAY/usr/share/neuronix/neuronix-hyprland-session-env.sh"
 _check "neuronix-x11-app" "$OVERLAY/usr/local/bin/neuronix-x11-app"
-_check "neuronix-settings" "$OVERLAY/usr/local/bin/neuronix-settings"
+_check "hypr-settings" "$OVERLAY/usr/local/bin/hypr-settings"
+_check "hypr-settings desktop" "$OVERLAY/usr/share/applications/hypr-settings.desktop"
+_check "hypr-settings package tree" "$BUILD_ROOT/default/hypr-settings/neuronix-install.sh"
 _check "neuronix-ensure-hyprbars" "$OVERLAY/usr/local/bin/neuronix-ensure-hyprbars"
 _check "hyprland.conf (default configs)" "$BUILD_ROOT/default/configs/hypr/hyprland.conf"
+_check "waybar config (default configs)" "$BUILD_ROOT/default/configs/waybar/config"
+_check "neuronix-waybar-click" "$OVERLAY/usr/local/bin/neuronix-waybar-click"
+_check "neuronix-session-action" "$OVERLAY/usr/local/bin/neuronix-session-action"
+_check "neuronix_quick_settings.py" "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py"
 _check "gtk-video.desktop" "$OVERLAY/usr/share/applications/gtk-video.desktop"
 _check "gtk-video binary (default/gtk-apps)" "$BUILD_ROOT/default/gtk-apps/bin/gtk-video"
+_check "zathura.desktop" "$OVERLAY/usr/share/applications/zathura.desktop"
+
+if grep -q '"custom/power"' "$BUILD_ROOT/default/configs/waybar/config" 2>/dev/null \
+	&& grep -q 'neuronix-waybar-click power' "$BUILD_ROOT/default/configs/waybar/config" 2>/dev/null \
+	&& grep -q '#custom-power' "$BUILD_ROOT/default/configs/waybar/style.css" 2>/dev/null \
+	&& grep -qE 'power \| session' "$OVERLAY/usr/local/bin/neuronix-waybar-click" 2>/dev/null \
+	&& grep -q 'def show_power_panel' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
+	&& grep -q '_make_tile("logout"' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
+	&& grep -q '_make_tile("reboot"' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
+	&& grep -q '_make_tile("shutdown"' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
+	&& grep -qE '^[[:space:]]*logout\)' "$OVERLAY/usr/local/bin/neuronix-session-action" 2>/dev/null \
+	&& grep -qE '^[[:space:]]*reboot\)' "$OVERLAY/usr/local/bin/neuronix-session-action" 2>/dev/null \
+	&& grep -qE '^[[:space:]]*shutdown(\|poweroff)?\)' "$OVERLAY/usr/local/bin/neuronix-session-action" 2>/dev/null; then
+	echo "  OK  Waybar power icon → Log Out / Reboot / Shut Down popover"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  Waybar custom/power (default config + overlay click/session helpers)"
+	_fail=$((_fail + 1))
+fi
+
+_pers_waybar="$BUILD_ROOT/personalize/configs/waybar"
+if [[ -f "$_pers_waybar/config" ]]; then
+	if grep -q '"custom/power"' "$_pers_waybar/config" 2>/dev/null \
+		&& grep -q 'neuronix-waybar-click power' "$_pers_waybar/config" 2>/dev/null \
+		&& { [[ ! -f "$_pers_waybar/style.css" ]] || grep -q '#custom-power' "$_pers_waybar/style.css" 2>/dev/null; }; then
+		echo "  OK  personalize waybar keeps custom/power"
+		_ok=$((_ok + 1))
+	else
+		echo "  MISSING  custom/power in personalize/configs/waybar (overlay would drop the icon)"
+		_fail=$((_fail + 1))
+	fi
+fi
+
+if grep -q 'application/pdf=zathura.desktop' "$BUILD_ROOT/default/configs/mimeapps.list" 2>/dev/null \
+	&& grep -q 'inode/directory=gtk-files.desktop' "$BUILD_ROOT/default/configs/mimeapps.list" 2>/dev/null \
+	&& grep -q 'video/mp4=mpv.desktop' "$BUILD_ROOT/default/configs/mimeapps.list" 2>/dev/null \
+	&& grep -q 'x-scheme-handler/http=neuronix-chrome.desktop' "$BUILD_ROOT/default/configs/mimeapps.list" 2>/dev/null; then
+	echo "  OK  mimeapps defaults: Chrome / gtk-files / gtk-edit / gtk-image / mpv / zathura / xarchiver"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  Neuronix MIME defaults in default/configs/mimeapps.list"
+	_fail=$((_fail + 1))
+fi
+
+if awk '/^# --- live ---/,/^# --- server ---/' "$BUILD_ROOT/default/install-list" | grep -qE '^zathura([[:space:]]|#|$)'; then
+	echo "  OK  zathura is on the live ISO"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  zathura in live install-list"
+	_fail=$((_fail + 1))
+fi
 
 if grep -q 'GSK_RENDERER=cairo' "$OVERLAY/usr/share/neuronix/neuronix-hyprland-session-env.sh" 2>/dev/null; then
 	echo "  OK  GSK_RENDERER=cairo in session env"
 	_ok=$((_ok + 1))
 else
 	echo "  MISSING  GSK_RENDERER=cairo in session env"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'GTK_ICON_THEME=Papirus-Dark' "$OVERLAY/usr/share/neuronix/neuronix-hyprland-session-env.sh" 2>/dev/null \
+	&& grep -q "gtk-icon-theme-name=Papirus-Dark" "$BUILD_ROOT/default/configs/gtk-3.0/settings.ini" 2>/dev/null \
+	&& grep -q "icon-theme='Papirus-Dark'" "$OVERLAY/etc/dconf/db/local.d/01-neuronix-gtk4-dark" 2>/dev/null \
+	&& grep -q 'env = GTK_ICON_THEME,Papirus-Dark' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null; then
+	echo "  OK  Papirus-Dark toolbar icons (session env / GTK3 / dconf / Hyprland)"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  Papirus-Dark in session env, gtk-3.0 settings, dconf, or hyprland.conf"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q '@define-color wb_fg' "$BUILD_ROOT/default/configs/waybar/style.css" 2>/dev/null \
+	&& ! grep -q 'var(--wb-' "$BUILD_ROOT/default/configs/waybar/style.css" 2>/dev/null \
+	&& grep -q '@define-color wb_fg' "$BUILD_ROOT/default/gtk-apps/gtk-theme/python/gtk_theme.py" 2>/dev/null \
+	&& grep -q 'pgrep' "$BUILD_ROOT/default/gtk-apps/gtk-theme/python/gtk_theme.py" 2>/dev/null \
+	&& ! grep -q 'systemctl.*restart.*waybar' "$BUILD_ROOT/default/gtk-apps/gtk-theme/python/gtk_theme.py" 2>/dev/null; then
+	echo "  OK  Waybar GTK @define-color chrome + in-place reload (no systemctl restart)"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  Waybar @define-color stylesheet or gtk-theme reload path"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'def _sync_gtk_term_colors' "$BUILD_ROOT/default/gtk-apps/gtk-theme/python/gtk_theme.py" 2>/dev/null \
+	&& grep -q '\[colors\]' "$BUILD_ROOT/default/configs/gtk-apps/gtk-term/config.toml" 2>/dev/null \
+	&& grep -q 'progress-color=#' "$BUILD_ROOT/default/configs/mako/config" 2>/dev/null \
+	&& grep -q 'background_color = rgb(' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null; then
+	echo "  OK  gtk-themes Base syncs gtk-term / mako / Hypr workspace background"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  gtk-term config.toml, mako progress, hypr background_color, or gtk-theme sync"
+	_fail=$((_fail + 1))
+fi
+
+if [[ -x "$BUILD_ROOT/default/gtk-apps/bin/gtk-theme-editor" ]] \
+	&& grep -q '↗' "$BUILD_ROOT/default/hypr-settings/main.py" 2>/dev/null; then
+	echo "  OK  gtk-theme-editor binary + Settings Themes ↗"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  gtk-theme-editor in default/gtk-apps/bin or Themes ↗ in hypr-settings"
 	_fail=$((_fail + 1))
 fi
 
@@ -163,13 +263,13 @@ else
 	_fail=$((_fail + 1))
 fi
 
-if grep -q 'def is_gtk_image' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null \
-	&& grep -q '_spawned_by_photos' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null; then
-	echo "  OK  gtk-image grids only when spawned from gtk-photos"
-	_ok=$((_ok + 1))
-else
-	echo "  MISSING  gtk-image photos-grid guard in default window-manager.py"
+if grep -q 'HDMI-A-1' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null \
+	|| grep -q 'DP-3' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null; then
+	echo "  FAIL  stock window-manager.py still has a named-output layout"
 	_fail=$((_fail + 1))
+else
+	echo "  OK  stock window-manager.py has no named-output layout (personalize overlays)"
+	_ok=$((_ok + 1))
 fi
 
 if grep -q 'neuronix-window-switch' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null; then
@@ -190,12 +290,13 @@ fi
 
 if grep -q 'STUCK_S' "$OVERLAY/usr/local/bin/neuronix-window-switch" 2>/dev/null \
 	&& grep -q -- '--commit' "$OVERLAY/usr/local/bin/neuronix-window-switch" 2>/dev/null \
-	&& grep -q 'HDMI_NAME' "$OVERLAY/usr/local/bin/neuronix-window-switch" 2>/dev/null \
+	&& grep -q '_focused_monitor' "$OVERLAY/usr/local/bin/neuronix-window-switch" 2>/dev/null \
+	&& ! grep -q 'HDMI_NAME' "$OVERLAY/usr/local/bin/neuronix-window-switch" 2>/dev/null \
 	&& ! grep -q 'Gtk' "$OVERLAY/usr/local/bin/neuronix-window-switch" 2>/dev/null; then
-	echo "  OK  neuronix-window-switch is HDMI MRU (no GTK overlay)"
+	echo "  OK  neuronix-window-switch is focused-monitor MRU (no GTK overlay)"
 	_ok=$((_ok + 1))
 else
-	echo "  FAIL  neuronix-window-switch is not the HDMI last-two switcher"
+	echo "  FAIL  neuronix-window-switch is not the focused-monitor last-two switcher"
 	_fail=$((_fail + 1))
 fi
 
@@ -213,6 +314,23 @@ if grep -q 'neuronix-launch gtk-term' "$BUILD_ROOT/default/configs/hypr/hyprland
 else
 	echo "  MISSING  gtk-term bind in hyprland.conf"
 	_fail=$((_fail + 1))
+fi
+
+if grep -qE '^terminal=.*\bfoot\b' "$BUILD_ROOT/default/configs/fuzzel/fuzzel.ini" 2>/dev/null \
+	|| grep -qE '^foot$' "$MANIFEST" 2>/dev/null; then
+	echo "  FAIL  foot still listed as terminal fallback"
+	_fail=$((_fail + 1))
+else
+	echo "  OK  gtk-term is the only terminal (no foot package / fuzzel)"
+	_ok=$((_ok + 1))
+fi
+
+if grep -qE '^thunar$' "$MANIFEST" 2>/dev/null; then
+	echo "  FAIL  thunar still listed as file-manager fallback"
+	_fail=$((_fail + 1))
+else
+	echo "  OK  gtk-files is the only file manager (no thunar package)"
+	_ok=$((_ok + 1))
 fi
 
 if grep -q 'neuronix-launch gtk-files' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null; then
@@ -380,10 +498,9 @@ _smoke_run "Layer B: gtk-term" "gtk-term --help" 2
 _smoke_run "Layer B: gtk-image" "gtk-image --help" 2
 _smoke_run "Layer B: gtk-video" "gtk-video --help" 2
 _smoke_run "Layer B: gtk-calc" "gtk-calc --help" 2
-_smoke_run "Layer B fallback: foot" "foot --version"
 _smoke_run "hyprbars helper" "test -x /usr/local/bin/neuronix-ensure-hyprbars"
 _smoke_run "native: fuzzel" "fuzzel --version"
-_smoke_run "settings hub" "test -x /usr/local/bin/neuronix-settings"
+_smoke_run "hypr-settings" "test -x /usr/local/bin/hypr-settings"
 
 echo
 echo "Smoke: $_smoke_ok passed, $_smoke_fail failed/skipped"

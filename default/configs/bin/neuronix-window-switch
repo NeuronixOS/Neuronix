@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Instant Alt+Tab for Hyprland — Windows-style MRU, no overlay.
 
-HDMI screen, current workspace only.
+Focused monitor, current workspace only.
 
 A complete Alt+Tab (press Tab, release Alt) toggles the last two windows.
 Holding Alt and tapping Tab again walks further down recently-used windows.
 Shift+Alt+Tab walks the same list backwards.
 """
-
 from __future__ import annotations
 
 import fcntl
@@ -19,7 +18,6 @@ import time
 
 # If Alt-release never arrives, stop treating Tab as "still holding Alt".
 STUCK_S = 5.0
-HDMI_NAME = "HDMI-A-1"
 STATE_PATH = os.path.join(
     os.environ.get("XDG_RUNTIME_DIR", f"/tmp/neuronix-{os.getuid()}"),
     "neuronix-window-switch.json",
@@ -39,17 +37,11 @@ def _dispatch(*args: str) -> None:
     )
 
 
-def _hdmi_monitor(monitors: list[dict]) -> dict | None:
-    if not monitors:
-        return None
-    by_name = {m.get("name"): m for m in monitors if m.get("name")}
-    if HDMI_NAME in by_name:
-        return by_name[HDMI_NAME]
-    hdmis = [m for m in monitors if str(m.get("name", "")).startswith("HDMI")]
-    if hdmis:
-        hdmis.sort(key=lambda m: int(m.get("x") or 0))
-        return hdmis[len(hdmis) // 2]
-    return None
+def _focused_monitor(monitors: list[dict]) -> dict | None:
+    for mon in monitors:
+        if mon.get("focused"):
+            return mon
+    return monitors[0] if monitors else None
 
 
 def _on_monitor(win: dict, mon: dict) -> bool:
@@ -64,17 +56,17 @@ def _on_monitor(win: dict, mon: dict) -> bool:
         return str(wmon) == str(name)
 
 
-def _mru_on_hdmi_desktop() -> tuple[list[str], str | None, str | None]:
-    """Addresses on the HDMI screen's current workspace, most-recent first."""
+def _mru_on_focused_desktop() -> tuple[list[str], str | None, str | None]:
+    """Addresses on the focused monitor's current workspace, most-recent first."""
     monitors = json.loads(_hypr("monitors", "-j"))
-    mon = _hdmi_monitor(monitors)
+    mon = _focused_monitor(monitors)
     if not mon:
         return [], None, None
     aws = mon.get("activeWorkspace") or {}
     ws_id = aws.get("id")
     ws_name = str(aws.get("name") or "")
     if ws_name.startswith("special"):
-        return [], str(mon.get("name") or HDMI_NAME), None
+        return [], str(mon.get("name") or ""), None
 
     clients = json.loads(_hypr("clients", "-j"))
     out: list[tuple[int, str]] = []
@@ -96,7 +88,7 @@ def _mru_on_hdmi_desktop() -> tuple[list[str], str | None, str | None]:
     out.sort(key=lambda item: item[0])
     return (
         [addr for _hist, addr in out],
-        str(mon.get("name") or HDMI_NAME),
+        str(mon.get("name") or ""),
         str(ws_id) if ws_id is not None else ws_name or None,
     )
 
@@ -155,7 +147,7 @@ def main(argv: list[str]) -> int:
 
     reverse = "--reverse" in argv
     delta = -1 if reverse else 1
-    addrs, mon_name, desktop = _mru_on_hdmi_desktop()
+    addrs, mon_name, desktop = _mru_on_focused_desktop()
     if len(addrs) < 2:
         return 0
 
@@ -177,11 +169,9 @@ def main(argv: list[str]) -> int:
             and (now - float(state.get("t") or 0)) <= STUCK_S
         )
         if held:
-            # Alt still down: walk further down the frozen MRU list.
             addrs = saved
             idx = (idx + delta) % len(addrs)
         elif addrs[0] == _active_address():
-            # New chord: toggle to the previously focused window (or wrap reverse).
             idx = delta % len(addrs)
         else:
             idx = 0 if not reverse else (len(addrs) - 1)

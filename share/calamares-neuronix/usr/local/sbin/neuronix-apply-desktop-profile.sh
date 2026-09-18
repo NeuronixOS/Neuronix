@@ -48,8 +48,10 @@ for pkg in "${_pkgs[@]}"; do
 done
 
 if ((${#_to_install[@]} > 0)); then
-	echo "[neuronix-desktop] Installing ${#_to_install[@]} packages…"
-	apt-get install -y "${_to_install[@]}"
+	echo "[neuronix-desktop] Installing ${#_to_install[@]} packages (no Recommends)…"
+	# kdenlive Depends KF6/Breeze; kio6 Recommends systemsettings and
+	# purpose Recommends kdeconnect — skip those Plasma extras.
+	apt-get install -y --no-install-recommends "${_to_install[@]}"
 else
 	echo "[neuronix-desktop] All listed packages already installed (or deferred to hooks)."
 fi

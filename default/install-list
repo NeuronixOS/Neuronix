@@ -109,17 +109,13 @@ gir1.2-gtk-4.0 # GTK4 GObject introspection (Python gtk-colors / suite apps)
 libvte-2.91-gtk4-0 # VTE GTK4 widget (gtk-term)
 libgtksourceview-5-0 # GtkSourceView 5 for gtk-edit syntax highlighting
 gir1.2-gtksource-5 # GtkSourceView 5 GObject introspection (gtk-meld / Python)
-gir1.2-adw-1 # libadwaita GObject introspection (gtk-worktimezone)
+gir1.2-adw-1 # libadwaita GObject introspection (Python gtk-apps)
 gstreamer1.0-plugins-base # GTK4 MediaFile / gtk-video preview
 gstreamer1.0-plugins-good # gtk-video preview codecs
 gstreamer1.0-plugins-bad # extra codecs for gtk-video preview
 gstreamer1.0-libav # FFmpeg codecs for gtk-video preview (mp4/h264)
 gstreamer1.0-gtk4 # GTK4 video sink for gtk::MediaFile / gtk-video
 ffmpeg # gtk-video export (also listed under desktop)
-python3-google-auth # Google auth for gtk-meetings calendar import
-python3-google-auth-httplib2 # Google auth HTTP transport
-python3-google-auth-oauthlib # Google OAuth for gtk-meetings
-python3-googleapi # Google API client for gtk-meetings
 grim # Wayland screenshot utility (Print / Super+Shift+S)
 slurp # Region selector for grim screenshots (Esc cancels via neuronix-escape)
 # Daily apps: gtk-term / gtk-files / gtk-edit / gtk-image / gtk-video / gtk-calc (+ gtk-neurond Self Driving)

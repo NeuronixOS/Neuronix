@@ -582,7 +582,7 @@ Notable areas:
 | **Dropbox** | Not in `install-list`; do not add Dropbox apt repos to the overlay |
 | **nwg-look / nwg-displays / nwg-clipman** | Settings + clipboard → **hypr-settings** / wl-clipboard |
 | **pavucontrol / nm-connection-editor / blueman** | Sound / Wi‑Fi / BT → **hypr-settings** (+ Waybar panels) |
-| **gtk-configs / gtk-workspaces / gtk-worktimezone** | Merged into **hypr-settings** Appearance or removed |
+| **gtk-configs** | Config editing lives in **hypr-settings** Appearance |
 
 Stock utilities that **are** shipped: **xarchiver** (archives + MIME), **powertop** (hypr-settings Battery), **baobab**, **gparted**.
 

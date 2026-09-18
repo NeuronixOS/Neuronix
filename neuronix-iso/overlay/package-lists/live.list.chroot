@@ -94,10 +94,6 @@ gstreamer1.0-plugins-good
 gstreamer1.0-plugins-bad
 gstreamer1.0-libav
 gstreamer1.0-gtk4
-python3-google-auth
-python3-google-auth-httplib2
-python3-google-auth-oauthlib
-python3-googleapi
 grim
 slurp
 firefox-esr

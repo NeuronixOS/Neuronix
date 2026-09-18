@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from PySide6.QtGui import QFont, QIcon, QKeySequence, QShortcut
+from PySide6.QtGui import QFont, QGuiApplication, QIcon, QKeySequence, QShortcut
 from PySide6.QtCore import QFileSystemWatcher, Qt
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QFrame, QHBoxLayout,
@@ -38,9 +38,38 @@ def _acquire_lock():
     _lock_fh = open(_LOCK_FILE, "w")
     try:
         fcntl.flock(_lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _lock_fh.write(str(os.getpid()))
+        _lock_fh.flush()
         return True
     except OSError:
         return False
+
+
+def _hyprctl(*args: str) -> None:
+    subprocess.run(
+        ["hyprctl", "dispatch", *args],
+        timeout=2,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _focus_existing() -> None:
+    """Raise the already-running Settings window instead of failing silently."""
+    pid = ""
+    try:
+        pid = open(_LOCK_FILE, encoding="utf-8").read().strip()
+    except Exception:
+        pid = ""
+    try:
+        if pid.isdigit():
+            _hyprctl("focuswindow", f"pid:{pid}")
+        _hyprctl("focuswindow", "class:hypr-settings")
+        _hyprctl("focuswindow", "title:Settings")
+        _hyprctl("alterzorder", "top")
+    except Exception:
+        pass
 
 
 def _detect_icon_theme():
@@ -201,7 +230,7 @@ QPushButton#navBtn {{
     font-size: {b}px;
     font-weight: 500;
     text-align: left;
-    padding: 9px 14px;
+    padding: 9px 14px 9px 18px;
     min-height: 22px;
     min-width: 0;
 }}
@@ -529,7 +558,7 @@ def _nav_button(label: str, *, external: bool = False) -> QPushButton:
     btn = QPushButton()
     btn.setObjectName("navBtn")
     row = QHBoxLayout(btn)
-    row.setContentsMargins(0, 0, 0, 0)
+    row.setContentsMargins(10, 0, 4, 0)
     row.setSpacing(4)
     text = QLabel(label)
     text.setObjectName("navBtnText")
@@ -584,10 +613,12 @@ def main():
     global _is_dark
 
     if not _acquire_lock():
+        _focus_existing()
         sys.exit(0)
 
     _is_dark = _detect_dark()
 
+    QGuiApplication.setDesktopFileName("hypr-settings")
     app = QApplication(sys.argv)
     app.setFont(QFont("sans", 14))
     app.setStyleSheet(_qss())
@@ -769,6 +800,8 @@ def main():
     QShortcut(QKeySequence("Ctrl+0"), window).activated.connect(lambda: zoom(16 - _base_font))
 
     window.show()
+    window.raise_()
+    window.activateWindow()
     sys.exit(app.exec())
 
 

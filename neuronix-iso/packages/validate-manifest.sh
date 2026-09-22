@@ -18,9 +18,23 @@ BUILD_ROOT="$(cd "${ISO_ROOT}/.." && pwd)"
 # shellcheck source=manifest-lib.sh
 source "${PACKAGES_ROOT}/manifest-lib.sh"
 
-LIST_DIR="${ISO_ROOT}/overlay/package-lists"
 MANIFEST="${BUILD_ROOT}/default/install-list"
 METADATA="${BUILD_ROOT}/default/metadata/debian.env"
+_staging_sh="${BUILD_ROOT}/share/neuronix-build-staging.sh"
+if [[ -r "$_staging_sh" ]]; then
+	# shellcheck source=../share/neuronix-build-staging.sh
+	source "$_staging_sh"
+	if [[ -r "$METADATA" ]]; then
+		# shellcheck source=/dev/null
+		source "$METADATA"
+		if [[ -r "${BUILD_ROOT}/personalize/metadata/debian.env" ]]; then
+			# shellcheck source=/dev/null
+			source "${BUILD_ROOT}/personalize/metadata/debian.env"
+		fi
+	fi
+	neuronix_apply_build_staging "${NEURONIX_BUILD_ROOT:-}"
+fi
+LIST_DIR="${NEURONIX_LIST_DIR:-${ISO_ROOT}/overlay/package-lists}"
 SUITE="${NEURONIX_VALIDATE_SUITE:-}"
 ARCH="${NEURONIX_VALIDATE_ARCH:-amd64}"
 MODE=validate
@@ -262,8 +276,8 @@ echo "OK: all ${#PACKAGES[@]} live-build package-list entries resolve in Debian 
 echo "OK: install-list live/installer sections match package-lists."
 
 # Calamares lists must cover server + desktop sections.
-SERVER_PKGS="${BUILD_ROOT}/share/calamares-neuronix/etc/calamares/neuronix-server-packages.list"
-DESKTOP_PKGS="${BUILD_ROOT}/share/calamares-neuronix/etc/calamares/neuronix-desktop-packages.list"
+SERVER_PKGS="${NEURONIX_CALAMARES_GEN:-${BUILD_ROOT}/share/calamares-neuronix/etc/calamares}/neuronix-server-packages.list"
+DESKTOP_PKGS="${NEURONIX_CALAMARES_GEN:-${BUILD_ROOT}/share/calamares-neuronix/etc/calamares}/neuronix-desktop-packages.list"
 
 _check_calamares_list() {
 	local list_file="$1" section="$2" label="$3"

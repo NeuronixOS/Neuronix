@@ -19,8 +19,10 @@ if _loaded; then
 	exit 0
 fi
 
-# ISO-built or packaged plugin — no compile, works offline on live ISO
+# ISO-built or packaged plugin — no compile, works offline on live ISO.
+# /usr/local is the Neuronix build (hyprbars-button replace-in-place for gtk-themes).
 for PLUGIN_SO in \
+	"/usr/local/lib/hyprland/plugins/libhyprbars.so" \
 	"${PLUGIN_DIR}/libhyprbars.so" \
 	"${PLUGIN_DIR}/hyprbars.so"; do
 	[ -f "${PLUGIN_SO}" ] || continue

@@ -11,7 +11,15 @@ if [[ -r "$SCRIPT_ROOT/../personalize/metadata/debian.env" ]]; then
   source "$SCRIPT_ROOT/../personalize/metadata/debian.env"
 fi
 _build_var="${NEURONIX_BUILD_ROOT_VAR}"
-BUILD_ROOT="${!_build_var:-$NEURONIX_BUILD_ROOT_DEFAULT}"
+_staging_sh="$(cd "$SCRIPT_ROOT/../share" && pwd)/neuronix-build-staging.sh"
+if [[ -r "$_staging_sh" ]]; then
+  # shellcheck source=../share/neuronix-build-staging.sh
+  source "$_staging_sh"
+  neuronix_apply_build_staging "${NEURONIX_BUILD_ROOT:-${!_build_var:-}}"
+  BUILD_ROOT="$NEURONIX_BUILD_ROOT"
+else
+  BUILD_ROOT="${NEURONIX_BUILD_ROOT:-${!_build_var:-$NEURONIX_BUILD_ROOT_DEFAULT}}"
+fi
 
 if [[ ! -d "$BUILD_ROOT/config" ]]; then
   echo "No live-build config — run first: cd $SCRIPT_ROOT && ./setup.sh" >&2

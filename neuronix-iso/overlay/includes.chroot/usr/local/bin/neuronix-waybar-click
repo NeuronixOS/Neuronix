@@ -84,14 +84,14 @@ case "${1:-}" in
 		;;
 	cpu)
 		_quick cpu && exit 0
-		exec neuronix-waybar-popover --class btop --width 960 --height 640 -- gtk-term-launch.sh -e btop
+		exec neuronix-waybar-popover --class org.neuronix.btop --width 960 --height 640 -- gtk-term-launch.sh --class org.neuronix.btop --title btop -e btop
 		;;
 	memory)
 		_quick memory && exit 0
-		exec neuronix-waybar-popover --class btop --width 960 --height 640 -- gtk-term-launch.sh -e btop
+		exec neuronix-waybar-popover --class org.neuronix.btop --width 960 --height 640 -- gtk-term-launch.sh --class org.neuronix.btop --title btop -e btop
 		;;
 	btop | cpu-btop | memory-btop)
-		exec neuronix-waybar-popover --class btop --width 960 --height 640 -- gtk-term-launch.sh -e btop
+		exec neuronix-waybar-popover --class org.neuronix.btop --width 960 --height 640 -- gtk-term-launch.sh --class org.neuronix.btop --title btop -e btop
 		;;
 	battery)
 		exec neuronix-waybar-popover --class xfce4-power-manager-settings --width 640 --height 520 -- neuronix-power-settings

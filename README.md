@@ -376,7 +376,7 @@ cd ..
 ./build.sh                                  # sudo lb build (in neuronix-iso/)
 ```
 
-Build output defaults to `~/neuronix-build-iso` (override with `NEURONIX_BUILD_ROOT`).
+Build output defaults to `/tmp/neuronix-build-$USER` (override with `NEURONIX_BUILD_ROOT`). Regenerated package lists and Calamares `*.list` files go under `$NEURONIX_BUILD_ROOT/generated/` — not into `neuronix-iso/overlay/` (avoids personalize/git clobber).
 
 **Build host:** `live-build`, **network** (debootstrap, backports), optional ImageMagick for avatar sizing.
 

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Load hyprnine (9-slice window chrome) for this Hyprland session.
+set -eu
+
+PLUGIN_SO="/usr/local/lib/hyprland/plugins/libhyprnine.so"
+PNG="${HOME}/.config/gtk-apps/chrome/border-9.png"
+
+command -v hyprctl >/dev/null 2>&1 || exit 0
+
+_loaded() {
+	hyprctl plugin list 2>/dev/null | grep -qi hyprnine
+}
+
+if ! _loaded; then
+	for CAND in \
+		"${PLUGIN_SO}" \
+		"/usr/lib/x86_64-linux-gnu/hyprland/plugins/libhyprnine.so"; do
+		[ -f "${CAND}" ] || continue
+		hyprctl plugin load "${CAND}" >/dev/null 2>&1 || true
+		_loaded && break
+	done
+fi
+
+if [ -f "${PNG}" ] && _loaded; then
+	hyprctl dispatch hyprninepatch "${PNG}" >/dev/null 2>&1 || true
+	hyprctl keyword general:border_size 0 >/dev/null 2>&1 || true
+fi
+exit 0

@@ -184,26 +184,27 @@ if [[ -z "$GRUB16" ]]; then
 fi
 GRUB43="$(pick_grub_4x3 || true)"
 
-# Live ISO: BIOS (isolinux) + GRUB (pc/efi) — same Neuronix artwork.
-install_bootloader "$OVERLAY/bootloaders/grub-pc"
-install_bootloader "$OVERLAY/bootloaders/grub-efi"
-install_isolinux_splash "$OVERLAY/bootloaders/isolinux" "${GRUB43:-$GRUB16}"
+# Never write into the git-tracked overlay unless explicitly requested (dirty tree / clobber risk).
+if [[ "${NEURONIX_WRITE_REPO_OVERLAY:-0}" == "1" ]]; then
+	install_bootloader "$OVERLAY/bootloaders/grub-pc"
+	install_bootloader "$OVERLAY/bootloaders/grub-efi"
+	install_isolinux_splash "$OVERLAY/bootloaders/isolinux" "${GRUB43:-$GRUB16}"
 
-# Installed system + Calamares target (update-grub reads these paths).
-GB_GRUB="$OVERLAY/includes.chroot/usr/share/neuronix/branding/grub"
-CER_GRUB="$OVERLAY/includes.chroot/usr/share/desktop-base/ceratopsian-theme/grub"
-mkdir -p "$GB_GRUB" "$CER_GRUB"
-cp -a "$GRUB16" "$GB_GRUB/wallpaper.png"
-write_grub_theme_txt "$GB_GRUB/theme.txt" "wallpaper.png"
-cp -a "$GRUB16" "$OVERLAY/includes.chroot/usr/share/neuronix/branding/grub-16x9.png"
-cp -a "$GRUB16" "$CER_GRUB/grub-16x9.png"
-if [[ -n "$GRUB43" && -f "$GRUB43" ]]; then
-	cp -a "$GRUB43" "$OVERLAY/includes.chroot/usr/share/neuronix/branding/grub-4x3.png"
-	cp -a "$GRUB43" "$CER_GRUB/grub-4x3.png"
+	GB_GRUB="$OVERLAY/includes.chroot/usr/share/neuronix/branding/grub"
+	CER_GRUB="$OVERLAY/includes.chroot/usr/share/desktop-base/ceratopsian-theme/grub"
+	mkdir -p "$GB_GRUB" "$CER_GRUB"
+	cp -a "$GRUB16" "$GB_GRUB/wallpaper.png"
+	write_grub_theme_txt "$GB_GRUB/theme.txt" "wallpaper.png"
+	cp -a "$GRUB16" "$OVERLAY/includes.chroot/usr/share/neuronix/branding/grub-16x9.png"
+	cp -a "$GRUB16" "$CER_GRUB/grub-16x9.png"
+	if [[ -n "$GRUB43" && -f "$GRUB43" ]]; then
+		cp -a "$GRUB43" "$OVERLAY/includes.chroot/usr/share/neuronix/branding/grub-4x3.png"
+		cp -a "$GRUB43" "$CER_GRUB/grub-4x3.png"
+	fi
+	write_distributor_dropin "$OVERLAY/includes.chroot" 0
 fi
-write_distributor_dropin "$OVERLAY/includes.chroot" 0
 
-# Optional live-build tree (setup.sh passes BUILD_ROOT/config as second arg).
+# Live-build config tree (setup.sh passes BUILD_ROOT/config).
 if [[ -n "${1:-}" ]]; then
 	_cfg="${1%/}"
 	install_bootloader "$_cfg/bootloaders/grub-pc"
@@ -220,6 +221,9 @@ if [[ -n "${1:-}" ]]; then
 		cp -a "$GRUB43" "$_cfg/includes.chroot/usr/share/desktop-base/ceratopsian-theme/grub/grub-4x3.png"
 	fi
 	write_distributor_dropin "$_cfg/includes.chroot" 1
+elif [[ "${NEURONIX_WRITE_REPO_OVERLAY:-0}" != "1" ]]; then
+	echo "merge-grub-branding: skipped repo overlay (pass live-build config dir as \$1)." >&2
+	exit 1
 fi
 
 echo "merge-grub-branding: OK ($GRUB16 → live USB isolinux + GRUB + installed branding)"

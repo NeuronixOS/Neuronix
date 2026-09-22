@@ -21,22 +21,26 @@ if [[ -r "$PERSONALIZE/metadata/debian.env" ]]; then
 fi
 
 _build_var="${NEURONIX_BUILD_ROOT_VAR}"
-BUILD_ROOT="${!_build_var:-$NEURONIX_BUILD_ROOT_DEFAULT}"
+_staging_sh="$REPO_ROOT/share/neuronix-build-staging.sh"
+if [[ -r "$_staging_sh" ]]; then
+  # shellcheck source=../share/neuronix-build-staging.sh
+  source "$_staging_sh"
+  neuronix_apply_build_staging "${NEURONIX_BUILD_ROOT:-${!_build_var:-}}"
+  BUILD_ROOT="$NEURONIX_BUILD_ROOT"
+else
+  BUILD_ROOT="${NEURONIX_BUILD_ROOT:-${!_build_var:-$NEURONIX_BUILD_ROOT_DEFAULT}}"
+fi
+export NEURONIX_BUILD_ROOT="$BUILD_ROOT"
+export NEURONIX_GEN_DIR="${NEURONIX_GEN_DIR:-${BUILD_ROOT}/generated}"
+export NEURONIX_LIST_DIR="${NEURONIX_LIST_DIR:-${NEURONIX_GEN_DIR}/package-lists}"
+export NEURONIX_CALAMARES_GEN="${NEURONIX_CALAMARES_GEN:-${NEURONIX_GEN_DIR}/calamares}"
+
 OVERLAY="$SCRIPT_ROOT/overlay"
-DESIGN_SHARE="$OVERLAY/includes.chroot/etc/skel/.local/share/neuronix"
+SKEL_NEURONIX_SHARE="$BUILD_ROOT/config/includes.chroot/etc/skel/.local/share/neuronix"
 
 mkdir -p "$BUILD_ROOT"
 
 _live_bg="$(neuronix_resolve_image "$IMAGES_DEFAULT" "$IMAGES_PERSONALIZE" "live/background" || true)"
-if [[ -n "${_live_bg:-}" ]]; then
-  mkdir -p "$DESIGN_SHARE"
-  # Always stage as background.png for skel/session consumers.
-  if command -v convert >/dev/null 2>&1 && [[ "${_live_bg##*.}" != "png" ]]; then
-    convert "$_live_bg" PNG:"$DESIGN_SHARE/background.png"
-  else
-    cp -a "$_live_bg" "$DESIGN_SHARE/background.png"
-  fi
-fi
 cd "$BUILD_ROOT"
 
 if ! command -v lb >/dev/null 2>&1; then
@@ -61,17 +65,15 @@ lb config \
   --bootloaders "grub-pc grub-efi" \
   --bootappend-live "$_bootappend"
 
-MERGE_GRUB="$REPO_ROOT/share/merge-grub-branding.sh"
-if [[ -x "$MERGE_GRUB" ]]; then
-  "$MERGE_GRUB"
-else
-  echo "WARNING: missing $MERGE_GRUB — live ISO may show ${NEURONIX_GRUB_FALLBACK_MSG}." >&2
-fi
-
 mkdir -p config/package-lists config/includes.chroot \
   config/hooks/normal config/bootloaders
 shopt -s nullglob
-for f in "$OVERLAY"/package-lists/*.list.chroot; do
+_list_src="$OVERLAY/package-lists"
+if [[ -d "${NEURONIX_LIST_DIR:-}" ]] && compgen -G "${NEURONIX_LIST_DIR}/*.list.chroot" >/dev/null 2>&1; then
+  _list_src="$NEURONIX_LIST_DIR"
+  echo "Using generated package-lists from ${NEURONIX_LIST_DIR}"
+fi
+for f in "$_list_src"/*.list.chroot; do
   cp -a "$f" config/package-lists/
 done
 if [[ -d "$OVERLAY/bootloaders" ]]; then
@@ -80,6 +82,34 @@ fi
 
 if [[ -d "$OVERLAY/includes.chroot" ]]; then
   cp -a "$OVERLAY/includes.chroot/." config/includes.chroot/
+fi
+
+# Live wallpaper → skel (under live-build tree only; never neuronix-iso/overlay/).
+if [[ -n "${_live_bg:-}" ]]; then
+  mkdir -p "$SKEL_NEURONIX_SHARE"
+  if command -v convert >/dev/null 2>&1 && [[ "${_live_bg##*.}" != "png" ]]; then
+    convert "$_live_bg" PNG:"$SKEL_NEURONIX_SHARE/background.png"
+  else
+    cp -a "$_live_bg" "$SKEL_NEURONIX_SHARE/background.png"
+  fi
+fi
+
+MERGE_GRUB="$REPO_ROOT/share/merge-grub-branding.sh"
+if [[ -x "$MERGE_GRUB" ]]; then
+  "$MERGE_GRUB" "$BUILD_ROOT/config"
+elif [[ -f "$MERGE_GRUB" ]]; then
+  echo "WARNING: missing executable $MERGE_GRUB — live ISO may show ${NEURONIX_GRUB_FALLBACK_MSG}." >&2
+fi
+
+# Regenerated Calamares package lists (from build.sh) override stock overlay copies.
+if [[ -d "${NEURONIX_CALAMARES_GEN:-}" ]]; then
+  mkdir -p config/includes.chroot/etc/calamares
+  shopt -s nullglob
+  for _cal_list in "$NEURONIX_CALAMARES_GEN"/neuronix-*.list; do
+    [[ -f "$_cal_list" ]] || continue
+    cp -a "$_cal_list" config/includes.chroot/etc/calamares/
+  done
+  shopt -u nullglob
 fi
 
 # Dropbox / sync often strips +x — force script modes into the live-build tree.
@@ -130,8 +160,8 @@ if [[ ! -f "$INST_BG_DEST/background.png" ]]; then
   fi
 fi
 # Also mirror live wallpaper into the picker folder when distinct.
-if [[ -n "${_live_bg:-}" && -f "$DESIGN_SHARE/background.png" ]]; then
-  cp -a "$DESIGN_SHARE/background.png" "$INST_BG_DEST/live-background.png"
+if [[ -n "${_live_bg:-}" && -f "$SKEL_NEURONIX_SHARE/background.png" ]]; then
+  cp -a "$SKEL_NEURONIX_SHARE/background.png" "$INST_BG_DEST/live-background.png"
 fi
 
 NEURONIX_PIX="$BUILD_ROOT/config/includes.chroot/usr/share/pixmaps"
@@ -155,10 +185,6 @@ if [[ -n "${_menu_icon:-}" ]]; then
   fi
   chmod 0644 "$SKEL/.face" "$SKEL/.face.icon"
 fi
-if [[ -x "$MERGE_GRUB" ]]; then
-  "$MERGE_GRUB" "$BUILD_ROOT/config"
-fi
-
 _merge="$REPO_ROOT/share/merge-calamares-neuronix.sh"
 if [[ -f "$_merge" ]]; then
   chmod +x "$_merge"

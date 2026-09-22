@@ -539,26 +539,33 @@ def _fmt_gib(kib: float) -> str:
 
 def _open_btop_detached(*, quit_after: bool = True) -> None:
     popover = _which("neuronix-waybar-popover")
-    term = _which("gtk-term-launch.sh") or "gtk-term-launch.sh"
+    term = _which("gtk-term-launch.sh") or _which("gtk-term") or "gtk-term"
     btop = _which("btop") or "btop"
+    argv = [
+        term,
+        "--class",
+        "org.neuronix.btop",
+        "--title",
+        "btop",
+        "-e",
+        btop,
+    ]
     if popover:
         _launch_detached(
             [
                 popover,
                 "--class",
-                "btop",
+                "org.neuronix.btop",
                 "--width",
                 "960",
                 "--height",
                 "640",
                 "--",
-                term,
-                "-e",
-                btop,
+                *argv,
             ]
         )
     else:
-        _launch_detached([term, "-e", btop])
+        _launch_detached(argv)
     if quit_after:
         GLib.idle_add(Gtk.main_quit)
 

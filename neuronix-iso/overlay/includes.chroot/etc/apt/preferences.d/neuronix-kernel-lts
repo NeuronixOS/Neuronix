@@ -1,0 +1,15 @@
+# NVIDIA proprietary DKMS (550.x) does not build against linux 7.x from
+# trixie-backports. Keep the stock trixie 6.12 LTS kernel.
+# Hyprland may still come from backports — do not pass linux-image-amd64
+# or linux-headers-amd64 with -t trixie-backports.
+Package: linux-*
+Pin: release n=trixie-backports
+Pin-Priority: -1
+
+Package: linux-image-amd64
+Pin: release n=trixie
+Pin-Priority: 990
+
+Package: linux-headers-amd64
+Pin: release n=trixie
+Pin-Priority: 990

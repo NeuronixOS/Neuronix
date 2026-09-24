@@ -50,7 +50,7 @@ fi
 
 # Groups: Hyprland needs input/render/video; LightDM autologin expects "autologin".
 # Without these the compositor fails and LightDM falls back to the greeter.
-_live_groups="audio,cdrom,dip,floppy,video,plugdev,netdev,scanner,bluetooth,sudo,autologin,input,render"
+_live_groups="audio,cdrom,dip,floppy,video,plugdev,netdev,scanner,bluetooth,sudo,autologin,input,render,lpadmin"
 _bootappend="boot=live components username=live user-default-groups=${_live_groups}"
 if [[ -n "${LB_LIVE_USER_PASSWORD:-}" ]]; then
   _bootappend="${_bootappend} user-password=${LB_LIVE_USER_PASSWORD}"

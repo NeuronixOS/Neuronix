@@ -25,7 +25,7 @@ live-config-systemd # live-config systemd integration
 live-tools # Live system tools
 sudo # Provide limited super user privileges to specific users
 systemd-sysv # system and service manager - SysV compatibility symlinks
-linux-image-amd64 # Kernel image (upgraded to trixie-backports ~7.0.x via hook 997)
+linux-image-amd64 # Kernel image (stock trixie 6.12 LTS; NVIDIA DKMS needs this, not backports 7.x)
 network-manager # network management framework (daemon and userspace tools)
 bluez # Bluetooth tools and daemons
 bluetooth # Bluetooth support (metapackage)
@@ -131,6 +131,11 @@ xarchiver # Archive manager GUI (zip/tar/…; MIME default + Open With)
 unzip # Extract ZIP archives (gtk-files Extract + xarchiver)
 zathura # PDF / document viewer (mimeapps default)
 zathura-pdf-poppler # PDF support for zathura via poppler
+# Printing (CUPS) — live + Desktop; system-config-printer GUI needs cups.service running
+cups # Common UNIX Printing System (daemon + drivers + filters)
+cups-browsed # Discover/share network IPP printers (Avahi)
+cups-pk-helper # PolicyKit helper so Print Settings can configure CUPS without root
+system-config-printer # Printers GUI (settings panel / applications menu)
 # Cursor Self Driving worker (venv ships prebuilt under gtk-apps/gtk-neuron/python/.venv)
 python3-venv # Create/repair Cursor SDK venv if needed
 python3-pip # pip for gtk-neuron cursor-sdk (optional repair)
@@ -167,7 +172,6 @@ chromium # Debian Chromium (neuronix-chromium loads personalize browser-extensio
 gnome-snapshot # Webcam photo/video (Cheese successor; Recommends: libcamera-ipa, libspa-0.2-libcamera)
 gvfs-fuse # userspace virtual filesystem - fuse server
 dconf-editor # GTK keys (settings panel Advanced)
-system-config-printer # Printers (settings panel)
 mediainfo # command-line utility for reading information from audio/video files
 x265 # H.265/HEVC video stream encoder
 ffmpeg # Tools for transcoding, streaming and playing of multimedia files

@@ -1,0 +1,23 @@
+#!/bin/sh
+# Enable CUPS on the live squashfs so Print Settings can talk to localhost:631.
+# Calamares services-systemd also enables cups on installed Desktop/Server targets.
+set -e
+
+_enable_unit() {
+	_name="$1"
+	_unit="/lib/systemd/system/${_name}"
+	if [ ! -f "${_unit}" ]; then
+		_unit="/usr/lib/systemd/system/${_name}"
+	fi
+	if [ ! -f "${_unit}" ]; then
+		echo "9934-neuronix-enable-cups: ${_name} not installed — skip"
+		return 0
+	fi
+	mkdir -p /etc/systemd/system/multi-user.target.wants
+	ln -sf "${_unit}" "/etc/systemd/system/multi-user.target.wants/${_name}"
+	echo "9934-neuronix-enable-cups: enabled ${_name}"
+}
+
+_enable_unit cups.service
+_enable_unit cups.socket
+_enable_unit cups-browsed.service

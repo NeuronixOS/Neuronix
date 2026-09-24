@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Calamares Desktop: install Hyprland stack + kernel from suite-backports.
-# Kept as a script so Calamares does not interpolate ${...} as GlobalStorage vars.
+# Calamares Desktop: install Hyprland stack from suite-backports.
+# Keep stock trixie 6.12 LTS kernel — NVIDIA DKMS (550.x) does not build on
+# linux 7.x from backports.
 set -euo pipefail
 
 # shellcheck disable=SC1091
@@ -8,12 +9,11 @@ set -euo pipefail
 suite="${VERSION_CODENAME:-trixie}"
 backports="${suite}-backports"
 
-echo "[neuronix-backports] Installing Hyprland/kernel from ${backports}…"
+echo "[neuronix-backports] Installing Hyprland from ${backports} (kernel stays on ${suite} 6.12 LTS)…"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -t "${backports}" \
-	linux-image-amd64 linux-headers-amd64 \
 	hyprland hyprland-guiutils hyprpaper hyprpicker xdg-desktop-portal-hyprland \
 	ydotool
 

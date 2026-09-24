@@ -287,13 +287,14 @@ main() {
 				_msg "${_bold}Usage:${_reset}"
 				_msg "  ./build.sh              # keep apt package cache (faster rebuilds)"
 				_msg "  ./build.sh --clean      # also delete cache/ (full re-download)"
-				_msg "  ./build.sh --lists-only # regenerate package lists, then stop"
+				_msg "  ./build.sh --lists-only # regenerate package lists under /tmp, then stop"
 				_msg ""
 				_msg "Regenerates package lists from install-list, runs package preflight"
 				_msg "(validate-manifest.sh), then live-build."
 				_msg "Each run re-merges overlay/config and rebuilds the ISO from current"
 				_msg "Debian indexes; cached .debs are reused when versions still match."
-				_msg "Requires sudo for live-build. Output path comes from Neuronix metadata."
+				_msg "Requires sudo for live-build. All generated files stay under /tmp"
+				_msg "(personalize metadata cannot redirect the tree into a git checkout)."
 				exit 0
 				;;
 			--clean|-c)
@@ -329,15 +330,20 @@ main() {
 		# shellcheck source=/dev/null
 		source "$METADATA"
 		if [[ -r "${REPO_ROOT}/personalize/metadata/debian.env" ]]; then
+			# Product name / hostname from personalize — but never its BUILD_ROOT
+			# (KvNix used to set $HOME/kvnix-build-iso and dirty git trees).
 			# shellcheck source=/dev/null
 			source "${REPO_ROOT}/personalize/metadata/debian.env"
 		fi
-		neuronix_apply_build_staging "${NEURONIX_BUILD_ROOT:-}"
-		build_root="$NEURONIX_BUILD_ROOT"
 	else
 		_warn "Metadata not found; using /tmp build staging."
-		neuronix_apply_build_staging ""
-		build_root="$NEURONIX_BUILD_ROOT"
+	fi
+	# All generated files (lists, overlay merge, live-build, ISO) stay in /tmp.
+	unset NEURONIX_BUILD_ROOT_DEFAULT
+	neuronix_apply_build_staging "${NEURONIX_BUILD_ROOT:-}"
+	build_root="$NEURONIX_BUILD_ROOT"
+	if ! neuronix_is_tmp_path "$build_root"; then
+		_die "Build root must be under /tmp (got ${build_root})"
 	fi
 
 	export NEURONIX_BUILD_ROOT="$build_root"
@@ -395,6 +401,29 @@ main() {
 	_msg ""
 	_ok "${_bold}${PROFILE}${_reset} build complete."
 	_msg "  Output: ${_dim}${build_root}${_reset}"
+
+	# Same home ISO as LinuxOS/build.sh (KvNix personalize → ~/kvnix.iso).
+	local _iso _dest _f _product _slug
+	_product="${NEURONIX_PRODUCT_NAME:-Neuronix}"
+	_slug="$(printf '%s' "$_product" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')"
+	_dest="${HOME}/${_slug}.iso"
+	_iso=""
+	shopt -s nullglob
+	for _f in "$build_root"/live-image-*.iso "$build_root"/*.iso; do
+		[[ -f "$_f" ]] || continue
+		_iso="$_f"
+		break
+	done
+	shopt -u nullglob
+	if [[ -n "$_iso" ]]; then
+		_info "Moving ${_dim}$(basename "$_iso")${_reset} → ${_dim}${_dest}${_reset}"
+		rm -f "$_dest" 2>/dev/null || sudo rm -f "$_dest"
+		if ! mv "$_iso" "$_dest" 2>/dev/null; then
+			sudo mv "$_iso" "$_dest"
+			sudo chown "$(id -u):$(id -g)" "$_dest"
+		fi
+		_ok "ISO: ${_dim}${_dest}${_reset}"
+	fi
 }
 
 main "$@"

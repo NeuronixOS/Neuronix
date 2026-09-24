@@ -1,5 +1,6 @@
 #!/bin/sh
-# Hyprland stack and linux-image-amd64 (~7.0.x) from trixie-backports.
+# Hyprland stack from trixie-backports. Keep the stock trixie 6.12 LTS kernel —
+# NVIDIA proprietary DKMS (550.x) does not build against linux 7.x from backports.
 set -e
 
 _suite="$(. /etc/os-release 2>/dev/null && printf '%s' "${VERSION_CODENAME:-trixie}")"
@@ -18,12 +19,13 @@ if command -v apt-get >/dev/null 2>&1; then
 	# (e.g. hyprland-abi-ff3b2cb on 0.55.x) often leads the packaged plugin
 	# (still built for an older abi-*). Hook 998 builds hyprbars against the
 	# ISO Hyprland instead.
+	# Intentionally omit linux-image-amd64 / linux-headers-amd64 — stay on
+	# trixie 6.12 so nvidia-kernel-dkms can build (see preferences.d/neuronix-kernel-lts).
 	DEBIAN_FRONTEND=noninteractive apt-get install -y -t "${_backports}" \
-		linux-image-amd64 linux-headers-amd64 \
 		hyprland hyprland-guiutils hyprpaper hyprpicker xdg-desktop-portal-hyprland \
 		ydotool \
 		|| {
-			echo "[neuronix-backports] WARNING: could not install kernel/Hyprland/ydotool from ${_backports}" >&2
+			echo "[neuronix-backports] WARNING: could not install Hyprland/ydotool from ${_backports}" >&2
 			exit 1
 		}
 fi

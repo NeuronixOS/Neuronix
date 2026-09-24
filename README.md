@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Target machine** | `neuronix` |
-| **Base layer** | Debian 13 Trixie (trixie-backports for kernel ~7.0.x and Hyprland) |
+| **Base layer** | Debian 13 Trixie (trixie-backports for Hyprland; kernel stays on stock 6.12 LTS for NVIDIA DKMS) |
 | **Compositor** | Hyprland (Wayland native) |
 | **Look** | GTK **Adwaita-dark**; icons **Papirus** (yellow/manila folders); Hyprland chrome **black / red / white** |
 
@@ -41,9 +41,10 @@ sudo apt update
 
 ```bash
 sudo apt install -t trixie-backports \
-  hyprland xdg-desktop-portal-hyprland hyprpaper hyprpicker \
-  linux-image-amd64 linux-headers-amd64
+  hyprland xdg-desktop-portal-hyprland hyprpaper hyprpicker
 ```
+
+Keep **linux-image-amd64** / **linux-headers-amd64** on stock trixie 6.12. NVIDIA 550 DKMS does not build on the 7.x kernel from backports; installing those metas with `-t trixie-backports` is what broke `apt upgrade`.
 
 Associated infrastructure (also on the ISO):
 
@@ -82,7 +83,7 @@ What is **baked into the slim live ISO** and what **Calamares apt-installs on di
 ### Boot → session
 
 ```text
-GRUB → Linux (trixie-backports ~7.0.x) → LightDM → neuronix-hyprland → start-hyprland
+GRUB → Linux (trixie 6.12 LTS) → LightDM → neuronix-hyprland → start-hyprland
 ```
 
 | Layer | Component | Notes |
@@ -376,7 +377,7 @@ cd ..
 ./build.sh                                  # sudo lb build (in neuronix-iso/)
 ```
 
-Build output defaults to `/tmp/neuronix-build-$USER` (override with `NEURONIX_BUILD_ROOT`). Regenerated package lists and Calamares `*.list` files go under `$NEURONIX_BUILD_ROOT/generated/` — not into `neuronix-iso/overlay/` (avoids personalize/git clobber).
+Build output defaults to `/var/tmp/neuronix-build-$USER` (override with `NEURONIX_BUILD_ROOT`). Regenerated package lists and Calamares `*.list` files go under `$NEURONIX_BUILD_ROOT/generated/` — not into `neuronix-iso/overlay/` (avoids personalize/git clobber). `/var/tmp` rather than `/tmp` because `/tmp` is a RAM-backed tmpfs on most hosts and a build needs 20–40 GB.
 
 **Build host:** `live-build`, **network** (debootstrap, backports), optional ImageMagick for avatar sizing.
 
@@ -538,7 +539,7 @@ Notable areas:
 - **Stock desktop configs:** `default/configs/` (hypr, waybar, fuzzel, mako, GTK, …) staged to `etc/skel/configs` by `share/merge-personalize-dropins.sh` (`personalize/configs` overlays). Waybar power: `custom/power` → `neuronix-waybar-click power` → `neuronix_quick_settings.py` (Log Out / Reboot / Shut Down) → `neuronix-session-action`.
 - **LightDM:** `etc/lightdm/` (live autologin, Hyprland session, greeter)
 - **Helpers:** `usr/local/bin/neuronix-*` (settings, launchers, X11 wrappers, Calamares live, `neuronix-waybar-click`, `neuronix-session-action`) plus `usr/share/neuronix/neuronix_quick_settings.py`
-- **APT:** `etc/apt/sources.list.d/neuronix-backports.list`, `preferences.d/neuronix-backports-kernel`
+- **APT:** `etc/apt/sources.list.d/neuronix-backports.list`, `preferences.d/neuronix-kernel-lts` (blocks backports kernels; NVIDIA DKMS needs 6.12)
 - **SSH live:** `etc/ssh/`, systemd prep units
 - **Desktop entries:** Audacity/Blender wrappers, Neuronix settings apps
 
@@ -559,7 +560,7 @@ Notable areas:
 | `9945` **`.disabled`** | Cursor on live |
 | `995` | contrib/non-free |
 | `996` **`.disabled`** | Chrome on live |
-| `997` | **trixie-backports:** kernel ~7.0 + Hyprland stack |
+| `997` | **trixie-backports:** Hyprland stack (kernel stays on 6.12 LTS) |
 | `998` | Hyprspace plugin |
 | `999` | Icon cache + perms |
 | `1000` | `x-www-browser` alternatives |
@@ -866,7 +867,7 @@ Do not add extra icons here — only this file is copied by the build scripts. `
 | 9945 | Cursor on live — **disabled**; stock Desktop also skips Cursor (`personalize/install`) |
 | 995 | APT contrib/non-free |
 | 996 | Google Chrome — **disabled** on slim live (Calamares Desktop only) |
-| 997 | trixie-backports: kernel ~7.0.x + Hyprland stack |
+| 997 | trixie-backports: Hyprland stack (not kernel 7.x) |
 | 998 | Hyprspace |
 | 999 | Papirus yellow folders + icon cache + script permissions |
 | 1000 | x-www-browser alternative (Chrome if present) |
@@ -879,7 +880,7 @@ Do not add extra icons here — only this file is copied by the build scripts. `
 3. Boot live ISO → slim Hyprland + Waybar + Firefox; Calamares opens (no Chrome/Cursor on live).
 4. **Desktop** install (with network) → reboot → autologin lands in Hyprland; Chrome present (Cursor only if `personalize/install/cursor.sh`).
 5. **Server** install (with network) → reboot → console + SSH; live GUI purged.
-6. `uname -r` shows **7.0.x**; `apt-cache policy linux-image-amd64` shows `trixie-backports` `~bpo13+1`.
+6. `uname -r` shows **6.12.x**; `apt-cache policy linux-image-amd64` prefers trixie over `trixie-backports` (pin -1).
 7. Desktop: `hyprland`, `waybar`, `fuzzel`, `mako`, `hypr-settings`, `gtk-term`, `gtk-files`, `gtk-edit`, `gtk-image`, `gtk-video`, `xarchiver`, `google-chrome-stable`, SSH.
 8. **Super+Return** opens gtk-term; **Super+E** opens gtk-files; **Super+G** opens gtk-edit; **Super+,** opens `hypr-settings`.
 9. Audacity and Blender launch from menu (XWayland wrappers).

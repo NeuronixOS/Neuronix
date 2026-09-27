@@ -2,8 +2,16 @@ import subprocess
 from PySide6.QtCore import QEasingCurve, QEvent, Property, QPropertyAnimation, Qt, Signal
 
 on_theme_change = None  # set by main.py to (dark: bool) -> None
-from PySide6.QtGui import QColor, QKeyEvent, QPainter
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QListWidget, QWidget
+from PySide6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPalette
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QListWidget,
+    QListWidgetItem,
+    QStyledItemDelegate,
+    QStyle,
+    QWidget,
+)
 
 
 def run(cmd, timeout=15):
@@ -115,9 +123,87 @@ class ToggleSwitch(QWidget):
         p.end()
 
 
+class _LightRowDelegate(QStyledItemDelegate):
+    """Draw list rows in the suite cream, matching QLabel#pageTitle."""
+
+    def paint(self, painter, option, index):
+        bg, fg = QColor("#4b4841"), QColor("#ebdbb2")
+        accent, on_accent = QColor("#ffbe6f"), QColor("#1d2021")
+        hover = QColor("#3c3a36")
+        try:
+            from suite_theme import suite_colors
+
+            c = suite_colors()
+            if c:
+                bg = QColor(c["BG_RAISED"])
+                fg = QColor(c["TEXT_BRIGHT"])
+                accent = QColor(c["ACCENT"])
+                on_accent = QColor(c["ACCENT_TEXT"])
+                hover = QColor(c["BG_HOVER"])
+        except Exception:
+            pass
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        fill = accent if selected else (hover if hovered else bg)
+        painter.fillRect(option.rect, fill)
+        painter.setPen(on_accent if selected else fg)
+        text = index.data(Qt.ItemDataRole.DisplayRole) or ""
+        painter.drawText(
+            option.rect.adjusted(14, 0, -14, 0),
+            int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+            str(text),
+        )
+        painter.restore()
+
+
 class NavList(QListWidget):
-    """QListWidget with j/k navigation."""
+    """QListWidget with j/k navigation. Opaque cream rows (not GTK black)."""
     _KEY_MAP = {Qt.Key_J: Qt.Key_Down, Qt.Key_K: Qt.Key_Up}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setAutoFillBackground(True)
+        self.viewport().setAutoFillBackground(True)
+        self.setItemDelegate(_LightRowDelegate(self))
+        self._apply_item_chrome()
+
+    def _item_colors(self) -> tuple[QColor, QColor]:
+        bg, fg = QColor("#4b4841"), QColor("#ebdbb2")
+        try:
+            from suite_theme import suite_colors
+
+            c = suite_colors()
+            if c:
+                bg = QColor(c["BG_RAISED"])
+                fg = QColor(c["TEXT_BRIGHT"])
+        except Exception:
+            pass
+        return bg, fg
+
+    def _apply_item_chrome(self) -> None:
+        bg, fg = self._item_colors()
+        pal = self.palette()
+        pal.setColor(QPalette.ColorRole.Base, bg)
+        pal.setColor(QPalette.ColorRole.AlternateBase, bg)
+        pal.setColor(QPalette.ColorRole.Text, fg)
+        pal.setColor(QPalette.ColorRole.Window, bg)
+        pal.setColor(QPalette.ColorRole.WindowText, fg)
+        pal.setColor(QPalette.ColorRole.Button, bg)
+        pal.setColor(QPalette.ColorRole.ButtonText, fg)
+        pal.setColor(QPalette.ColorRole.HighlightedText, QColor("#1d2021"))
+        self.setPalette(pal)
+        self.viewport().setPalette(pal)
+        self.viewport().setAutoFillBackground(True)
+        self.viewport().setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
+
+    def addItem(self, item):  # noqa: N802 — Qt API
+        if isinstance(item, str):
+            item = QListWidgetItem(item)
+        _bg, fg = self._item_colors()
+        item.setForeground(QBrush(fg))
+        super().addItem(item)
 
     def keyPressEvent(self, e):
         mapped = self._KEY_MAP.get(e.key())

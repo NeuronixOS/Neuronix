@@ -9,3 +9,275 @@ dialog treeview,
 dialog list {
   padding: 4px 6px;
 }
+
+/* BEGIN gtk-theme:shell-chrome */
+/* Suite profile → zenity / FileChooser / XFCE Power Manager / GTK3 settings */
+@define-color theme_bg_color #282828;
+@define-color theme_fg_color #ebdbb2;
+@define-color theme_base_color #282828;
+@define-color theme_text_color #ebdbb2;
+@define-color theme_selected_bg_color #ffbe6f;
+@define-color theme_selected_fg_color #1d2021;
+@define-color theme_unfocused_selected_bg_color #ffbe6f;
+@define-color theme_unfocused_selected_fg_color #1d2021;
+@define-color insensitive_bg_color #3c3a36;
+@define-color insensitive_fg_color #a79c82;
+@define-color insensitive_base_color #3c3a36;
+@define-color borders #4b4841;
+@define-color unfocused_borders #4b4841;
+@define-color accent_bg_color #ffbe6f;
+@define-color accent_fg_color #1d2021;
+@define-color accent_color #ffbe6f;
+@define-color blue_3 #ffbe6f;
+
+/* Exclude DING desktop window — opaque chrome would cover the wallpaper */
+window:not(.desktopwindow),
+window.background:not(.desktopwindow),
+dialog, messagedialog,
+.background:not(.desktopwindow) {
+  background-color: #282828;
+  background-image: none;
+  color: #ebdbb2;
+}
+window.desktopwindow, window.desktopwindow.background {
+  background-color: transparent;
+  background-image: none;
+}
+headerbar, headerbar.default-decoration, .titlebar,
+headerbar:backdrop, .titlebar:backdrop {
+  background-color: #3c3a36;
+  background-image: none;
+  color: #ebdbb2;
+  border-bottom: 1px solid #4b4841;
+  box-shadow: none;
+}
+headerbar *, .titlebar * { color: #ebdbb2; }
+button {
+  color: #ebdbb2;
+  background-color: #3f3d39;
+  background-image: none;
+  border-color: #4b4841;
+}
+button:hover {
+  background-color: #4b4841;
+}
+button:checked, button.suggested-action, button.suggested-action:hover,
+button.suggested-action:active {
+  background-color: #ffbe6f;
+  background-image: none;
+  color: #1d2021;
+  border-color: #ffbe6f;
+}
+button.suggested-action label, button:checked label { color: #1d2021; }
+*:selected, treeview:selected, treeview.view:selected,
+treeview.view:selected:focus, list row:selected, listview row:selected,
+.view:selected, .content-view:selected {
+  background-color: #ffbe6f;
+  color: #1d2021;
+}
+placessidebar, placessidebar list, placessidebar row,
+.sidebar, stacksidebar {
+  background-color: #3c3a36;
+  background-image: none;
+  color: #ebdbb2;
+  border-color: #4b4841;
+}
+placessidebar row:selected, .sidebar row:selected {
+  background-color: #ffbe6f;
+  color: #1d2021;
+}
+entry, searchbar entry, spinbutton, spinbutton entry {
+  background-color: #282828;
+  color: #ebdbb2;
+  border-color: #4b4841;
+}
+filechooser, .filechooser, notebook, paned, frame, frame > border,
+scrolledwindow, viewport, .view, textview, textview text {
+  background-color: #282828;
+  background-image: none;
+  color: #ebdbb2;
+}
+/* Location/path bars (gtk-files breadcrumbs) — do not inherit window bg. */
+.pathbar,
+.pathbar scrolledwindow,
+.pathbar scrolledwindow > viewport,
+.pathbar viewport,
+.pathbar > stack,
+.pathbar .linked {
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+}
+/* XFCE Power Manager + other GTK3 settings windows */
+notebook > header {
+  background-color: #3c3a36;
+  background-image: none;
+  border-color: #4b4841;
+}
+notebook > header > tabs > tab {
+  background-color: #3c3a36;
+  background-image: none;
+  color: #ebdbb2;
+  border-color: #4b4841;
+  box-shadow: none;
+}
+notebook > header > tabs > tab:hover {
+  background-color: #3f3d39;
+}
+notebook > header > tabs > tab:checked {
+  background-color: #282828;
+  color: #ebdbb2;
+  box-shadow: inset 0 -2px #ffbe6f;
+}
+notebook > stack {
+  background-color: #282828;
+  color: #ebdbb2;
+}
+treeview, treeview.view, list, list row {
+  background-color: #282828;
+  color: #ebdbb2;
+}
+treeview header button {
+  background-color: #3c3a36;
+  background-image: none;
+  color: #ebdbb2;
+  border-color: #4b4841;
+}
+label, .label { color: #ebdbb2; }
+*:selected, *:selected *,
+row:selected, row:selected *,
+list row:selected, list row:selected *,
+listview > row:selected, listview > row:selected *,
+gridview > child:selected, gridview > child:selected *,
+columnview row:selected, columnview row:selected *,
+treeview:selected, treeview:selected *,
+treeview.view:selected, treeview.view:selected *,
+.view:selected, .view:selected *,
+.content-view:selected, .content-view:selected *,
+placessidebar row:selected, placessidebar row:selected *,
+.sidebar row:selected, .sidebar row:selected *,
+menuitem:hover, menuitem:hover *,
+modelbutton:hover, modelbutton:hover * {
+  color: #1d2021;
+}
+separator { background-color: #4b4841; }
+scale trough {
+  background-color: #4b4841;
+  background-image: none;
+}
+scale highlight {
+  background-color: #ffbe6f;
+  background-image: none;
+}
+scale slider {
+  background-color: #ffbe6f;
+  background-image: none;
+  border-color: #ffbe6f;
+}
+switch {
+  background-color: #4b4841;
+  background-image: none;
+  border-color: #4b4841;
+}
+switch:checked {
+  background-color: #ffbe6f;
+  border-color: #ffbe6f;
+}
+switch slider {
+  background-color: #ebdbb2;
+  background-image: none;
+}
+check, radio {
+  background-color: #3f3d39;
+  border-color: #4b4841;
+  color: #1d2021;
+}
+check:checked, radio:checked {
+  background-color: #ffbe6f;
+  border-color: #ffbe6f;
+  color: #1d2021;
+}
+progressbar trough {
+  background-color: #4b4841;
+}
+progressbar progress {
+  background-color: #ffbe6f;
+}
+combobox button.combo, combobox menu {
+  background-color: #3f3d39;
+  color: #ebdbb2;
+  border-color: #4b4841;
+}
+menubar, menu, popover, popover.background {
+  background-color: #3c3a36;
+  background-image: none;
+  color: #ebdbb2;
+  border-color: #4b4841;
+}
+menuitem:hover, modelbutton:hover {
+  background-color: #ffbe6f;
+  color: #1d2021;
+}
+scrollbar, scrollbar contents, scrollbar trough {
+  background-color: #282828;
+}
+scrollbar slider {
+  background-color: #4b4841;
+}
+toolbar, .primary-toolbar, .inline-toolbar {
+  background-color: #3c3a36;
+  background-image: none;
+  color: #ebdbb2;
+  border-color: #4b4841;
+}
+
+/* Adwaita hard-codes blues (#1b6acb / #15539e). Match those selectors. */
+switch:checked, switch:checked:hover, switch:checked:active,
+switch:backdrop:checked, switch:checked:not(:disabled) {
+  background-color: #ffbe6f;
+  background-image: none;
+  border-color: #ffbe6f;
+  color: #1d2021;
+}
+switch:checked > slider, switch:backdrop:checked > slider {
+  border-color: #ffbe6f;
+}
+notebook > header.top > tabs > tab:checked {
+  box-shadow: inset 0 -4px #ffbe6f;
+}
+notebook > header.bottom > tabs > tab:checked {
+  box-shadow: inset 0 4px #ffbe6f;
+}
+notebook > header.left > tabs > tab:checked {
+  box-shadow: inset -4px 0 #ffbe6f;
+}
+notebook > header.right > tabs > tab:checked {
+  box-shadow: inset 4px 0 #ffbe6f;
+}
+progressbar progress, scale highlight,
+progressbar progress:backdrop, scale highlight:backdrop {
+  background-color: #ffbe6f;
+  background-image: none;
+  border-color: #ffbe6f;
+}
+button.suggested-action, button.suggested-action:hover,
+button.suggested-action:active, button.suggested-action:backdrop {
+  background-color: #ffbe6f;
+  background-image: none;
+  color: #1d2021;
+  border-color: #ffbe6f;
+}
+*:link, *:visited, .link, button.link {
+  color: #ffbe6f;
+}
+*:selected:focus, *:selected:focus-within,
+label > selection:focus-within, entry > text > selection:focus-within {
+  background-color: #ffbe6f;
+  color: #1d2021;
+}
+switch:focus, switch:focus:checked, scale:focus,
+button:focus, check:focus, radio:focus {
+  outline-color: rgba(255, 190, 111, 0.7);
+}
+/* END gtk-theme:shell-chrome */

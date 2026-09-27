@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QDate, QTime
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
     QCalendarWidget,
     QComboBox,
@@ -40,7 +41,7 @@ def _apply_waybar_format(mode: str) -> bool:
     PREF_FILE.write_text(f"{mode}\n", encoding="utf-8")
     if not WAYBAR_CONF.is_file():
         return True
-    fmt = "{:%a %b %d  %H:%M}" if mode == "24" else "{:%a %b %d  %I:%M %p}"
+    fmt = "{:%H:%M\n%m/%y}" if mode == "24" else "{:%I:%M %p\n%m/%y}"
     try:
         cfg = json.loads(WAYBAR_CONF.read_text(encoding="utf-8"))
         cfg.setdefault("clock", {})["format"] = fmt
@@ -108,6 +109,18 @@ class DateTimeTab(QWidget):
 
         self._cal = QCalendarWidget()
         self._cal.setGridVisible(True)
+        cal_pal = self._cal.palette()
+        cal_pal.setColor(QPalette.ColorRole.HighlightedText, QColor("#1d2021"))
+        try:
+            from suite_theme import suite_colors
+
+            c = suite_colors()
+            if c:
+                cal_pal.setColor(QPalette.ColorRole.Highlight, QColor(c["ACCENT"]))
+                cal_pal.setColor(QPalette.ColorRole.HighlightedText, QColor("#1d2021"))
+        except Exception:
+            pass
+        self._cal.setPalette(cal_pal)
         root.addWidget(self._cal)
 
         time_row = QHBoxLayout()

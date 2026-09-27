@@ -68,10 +68,28 @@ lb config \
 mkdir -p config/package-lists config/includes.chroot \
   config/hooks/normal config/bootloaders
 shopt -s nullglob
-_list_src="$OVERLAY/package-lists"
-if [[ -d "${NEURONIX_LIST_DIR:-}" ]] && compgen -G "${NEURONIX_LIST_DIR}/*.list.chroot" >/dev/null 2>&1; then
-  _list_src="$NEURONIX_LIST_DIR"
-  echo "Using generated package-lists from ${NEURONIX_LIST_DIR}"
+# Package lists are generated from install-list (+ personalize) into
+# $NEURONIX_LIST_DIR by ../build.sh. The copies committed under
+# overlay/package-lists/ are a stale snapshot — silently falling back to them
+# ships an ISO missing whatever install-list gained since (e.g. CUPS), so
+# refuse instead. Set NEURONIX_ALLOW_STALE_LISTS=1 to force the old behaviour.
+_list_src="${NEURONIX_LIST_DIR:-}"
+if [[ -n "$_list_src" && -d "$_list_src" ]] && compgen -G "$_list_src/*.list.chroot" >/dev/null 2>&1; then
+  echo "Using generated package-lists from ${_list_src}"
+elif [[ "${NEURONIX_ALLOW_STALE_LISTS:-0}" == "1" ]]; then
+  _list_src="$OVERLAY/package-lists"
+  echo "WARNING: using stale committed package-lists from ${_list_src} (NEURONIX_ALLOW_STALE_LISTS=1)." >&2
+  echo "WARNING: these may not match default/install-list — the ISO can be missing packages." >&2
+else
+  echo "ERROR: no generated package-lists found${NEURONIX_LIST_DIR:+ at $NEURONIX_LIST_DIR}." >&2
+  echo "Package lists are regenerated from default/install-list (+ personalize) by the" >&2
+  echo "repo-root build.sh, which then runs this script." >&2
+  echo "" >&2
+  echo "Fix: cd $REPO_ROOT && ./build.sh            # full build (setup + lb)" >&2
+  echo "     cd $REPO_ROOT && ./build.sh --lists-only   # just regenerate, then re-run setup.sh" >&2
+  echo "" >&2
+  echo "Override (not recommended): NEURONIX_ALLOW_STALE_LISTS=1 ./setup.sh" >&2
+  exit 1
 fi
 for f in "$_list_src"/*.list.chroot; do
   cp -a "$f" config/package-lists/

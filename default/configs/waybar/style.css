@@ -1,52 +1,68 @@
 /* BEGIN gtk-theme:waybar-vars */
-@define-color wb_fg #f8f8f2;
-@define-color wb_bg #272822;
-@define-color wb_surface #3c3d37;
-@define-color wb_dim #b6b7b1;
-@define-color wb_muted #dcdcd6;
-@define-color wb_inactive0 #3c3d37;
-@define-color wb_inactive1 #34352f;
-@define-color wb_hover rgba(60, 61, 55, 0.45);
+@define-color wb_fg #ebdbb2;
+@define-color wb_bg #282828;
+@define-color wb_surface #3c3a36;
+@define-color wb_dim #aea387;
+@define-color wb_muted #d1c39f;
+@define-color wb_inactive0 #3c3a36;
+@define-color wb_inactive1 #343330;
+@define-color wb_hover rgba(60, 58, 54, 0.45);
 /* END gtk-theme:waybar-vars */
 
-/* Neuronix Waybar — chrome colors come from gtk-themes Base (@wb_*). */
+/* Capsule bar (dots-hyprland layout, Neuronix @wb_* colors). */
 
 * {
   font-family: "Cantarell", "DejaVu Sans", sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   min-height: 0;
   color: @wb_fg;
+  border: none;
+  box-shadow: none;
 }
 
 window#waybar {
-  background-color: @wb_bg;
+  background-color: alpha(@wb_bg, 0.45);
   color: @wb_fg;
-  border-bottom: none;
-  padding-bottom: 10px;
-  background-image: linear-gradient(
-    90deg,
-    @wb_inactive1 0%,
-    @wb_inactive0 50%,
-    @wb_inactive1 100%
-  );
-  background-size: 100% 10px;
-  background-position: left bottom;
-  background-repeat: no-repeat;
+  border-radius: 21px;
+}
+
+.modules-left,
+.modules-center,
+.modules-right {
+  background-color: transparent;
+  margin: 0;
+  padding: 0 8px;
+}
+
+#workspaces {
+  padding: 0 4px;
 }
 
 #workspaces button {
-  padding: 0 10px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0 6px;
+  margin: 6px 2px;
   color: @wb_dim;
-  background: transparent;
+  background: @wb_surface;
   border: none;
-  border-radius: 4px;
-  margin: 4px 2px;
-  font-weight: 600;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 12px;
 }
 
-#workspaces button.active {
-  color: @wb_fg;
-  background: @wb_surface;
+#workspaces button.active,
+#workspaces button.focused {
+  background: @wb_fg;
+}
+
+#workspaces button.active,
+#workspaces button.active *,
+#workspaces button.active label,
+#workspaces button.focused,
+#workspaces button.focused *,
+#workspaces button.focused label {
+  color: @wb_bg;
 }
 
 #workspaces button:hover {
@@ -54,50 +70,72 @@ window#waybar {
   background: @wb_hover;
 }
 
+#workspaces button.active:hover,
+#workspaces button.active:hover *,
+#workspaces button.focused:hover,
+#workspaces button.focused:hover * {
+  color: @wb_bg;
+  background: @wb_fg;
+}
+
 #window {
   padding: 0 12px;
+  margin: 6px 4px;
   color: @wb_muted;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 13px;
 }
 
 #clock {
-  padding: 0 12px;
+  padding: 2px 12px;
+  margin: 4px 4px;
   color: @wb_fg;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 11px;
 }
 
 #tray {
-  padding: 0 10px;
+  padding: 0 8px;
+  margin: 4px 2px;
 }
 
-#custom-menu,
-#custom-gtk-sync,
 #custom-settings,
 #custom-power,
-#battery,
-#network,
-#pulseaudio,
-#cpu,
-#memory {
-  padding: 0 12px;
+#network {
+  min-width: 28px;
+  padding: 0 8px;
+  margin: 6px 3px;
+  border-radius: 14px;
+  background: @wb_surface;
   font-family: "FontAwesome", "Cantarell", "DejaVu Sans", sans-serif;
-  color: @wb_muted;
+  font-size: 13px;
+  color: @wb_fg;
 }
 
-#custom-menu {
-  font-size: 14px;
+#image.cpu,
+#image.memory,
+#image.volume,
+#image.menu {
+  min-width: 28px;
+  padding: 0 4px;
+  margin: 6px 2px;
+  background: transparent;
+  border-radius: 14px;
 }
 
-#custom-settings,
-#custom-power {
-  font-size: 14px;
+#custom-gtk-sync,
+#battery {
+  padding: 0 10px;
+  margin: 6px 3px;
+  border-radius: 14px;
+  background: @wb_surface;
+  font-family: "FontAwesome", "Cantarell", "DejaVu Sans", sans-serif;
+  font-weight: 600;
   color: @wb_fg;
 }
 
 #custom-gtk-sync {
-  font-weight: 600;
-  color: @wb_fg;
-  min-width: 4.5em;
+  min-width: 3.2em;
 }
 
 #custom-gtk-sync.ok {
@@ -114,45 +152,11 @@ window#waybar {
   color: @wb_dim;
 }
 
-#battery,
-#network,
-#pulseaudio,
-#cpu,
-#memory {
-  color: @wb_fg;
-}
-
-/* Even gap across volume / wifi / cpu / ram */
-#pulseaudio,
-#network,
-#cpu,
-#memory {
-  padding: 0 12px;
-  margin: 0 2px;
-  font-weight: 500;
-  min-width: 4em;
-}
-
-#cpu.warning,
-#memory.warning {
-  color: @wb_muted;
-}
-
-#cpu.critical,
-#memory.critical {
-  color: @wb_fg;
-  font-weight: 700;
-}
-
 #battery.charging,
 #battery.plugged {
   color: @wb_muted;
 }
 
 #network.disconnected {
-  color: @wb_dim;
-}
-
-#pulseaudio.muted {
   color: @wb_dim;
 }

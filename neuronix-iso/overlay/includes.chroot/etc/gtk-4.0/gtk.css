@@ -29,3 +29,13 @@ window.messagedialog .response-area {
 #zenity_tree_cv listview cell {
   padding: 8px 14px;
 }
+
+/* Selected rows: child labels ignore inherited cream fg on the orange chip. */
+*:selected, *:selected *,
+row:selected, row:selected *,
+listview > row:selected, listview > row:selected *,
+gridview > child:selected, gridview > child:selected *,
+columnview row:selected, columnview row:selected *,
+.view:selected, .view:selected * {
+  color: #1d2021;
+}

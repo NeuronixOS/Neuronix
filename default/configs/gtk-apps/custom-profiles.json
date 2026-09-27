@@ -1,5 +1,83 @@
 [
   {
+    "id": "custom-material-darker",
+    "name": "ROG Laptop",
+    "foreground": "#eeffff",
+    "background": "#212121",
+    "palette": [
+      "#000000",
+      "#ff5370",
+      "#c3e88d",
+      "#ffcb6b",
+      "#d75d1b",
+      "#c792ea",
+      "#89ddff",
+      "#ffffff",
+      "#000000",
+      "#ff5370",
+      "#c3e88d",
+      "#ffcb6b",
+      "#82aaff",
+      "#c792ea",
+      "#89ddff",
+      "#ffffff"
+    ],
+    "border": "#464949",
+    "border_active": [
+      "#464949",
+      "#464949"
+    ],
+    "border_inactive": [
+      "#363737",
+      "#2e2e2e"
+    ],
+    "chrome": {
+      "border_size": 10,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#363737",
+        "#5e6363"
+      ],
+      "bar_inactive": [
+        "#313333",
+        "#2b2c2c"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-material-darker-2",
+    "name": "Material Darker",
+    "foreground": "#eeffff",
+    "background": "#212121",
+    "palette": [
+      "#000000",
+      "#ff5370",
+      "#c3e88d",
+      "#ffcb6b",
+      "#1a5fb4",
+      "#99c1f1",
+      "#89ddff",
+      "#ffffff",
+      "#545454",
+      "#ff5370",
+      "#c3e88d",
+      "#ffcb6b",
+      "#82aaff",
+      "#c792ea",
+      "#89ddff",
+      "#ffffff"
+    ]
+  },
+  {
     "id": "custom-monokai",
     "name": "Monokai",
     "foreground": "#f8f8f2",
@@ -9,7 +87,31 @@
       "#f92672",
       "#a6e22e",
       "#f4bf75",
-      "#66d9ef",
+      "#77767b",
+      "#ae81ff",
+      "#a1efe4",
+      "#f8f8f2",
+      "#75715e",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#c64600",
+      "#ae81ff",
+      "#a1efe4",
+      "#f9f8f5"
+    ]
+  },
+  {
+    "id": "custom-monokai-2",
+    "name": "Kevin Desktop",
+    "foreground": "#f8f8f2",
+    "background": "#272822",
+    "palette": [
+      "#272822",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#693400",
       "#ae81ff",
       "#a1efe4",
       "#f8f8f2",
@@ -21,34 +123,88 @@
       "#ae81ff",
       "#a1efe4",
       "#f9f8f5"
+    ],
+    "border": "#ffbe6f",
+    "border_active": [
+      "#ffbe6f",
+      "#9a9996"
+    ],
+    "border_inactive": [
+      "#3c3d37",
+      "#ffffff"
+    ],
+    "chrome": {
+      "border_size": 4,
+      "rounding": 4,
+      "bevel": "flat",
+      "gradient": "ltr",
+      "bar": [
+        "#3c3d37",
+        "#ffbe6f"
+      ],
+      "bar_inactive": [
+        "#383933",
+        "#ffffff"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "nerd",
+        "minimize": "󰖰",
+        "maximize": "󰖯",
+        "close": "󰖭"
+      }
+    }
+  },
+  {
+    "id": "custom-gruvbox-dark",
+    "name": "Gruvbox Dark",
+    "foreground": "#ebdbb2",
+    "background": "#282828",
+    "palette": [
+      "#282828",
+      "#cc241d",
+      "#98971a",
+      "#d79921",
+      "#458588",
+      "#b16286",
+      "#689d6a",
+      "#a89984",
+      "#928374",
+      "#fb4934",
+      "#b8bb26",
+      "#fabd2f",
+      "#83a598",
+      "#d3869b",
+      "#8ec07c",
+      "#ebdbb2"
     ]
   },
   {
-    "id": "custom-ayu-dark",
-    "name": "Ayu Dark",
-    "foreground": "#b3b1ad",
-    "background": "#2e2d2e",
+    "id": "custom-tomorrow-night",
+    "name": "Tomorrow Night",
+    "foreground": "#c5c8c6",
+    "background": "#1d1f21",
     "palette": [
-      "#01060e",
-      "#ea6c73",
-      "#91b362",
-      "#f9af4f",
-      "#53bdfa",
-      "#fae994",
-      "#90e1c6",
-      "#c7c7c7",
-      "#686868",
-      "#f07178",
-      "#c2d94c",
-      "#ffb454",
-      "#59c2ff",
-      "#ffee99",
-      "#95e6cb",
+      "#1d1f21",
+      "#cc6666",
+      "#b5bd68",
+      "#f0c674",
+      "#e66100",
+      "#b294bb",
+      "#8abeb7",
+      "#c5c8c6",
+      "#969896",
+      "#cc6666",
+      "#b5bd68",
+      "#f0c674",
+      "#81a2be",
+      "#b294bb",
+      "#8abeb7",
       "#ffffff"
     ]
   },
   {
-    "id": "custom-monokai-2",
+    "id": "custom-monokai-3",
     "name": "Monokai",
     "foreground": "#f8f8f2",
     "background": "#272822",
@@ -70,5 +226,235 @@
       "#a1efe4",
       "#f9f8f5"
     ]
+  },
+  {
+    "id": "custom-tomorrow-night-2",
+    "name": "Tomorrow Night",
+    "foreground": "#c5c8c6",
+    "background": "#1d1f21",
+    "palette": [
+      "#1d1f21",
+      "#cc6666",
+      "#b5bd68",
+      "#f0c674",
+      "#a25326",
+      "#b294bb",
+      "#8abeb7",
+      "#c5c8c6",
+      "#969896",
+      "#cc6666",
+      "#b5bd68",
+      "#f0c674",
+      "#81a2be",
+      "#b294bb",
+      "#8abeb7",
+      "#ffffff"
+    ],
+    "border": "#3b3d3f"
+  },
+  {
+    "id": "custom-gruvbox-dark-2",
+    "name": "Gruvbox Dark",
+    "foreground": "#ebdbb2",
+    "background": "#282828",
+    "palette": [
+      "#282828",
+      "#cc241d",
+      "#98971a",
+      "#d79921",
+      "#458588",
+      "#b16286",
+      "#689d6a",
+      "#a89984",
+      "#928374",
+      "#fb4934",
+      "#b8bb26",
+      "#fabd2f",
+      "#83a598",
+      "#d3869b",
+      "#8ec07c",
+      "#ebdbb2"
+    ]
+  },
+  {
+    "id": "custom-gruvbox-dark-3",
+    "name": "Gruvbox Dark",
+    "foreground": "#ebdbb2",
+    "background": "#282828",
+    "palette": [
+      "#282828",
+      "#cc241d",
+      "#98971a",
+      "#d79921",
+      "#886445",
+      "#b16286",
+      "#689d6a",
+      "#a89984",
+      "#928374",
+      "#fb4934",
+      "#b8bb26",
+      "#fabd2f",
+      "#83a598",
+      "#d3869b",
+      "#8ec07c",
+      "#ebdbb2"
+    ],
+    "border": "#4b4841"
+  },
+  {
+    "id": "custom-monokai-4",
+    "name": "Monokai",
+    "foreground": "#f8f8f2",
+    "background": "#272822",
+    "palette": [
+      "#272822",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#66d9ef",
+      "#ae81ff",
+      "#a1efe4",
+      "#f8f8f2",
+      "#75715e",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#66d9ef",
+      "#ae81ff",
+      "#a1efe4",
+      "#f9f8f5"
+    ]
+  },
+  {
+    "id": "custom-gruvbox-brown",
+    "name": "Gruvbox Brown",
+    "foreground": "#ebdbb2",
+    "background": "#282828",
+    "palette": [
+      "#282828",
+      "#cc241d",
+      "#98971a",
+      "#d79921",
+      "#886245",
+      "#b16286",
+      "#689d6a",
+      "#a89984",
+      "#928374",
+      "#fb4934",
+      "#b8bb26",
+      "#fabd2f",
+      "#83a598",
+      "#d3869b",
+      "#8ec07c",
+      "#ebdbb2"
+    ]
+  },
+  {
+    "id": "custom-gruvbox-dark-4",
+    "name": "Gruvbox Dark",
+    "foreground": "#ebdbb2",
+    "background": "#282828",
+    "palette": [
+      "#282828",
+      "#cc241d",
+      "#98971a",
+      "#d79921",
+      "#458588",
+      "#b16286",
+      "#689d6a",
+      "#a89984",
+      "#928374",
+      "#fb4934",
+      "#b8bb26",
+      "#fabd2f",
+      "#83a598",
+      "#d3869b",
+      "#8ec07c",
+      "#ebdbb2"
+    ],
+    "border": "#4b4841",
+    "border_active": [
+      "#4b4841",
+      "#837b69"
+    ],
+    "border_inactive": [
+      "#3c3a36",
+      "#343330"
+    ],
+    "chrome": {
+      "border_size": 10,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3c3a36",
+        "#635d51"
+      ],
+      "bar_inactive": [
+        "#383633",
+        "#32302f"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-gruvbox-dark-5",
+    "name": "Gruvbox Dark",
+    "foreground": "#ebdbb2",
+    "background": "#282828",
+    "palette": [
+      "#282828",
+      "#cc241d",
+      "#98971a",
+      "#d79921",
+      "#ffbe6f",
+      "#b16286",
+      "#689d6a",
+      "#a89984",
+      "#928374",
+      "#fb4934",
+      "#b8bb26",
+      "#fabd2f",
+      "#83a598",
+      "#d3869b",
+      "#8ec07c",
+      "#ebdbb2"
+    ],
+    "border": "#4b4841",
+    "border_active": [
+      "#4b4841",
+      "#31322c"
+    ],
+    "border_inactive": [
+      "#3c3a36",
+      "#343330"
+    ],
+    "chrome": {
+      "border_size": 4,
+      "rounding": 4,
+      "bevel": "flat",
+      "gradient": "ltr",
+      "bar": [
+        "#3c3a36",
+        "#34312f"
+      ],
+      "bar_inactive": [
+        "#34312f",
+        "#32302f"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
   }
 ]

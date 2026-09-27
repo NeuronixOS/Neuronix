@@ -11,5 +11,8 @@ for _theme in \
 		break
 	fi
 done
+# GTK3 Qt platform theme paints item-view text black; Fusion + our palette.
+export QT_STYLE_OVERRIDE=Fusion
+unset QT_QPA_PLATFORMTHEME
 cd "$APP"
 exec /usr/bin/python3 "$APP/main.py" "$@"

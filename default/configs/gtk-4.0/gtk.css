@@ -27,3 +27,90 @@ window.messagedialog .response-area {
 #zenity_tree_cv listview cell {
   padding: 8px 14px;
 }
+
+/* BEGIN gtk-theme:shell-chrome */
+/* Suite profile → libadwaita / zenity-4 dialogs (named colors + dialog only). */
+@define-color theme_bg_color #282828;
+@define-color theme_fg_color #ebdbb2;
+@define-color theme_base_color #282828;
+@define-color theme_text_color #ebdbb2;
+@define-color theme_selected_bg_color #ffbe6f;
+@define-color theme_selected_fg_color #1d2021;
+@define-color theme_unfocused_selected_bg_color #ffbe6f;
+@define-color theme_unfocused_selected_fg_color #1d2021;
+@define-color accent_bg_color #ffbe6f;
+@define-color accent_fg_color #1d2021;
+@define-color accent_color #ffbe6f;
+@define-color blue_3 #ffbe6f;
+@define-color window_bg_color #282828;
+@define-color window_fg_color #ebdbb2;
+@define-color view_bg_color #282828;
+@define-color view_fg_color #ebdbb2;
+@define-color headerbar_bg_color #3c3a36;
+@define-color headerbar_fg_color #ebdbb2;
+@define-color headerbar_backdrop_color #3c3a36;
+@define-color headerbar_border_color #4b4841;
+@define-color sidebar_bg_color #3c3a36;
+@define-color sidebar_fg_color #ebdbb2;
+@define-color sidebar_backdrop_color #3c3a36;
+@define-color sidebar_border_color #4b4841;
+@define-color secondary_sidebar_bg_color #3c3a36;
+@define-color secondary_sidebar_fg_color #ebdbb2;
+@define-color secondary_sidebar_backdrop_color #3c3a36;
+@define-color card_bg_color #3c3a36;
+@define-color card_fg_color #ebdbb2;
+@define-color dialog_bg_color #282828;
+@define-color dialog_fg_color #ebdbb2;
+
+:root {
+  --window-bg-color: #282828;
+  --window-fg-color: #ebdbb2;
+  --view-bg-color: #282828;
+  --view-fg-color: #ebdbb2;
+  --headerbar-bg-color: #3c3a36;
+  --headerbar-fg-color: #ebdbb2;
+  --headerbar-backdrop-color: #3c3a36;
+  --headerbar-border-color: #4b4841;
+  --sidebar-bg-color: #3c3a36;
+  --sidebar-fg-color: #ebdbb2;
+  --sidebar-backdrop-color: #3c3a36;
+  --sidebar-border-color: #4b4841;
+  --secondary-sidebar-bg-color: #3c3a36;
+  --secondary-sidebar-fg-color: #ebdbb2;
+  --secondary-sidebar-backdrop-color: #3c3a36;
+  --card-bg-color: #3c3a36;
+  --card-fg-color: #ebdbb2;
+  --dialog-bg-color: #282828;
+  --dialog-fg-color: #ebdbb2;
+  --accent-bg-color: #ffbe6f;
+  --accent-fg-color: #1d2021;
+  --accent-color: #ffbe6f;
+}
+
+window.messagedialog, window.dialog, window.filechooser,
+.messagedialog, .dialog, .filechooser {
+  background-color: #282828;
+  color: #ebdbb2;
+}
+window.messagedialog headerbar, window.dialog headerbar, window.filechooser headerbar,
+window.messagedialog .titlebar, window.dialog .titlebar, window.filechooser .titlebar {
+  background-color: #3c3a36;
+  background-image: none;
+  color: #ebdbb2;
+  border-bottom: 1px solid #4b4841;
+}
+window.messagedialog button.suggested-action,
+window.dialog button.suggested-action,
+window.filechooser button.suggested-action {
+  background-color: #ffbe6f;
+  color: #1d2021;
+}
+*:selected, *:selected *,
+row:selected, row:selected *,
+listview > row:selected, listview > row:selected *,
+gridview > child:selected, gridview > child:selected *,
+columnview row:selected, columnview row:selected *,
+.view:selected, .view:selected * {
+  color: #1d2021;
+}
+/* END gtk-theme:shell-chrome */

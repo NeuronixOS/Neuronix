@@ -111,12 +111,14 @@ CSS_TEMPLATE = """
 window.neuronix-choice {{
   background-color: transparent;
   color: {fg};
+  border: none;
+  box-shadow: none;
 }}
 box.neuronix-root {{
   background-color: {surface};
-  border: 3px solid {border};
-  border-radius: 16px;
-  padding: 14px;
+  border: none;
+  border-radius: 24px;
+  padding: 16px;
 }}
 label.neuronix-title {{
   color: {fg};
@@ -133,8 +135,8 @@ button.neuronix-tile {{
   background-color: {tile};
   background-image: none;
   color: {fg};
-  border: 1px solid {btn_border};
-  border-radius: 8px;
+  border: none;
+  border-radius: 16px;
   box-shadow: none;
   outline: none;
   padding: 8px 12px;
@@ -170,7 +172,7 @@ button.neuronix-xclose {{
   background-color: {tile};
   background-image: none;
   color: {fg};
-  border: 1px solid {btn_border};
+  border: none;
   border-radius: 999px;
   box-shadow: none;
   padding: 0;
@@ -192,8 +194,8 @@ label.neuronix-body {{
 entry.neuronix-entry, entry {{
   background-color: {tile};
   color: {fg};
-  border: 1px solid {border};
-  border-radius: 10px;
+  border: none;
+  border-radius: 16px;
   padding: 8px 10px;
   min-height: 36px;
 }}
@@ -203,8 +205,8 @@ scrolledwindow.neuronix-scroll {{
 }}
 scrolledwindow.neuronix-list-frame {{
   background-color: {tile};
-  border: 1px solid {border};
-  border-radius: 12px;
+  border: none;
+  border-radius: 16px;
 }}
 scrolledwindow.neuronix-list-frame > viewport,
 scrolledwindow.neuronix-list-frame > viewport > list,
@@ -280,8 +282,8 @@ button.neuronix-toggle-off {{
   background-color: {tile};
   background-image: none;
   color: {fg};
-  border: 1px solid {btn_border};
-  border-radius: 8px;
+  border: none;
+  border-radius: 999px;
   box-shadow: none;
   outline: none;
   padding: 8px 18px;
@@ -291,20 +293,27 @@ button.neuronix-toggle-off {{
 }}
 button.neuronix-primary:hover,
 button.neuronix-secondary:hover,
-button.neuronix-toggle-on:hover,
 button.neuronix-toggle-off:hover {{
   background-color: {btn_hover};
-  border-color: {btn_border};
   color: {fg};
   opacity: 1;
 }}
-button.neuronix-toggle-on {{
-  border-color: {accent};
+button.neuronix-toggle-on,
+button.neuronix-toggle-on label {{
+  background-color: {accent};
+  color: #1d2021;
+}}
+button.neuronix-toggle-on:hover,
+button.neuronix-toggle-on:hover label {{
+  background-color: {accent};
+  color: #1d2021;
+  opacity: 0.92;
 }}
 calendar.neuronix-cal {{
   background-color: {tile};
   color: {fg};
-  border-radius: 12px;
+  border: none;
+  border-radius: 16px;
 }}
 scale.neuronix-scale {{
   padding: 4px 0;

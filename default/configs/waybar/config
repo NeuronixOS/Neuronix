@@ -1,30 +1,34 @@
 {
   "layer": "top",
   "position": "top",
-  "height": 32,
-  "spacing": 4,
+  "height": 42,
+  "margin-top": 12,
+  "margin-left": 8,
+  "margin-right": 8,
+  "spacing": 0,
   "modules-left": [
-    "custom/menu",
-    "hyprland/workspaces",
+    "image#menu",
     "hyprland/window"
   ],
   "modules-center": [
-    "clock"
+    "hyprland/workspaces"
   ],
   "modules-right": [
+    "clock",
     "custom/gtk-sync",
-    "pulseaudio",
-    "network",
-    "cpu",
-    "memory",
-    "custom/settings",
+    "image#volume",
+    "image#memory",
     "battery",
-    "custom/power",
-    "tray"
+    "network",
+    "image#cpu",
+    "tray",
+    "custom/settings",
+    "custom/power"
   ],
-  "custom/menu": {
-    "format": "\uf0c9",
-    "tooltip": "Applications",
+  "image#menu": {
+    "exec": "$HOME/.config/waybar/scripts/face-circle.py",
+    "size": 28,
+    "tooltip": true,
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-fuzzel"
   },
   "custom/settings": {
@@ -52,45 +56,47 @@
   },
   "hyprland/window": {
     "format": "{}",
-    "max-length": 60
+    "max-length": 48,
+    "separate-outputs": true
   },
-  "pulseaudio": {
-    "format": "{icon} {volume}%",
-    "format-muted": "\uf026",
-    "format-icons": [
-      "\uf026",
-      "\uf027",
-      "\uf028"
-    ],
+  "image#volume": {
+    "exec": "$HOME/.config/waybar/scripts/stat-ring.py volume",
+    "size": 28,
+    "interval": 1,
+    "tooltip": true,
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click volume",
     "on-scroll-up": "neuronix-volume +5",
     "on-scroll-down": "neuronix-volume -5",
     "on-click-middle": "neuronix-volume mute-toggle"
   },
   "network": {
-    "format-wifi": "\uf1eb {signalStrength}%",
+    "format-wifi": "\uf1eb",
     "format-ethernet": "\uf1e6",
     "format-disconnected": "\uf071",
+    "tooltip-format-wifi": "{essid} {signalStrength}%",
+    "tooltip-format-ethernet": "{ifname}",
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click network"
   },
-  "cpu": {
+  "image#cpu": {
+    "exec": "$HOME/.config/waybar/scripts/stat-ring.py cpu",
+    "size": 28,
     "interval": 2,
-    "format": "\uf2db {usage}%",
     "tooltip": true,
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click cpu",
     "on-click-right": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click btop"
   },
-  "memory": {
+  "image#memory": {
+    "exec": "$HOME/.config/waybar/scripts/stat-ring.py memory",
+    "size": 28,
     "interval": 2,
-    "format": "\uf1c0 {percentage}%",
-    "tooltip-format": "{used:0.1f} GiB / {total:0.1f} GiB",
+    "tooltip": true,
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click memory",
     "on-click-right": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click btop"
   },
   "battery": {
-    "format": "{icon} {capacity}%",
+    "format": "{capacity}%",
     "format-charging": "{capacity}% \uf0e7",
-    "format-plugged": "{capacity}% \uf1e6",
+    "format-plugged": "{capacity}%",
     "format-icons": [
       "\uf244",
       "\uf243",
@@ -102,12 +108,13 @@
   },
   "clock": {
     "interval": 30,
-    "format": "{:%a %b %d  %I:%M %p}",
+    "format": "{:%I:%M %p\n%m/%y}",
     "tooltip": false,
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-datetime calendar",
     "on-click-right": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-datetime"
   },
   "tray": {
-    "spacing": 8
+    "spacing": 6,
+    "icon-size": 16
   }
 }

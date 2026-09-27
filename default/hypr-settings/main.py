@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from PySide6.QtGui import QFont, QGuiApplication, QIcon, QKeySequence, QShortcut
+from PySide6.QtGui import QColor, QFont, QGuiApplication, QIcon, QKeySequence, QPalette, QShortcut
 from PySide6.QtCore import QFileSystemWatcher, Qt
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QFrame, QHBoxLayout,
@@ -125,9 +125,7 @@ def _detect_dark():
     return True
 
 
-def _qss():
-    b = _base_font
-
+def _theme_colors() -> dict[str, str]:
     suite = None
     try:
         from suite_theme import suite_colors
@@ -137,25 +135,8 @@ def _qss():
         suite = None
 
     if suite:
-        BG = suite["BG"]
-        BG_SIDEBAR = suite["BG_SIDEBAR"]
-        BG_RAISED = suite["BG_RAISED"]
-        BG_HOVER = suite["BG_HOVER"]
-        BG_PRESS = suite["BG_PRESS"]
-        TEXT = suite["TEXT"]
-        TEXT_BRIGHT = suite["TEXT_BRIGHT"]
-        TEXT_DIM = suite["TEXT_DIM"]
-        TEXT_MUTED = suite["TEXT_MUTED"]
-        BORDER = suite["BORDER"]
-        BORDER_HOVER = suite["BORDER_HOVER"]
-        BORDER_FOCUS = suite["BORDER_FOCUS"]
-        BORDER_SUBTLE = suite["BORDER_SUBTLE"]
-        SEP = suite["SEP"]
-        INPUT_TEXT = suite["INPUT_TEXT"]
-        LIST_ITEM = suite["LIST_ITEM"]
-        ACCENT = suite["ACCENT"]
-        ACCENT_TEXT = suite["ACCENT_TEXT"]
-    elif _is_dark:
+        return suite
+    if _is_dark:
         BG            = "#0d0d0d"
         BG_SIDEBAR    = "#080808"
         BG_RAISED     = "#111111"
@@ -193,6 +174,91 @@ def _qss():
         LIST_ITEM     = "#2a2a2a"
         ACCENT        = "#a3b3d4"
         ACCENT_TEXT   = "#101010"
+    return {
+        "BG": BG,
+        "BG_SIDEBAR": BG_SIDEBAR,
+        "BG_RAISED": BG_RAISED,
+        "BG_HOVER": BG_HOVER,
+        "BG_PRESS": BG_PRESS,
+        "TEXT": TEXT,
+        "TEXT_BRIGHT": TEXT_BRIGHT,
+        "TEXT_DIM": TEXT_DIM,
+        "TEXT_MUTED": TEXT_MUTED,
+        "BORDER": BORDER,
+        "BORDER_HOVER": BORDER_HOVER,
+        "BORDER_FOCUS": BORDER_FOCUS,
+        "BORDER_SUBTLE": BORDER_SUBTLE,
+        "SEP": SEP,
+        "INPUT_TEXT": INPUT_TEXT,
+        "LIST_ITEM": LIST_ITEM,
+        "ACCENT": ACCENT,
+        "ACCENT_TEXT": ACCENT_TEXT,
+    }
+
+
+def _theme_palette(colors: dict[str, str] | None = None) -> QPalette:
+    c = colors or _theme_colors()
+    pal = QPalette()
+    bg = QColor(c["BG"])
+    fg = QColor(c["TEXT"])
+    base = QColor(c["BG_RAISED"])
+    accent = QColor(c["ACCENT"])
+    on_accent = QColor(c["ACCENT_TEXT"])
+    muted = QColor(c["TEXT_MUTED"])
+    hover = QColor(c["BG_HOVER"])
+    border = QColor(c["BORDER"])
+    sidebar = QColor(c["BG_SIDEBAR"])
+    pal.setColor(QPalette.ColorRole.Window, bg)
+    pal.setColor(QPalette.ColorRole.WindowText, fg)
+    pal.setColor(QPalette.ColorRole.Base, base)
+    pal.setColor(QPalette.ColorRole.AlternateBase, sidebar)
+    pal.setColor(QPalette.ColorRole.Text, fg)
+    pal.setColor(QPalette.ColorRole.Button, sidebar)
+    pal.setColor(QPalette.ColorRole.ButtonText, fg)
+    pal.setColor(QPalette.ColorRole.BrightText, fg)
+    pal.setColor(QPalette.ColorRole.ToolTipBase, base)
+    pal.setColor(QPalette.ColorRole.ToolTipText, fg)
+    pal.setColor(QPalette.ColorRole.PlaceholderText, muted)
+    pal.setColor(QPalette.ColorRole.Highlight, accent)
+    pal.setColor(QPalette.ColorRole.HighlightedText, on_accent)
+    pal.setColor(QPalette.ColorRole.Link, accent)
+    pal.setColor(QPalette.ColorRole.Light, hover)
+    pal.setColor(QPalette.ColorRole.Midlight, hover)
+    pal.setColor(QPalette.ColorRole.Mid, border)
+    pal.setColor(QPalette.ColorRole.Dark, bg)
+    pal.setColor(QPalette.ColorRole.Shadow, bg)
+    return pal
+
+
+def _apply_chrome(app: QApplication) -> None:
+    # Fusion ignores the GTK3 platform theme's black QPalette.Text on item views.
+    app.setStyle("Fusion")
+    colors = _theme_colors()
+    app.setPalette(_theme_palette(colors))
+    app.setStyleSheet(_qss(colors))
+
+
+def _qss(colors: dict[str, str] | None = None) -> str:
+    b = _base_font
+    c = colors or _theme_colors()
+    BG = c["BG"]
+    BG_SIDEBAR = c["BG_SIDEBAR"]
+    BG_RAISED = c["BG_RAISED"]
+    BG_HOVER = c["BG_HOVER"]
+    BG_PRESS = c["BG_PRESS"]
+    TEXT = c["TEXT"]
+    TEXT_BRIGHT = c["TEXT_BRIGHT"]
+    TEXT_DIM = c["TEXT_DIM"]
+    TEXT_MUTED = c["TEXT_MUTED"]
+    BORDER = c["BORDER"]
+    BORDER_HOVER = c["BORDER_HOVER"]
+    BORDER_FOCUS = c["BORDER_FOCUS"]
+    BORDER_SUBTLE = c["BORDER_SUBTLE"]
+    SEP = c["SEP"]
+    INPUT_TEXT = c["INPUT_TEXT"]
+    LIST_ITEM = c["LIST_ITEM"]
+    ACCENT = c["ACCENT"]
+    ACCENT_TEXT = c["ACCENT_TEXT"]
 
     RADIUS      = "4px"
     RADIUS_LG   = "6px"
@@ -226,7 +292,7 @@ QPushButton#navBtn {{
     background: transparent;
     border: none;
     border-radius: 6px;
-    color: {TEXT_MUTED};
+    color: {TEXT_BRIGHT};
     font-size: {b}px;
     font-weight: 500;
     text-align: left;
@@ -240,26 +306,26 @@ QPushButton#navBtn QLabel {{
     padding: 0;
     font-size: {b}px;
     font-weight: 500;
-    color: {TEXT_MUTED};
+    color: {TEXT_BRIGHT};
 }}
 
 QPushButton#navBtn:hover {{
     background: {BG_HOVER};
-    color: {TEXT_DIM};
+    color: {TEXT_BRIGHT};
 }}
 
 QPushButton#navBtn:hover QLabel {{
-    color: {TEXT_DIM};
+    color: {TEXT_BRIGHT};
 }}
 
 QPushButton#navBtn QLabel#navBtnArrow {{
-    color: {TEXT_MUTED};
+    color: {TEXT_BRIGHT};
     font-weight: 400;
     font-size: {b + 1}px;
 }}
 
 QPushButton#navBtn:hover QLabel#navBtnArrow {{
-    color: {TEXT_DIM};
+    color: {TEXT_BRIGHT};
 }}
 
 QPushButton#navBtn:checked {{
@@ -365,18 +431,19 @@ QPushButton:default:hover {{
 
 /* ── Lists ── */
 
-QListWidget {{
-    background: {BG_RAISED};
-    border: 1px solid {BORDER_SUBTLE};
-    border-radius: {RADIUS_LG};
+QListWidget, QListView, QAbstractItemView {{
+    background-color: {BG};
+    border: none;
     outline: none;
-    padding: 3px;
+    padding: 0;
+    color: {TEXT_BRIGHT};
 }}
 
-QListWidget::item {{
+QListWidget::item, QListView::item, QAbstractItemView::item {{
     padding: 12px 14px;
     border-radius: 5px;
-    color: {LIST_ITEM};
+    color: {TEXT_BRIGHT};
+    background-color: transparent;
 }}
 
 QListWidget::item:selected {{
@@ -448,12 +515,19 @@ QComboBox::drop-down {{
 
 QComboBox QAbstractItemView {{
     background: {BG_RAISED};
+    color: {TEXT};
     border: 1px solid {BORDER};
     border-radius: {RADIUS};
     selection-background-color: {ACCENT};
     selection-color: {ACCENT_TEXT};
     outline: none;
     padding: 3px;
+}}
+
+QComboBox QAbstractItemView::item {{
+    color: {TEXT};
+    min-height: 28px;
+    padding: 4px 8px;
 }}
 
 QComboBox QAbstractItemView::item:hover {{
@@ -541,9 +615,62 @@ QScrollArea {{
     background: transparent;
 }}
 
-/* ── Dialogs ── */
+/* ── Dialogs / menus ── */
 
-QInputDialog, QMessageBox {{ background: {BG}; }}
+QMenu {{
+    background: {BG_RAISED};
+    color: {TEXT};
+    border: 1px solid {BORDER};
+    padding: 4px;
+}}
+QMenu::item {{
+    color: {TEXT};
+    padding: 6px 16px;
+    background: transparent;
+}}
+QMenu::item:selected {{
+    background: {ACCENT};
+    color: {ACCENT_TEXT};
+}}
+QMenu::separator {{
+    height: 1px;
+    background: {SEP};
+    margin: 4px 8px;
+}}
+
+QAbstractItemView {{
+    background: {BG_RAISED};
+    color: {TEXT};
+    outline: none;
+}}
+QHeaderView::section {{
+    background: {BG_SIDEBAR};
+    color: {TEXT};
+    border: none;
+    padding: 6px 8px;
+}}
+
+QCalendarWidget QWidget,
+QCalendarWidget QAbstractItemView,
+QCalendarWidget QTableView {{
+    color: {TEXT_BRIGHT};
+    background-color: {BG_RAISED};
+    selection-background-color: {ACCENT};
+    selection-color: #1d2021;
+    outline: none;
+}}
+QCalendarWidget QTableView::item:selected {{
+    color: #1d2021;
+    background-color: {ACCENT};
+}}
+
+QToolTip {{
+    background: {BG_RAISED};
+    color: {TEXT};
+    border: 1px solid {BORDER};
+}}
+
+QInputDialog, QMessageBox {{ background: {BG}; color: {TEXT}; }}
 QMessageBox QLabel, QInputDialog QLabel {{ background: transparent; color: {TEXT}; }}
 """
 
@@ -554,22 +681,31 @@ def _open_gtk_theme_editor() -> None:
 
 
 def _nav_button(label: str, *, external: bool = False) -> QPushButton:
-    """Sidebar row. External items get a ↗ to show they open another app."""
-    btn = QPushButton()
+    """Sidebar row. Paint the caption on the button itself so GTK cannot
+    leave nested QLabel text black on the dark sidebar."""
+    caption = f"{label}  ↗" if external else label
+    btn = QPushButton(caption)
     btn.setObjectName("navBtn")
-    row = QHBoxLayout(btn)
-    row.setContentsMargins(10, 0, 4, 0)
-    row.setSpacing(4)
-    text = QLabel(label)
-    text.setObjectName("navBtnText")
-    text.setAttribute(Qt.WA_TransparentForMouseEvents)
-    row.addWidget(text)
-    if external:
-        arrow = QLabel("↗")
-        arrow.setObjectName("navBtnArrow")
-        arrow.setAttribute(Qt.WA_TransparentForMouseEvents)
-        row.addWidget(arrow)
-    row.addStretch()
+    btn.setCursor(Qt.CursorShape.PointingHandCursor)
+    fg = "#ebdbb2"
+    on = "#1d2021"
+    try:
+        from suite_theme import suite_colors
+
+        c = suite_colors()
+        if c:
+            fg = c["TEXT_BRIGHT"]
+            on = c["ACCENT_TEXT"]
+    except Exception:
+        pass
+    btn.setStyleSheet(f"color: {fg}; text-align: left;")
+
+    def _sync_fg(checked: bool, button=btn, idle=fg, active=on) -> None:
+        button.setStyleSheet(
+            f"color: {active if checked else idle}; text-align: left;"
+        )
+
+    btn.toggled.connect(_sync_fg)
     return btn
 
 
@@ -621,7 +757,7 @@ def main():
     QGuiApplication.setDesktopFileName("hypr-settings")
     app = QApplication(sys.argv)
     app.setFont(QFont("sans", 14))
-    app.setStyleSheet(_qss())
+    _apply_chrome(app)
     QIcon.setThemeName(_detect_icon_theme())
 
     import common
@@ -636,7 +772,7 @@ def main():
         except Exception:
             suite_dark = None
         _is_dark = suite_dark if suite_dark is not None else dark
-        app.setStyleSheet(_qss())
+        _apply_chrome(app)
     common.on_theme_change = _apply_theme
 
     # Live-reload when Neuronix Profile menu / gtk-theme-editor writes theme.toml.
@@ -792,7 +928,7 @@ def main():
     def zoom(delta):
         global _base_font
         _base_font = max(10, min(32, _base_font + delta))
-        app.setStyleSheet(_qss())
+        _apply_chrome(app)
 
     QShortcut(QKeySequence("Ctrl+="), window).activated.connect(lambda: zoom(1))
     QShortcut(QKeySequence("Ctrl++"), window).activated.connect(lambda: zoom(1))

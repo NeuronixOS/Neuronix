@@ -22,6 +22,27 @@ from typing import Callable, Optional
 
 _PROFILES_PATH = Path(__file__).resolve().parent.parent / "profiles.json"
 _DEFAULT_ID = "gruvbox-dark"
+
+
+def _profiles_json_path() -> Path:
+    """``profiles.json`` lives next to ``gtk-theme/``, not the flattened ``python/`` copy."""
+    here = Path(__file__).resolve().parent
+    cands = (
+        here.parent / "profiles.json",
+        here / "profiles.json",
+        Path("/usr/local/lib/neuronix/gtk-apps/gtk-theme/profiles.json"),
+        Path("/usr/share/neuronix/gtk-theme/profiles.json"),
+        Path("/usr/local/lib/neuronix/gtk-apps/profiles.json"),
+    )
+    for path in cands:
+        try:
+            if path.is_file():
+                return path
+        except OSError:
+            continue
+    return cands[0]
+
+
 _THEME_DIR = Path.home() / ".config" / "gtk-apps"
 _THEME_PATH = _THEME_DIR / "theme.toml"
 _CUSTOM_PROFILES_PATH = _THEME_DIR / "custom-profiles.json"
@@ -64,6 +85,9 @@ class WindowChrome:
     border_size: int = 10
     rounding: int = 8
     bevel: str = "flat"
+    gradient: str = "ltr"
+    bar: Optional[tuple[str, str]] = None
+    bar_inactive: Optional[tuple[str, str]] = None
     button_size: int = 18
     button_kit: str = "gnome"
     minimize: str = "−"
@@ -100,12 +124,34 @@ def _parse_chrome(raw: object) -> WindowChrome:
     bevel = str(raw.get("bevel") or "flat")
     if bevel not in ("flat", "inner", "double"):
         bevel = "flat"
+    gradient = str(raw.get("gradient") or "ltr").lower().replace("-", "_")
+    if gradient in ("rtl", "right_left", "right_to_left"):
+        gradient = "rtl"
+    else:
+        gradient = "ltr"
+    bar = None
+    bar_raw = raw.get("bar")
+    if isinstance(bar_raw, list) and bar_raw:
+        a = _normalize_hex(bar_raw[0])
+        b = _normalize_hex(bar_raw[1]) if len(bar_raw) > 1 else a
+        if a:
+            bar = (a, b or a)
+    bar_inactive = None
+    ibar_raw = raw.get("bar_inactive")
+    if isinstance(ibar_raw, list) and ibar_raw:
+        a = _normalize_hex(ibar_raw[0])
+        b = _normalize_hex(ibar_raw[1]) if len(ibar_raw) > 1 else a
+        if a:
+            bar_inactive = (a, b or a)
     nine = raw.get("ninepatch")
     ninepatch = nine if isinstance(nine, str) and nine.strip() else None
     return WindowChrome(
         border_size=max(1, min(32, border_size)),
         rounding=max(0, min(48, rounding)),
         bevel=bevel,
+        gradient=gradient,
+        bar=bar,
+        bar_inactive=bar_inactive,
         button_size=max(10, min(36, button_size)),
         button_kit=kit,
         minimize=str(buttons.get("minimize") or glyphs[0]),
@@ -161,11 +207,11 @@ class Profile:
 
     def hypr_active_border(self) -> Optional[str]:
         a, b = self.border_active_stops()
-        return _hypr_gradient(a, b)
+        return _hypr_gradient(a, b, self.chrome.gradient)
 
     def hypr_inactive_border(self) -> Optional[str]:
         a, b = self.border_inactive_stops()
-        return _hypr_gradient(a, b)
+        return _hypr_gradient(a, b, self.chrome.gradient)
 
     def accent(self) -> str:
         """Suite accent (ANSI blue / palette[4]) — Adwaita --accent-blue."""
@@ -196,7 +242,7 @@ def _parse_stops(raw: object) -> Optional[tuple[str, str]]:
 def builtin_profiles() -> list[Profile]:
     global _profiles
     if _profiles is None:
-        data = json.loads(_PROFILES_PATH.read_text(encoding="utf-8"))
+        data = json.loads(_profiles_json_path().read_text(encoding="utf-8"))
         _profiles = [
             Profile(
                 id=p["id"],
@@ -363,6 +409,14 @@ window, window.csd, window.solid-csd {{
   color: {fg};
 }}
 window label, window .title {{ color: {fg}; }}
+window row:selected label,
+window listbox > row:selected label,
+window .navigation-sidebar > row:selected,
+window .navigation-sidebar > row:selected *,
+window .navigation-sidebar > row:selected label,
+window .navigation-sidebar > row:selected image {{
+  color: {on_accent};
+}}
 
 headerbar, headerbar.default-decoration, headerbar:backdrop,
 .titlebar, .titlebar:backdrop,
@@ -540,8 +594,14 @@ listbox row:selected,
 listbox.side-panel row:selected,
 .side-panel listbox row:selected,
 .navigation-sidebar > row:selected {{
-  background-color: alpha({accent}, 0.35);
-  color: {fg};
+  background-color: {accent};
+  color: {on_accent};
+}}
+listbox row:selected *,
+.navigation-sidebar > row:selected *,
+.navigation-sidebar > row:selected label,
+.navigation-sidebar > row:selected image {{
+  color: {on_accent};
 }}
 notebook, notebook > stack {{ background-color: {bg}; color: {fg}; }}
 notebook > header {{ background-color: {surface}; color: {fg}; }}
@@ -784,17 +844,24 @@ def sync_hyprbars(profile: Optional[Profile] = None) -> bool:
 def sync_hyprbars_colors(
     bar_hex: str, text_hex: str, chrome: Optional[WindowChrome] = None
 ) -> bool:
-    bar_rgb = _hex_to_hypr_rgb(bar_hex)
-    text_rgb = _hex_to_hypr_rgb(text_hex)
-    if not bar_rgb or not text_rgb:
-        return False
-    # rgb(RRGGBB) → rgba(RRGGBBff)
-    bar_rgba = f"rgba({bar_rgb[4:10]}ff)"
     ch = chrome or WindowChrome()
+    b0, b1 = _chrome_bar_stops(ch, bar_hex, text_hex)
+    i0, i1 = _chrome_bar_inactive_stops(ch, bar_hex)
+    bar_rgb = _hex_to_hypr_rgb(b0)
+    bar2_rgb = _hex_to_hypr_rgb(b1)
+    ibar_rgb = _hex_to_hypr_rgb(i0)
+    ibar2_rgb = _hex_to_hypr_rgb(i1)
+    text_rgb = _hex_to_hypr_rgb(text_hex)
+    if not bar_rgb or not bar2_rgb or not ibar_rgb or not ibar2_rgb or not text_rgb:
+        return False
+    bar_rgba = f"rgba({bar_rgb[4:10]}ff)"
+    bar2_rgba = f"rgba({bar2_rgb[4:10]}ff)"
+    ibar_rgba = f"rgba({ibar_rgb[4:10]}ff)"
+    ibar2_rgba = f"rgba({ibar2_rgb[4:10]}ff)"
+    direction = "rtl" if ch.gradient == "rtl" else "ltr"
     if ch.button_kit == "nerd":
         _ensure_symbols_nerd_font()
 
-    # 1) Persist so the next login / reload keeps the colors.
     path = _hyprland_conf_path()
     if path is not None and path.is_file():
         try:
@@ -804,8 +871,18 @@ def sync_hyprbars_colors(
         if original is not None:
             out = original
             out = _replace_hypr_assign(out, "bar_color", bar_rgba)
+            out = _replace_or_insert_hypr_assign(out, "bar_color2", bar2_rgba, "bar_color")
+            out = _replace_or_insert_hypr_assign(
+                out, "bar_color_inactive", ibar_rgba, "bar_color2"
+            )
+            out = _replace_or_insert_hypr_assign(
+                out, "bar_color_inactive2", ibar2_rgba, "bar_color_inactive"
+            )
+            out = _replace_or_insert_hypr_assign(
+                out, "bar_gradient", direction, "bar_color_inactive2"
+            )
             out = _replace_hypr_assign(out, "col.text", text_rgb)
-            out = _replace_hypr_assign(out, "inactive_button_color", bar_rgb)
+            out = _replace_hypr_assign(out, "inactive_button_color", ibar_rgb)
             out = _replace_hypr_assign(out, "bar_text_font", _chrome_bar_font(ch))
             out = _rewrite_hyprbars_buttons(out, bar_rgb, text_rgb, ch)
             if out != original:
@@ -814,16 +891,16 @@ def sync_hyprbars_colors(
                 except OSError:
                     pass
 
-    # 2) Live update: keywords take effect immediately for bar/title/inactive fill.
-    #    Skip during session start — conf write is enough; hyprctl can race plugins.
     if not _theme_session_safe():
-        ch = chrome or WindowChrome()
         if ch.button_kit == "nerd":
             _ensure_symbols_nerd_font()
         _hyprctl_keyword("plugin:hyprbars:bar_color", bar_rgba)
         _hyprctl_keyword("plugin:hyprbars:col.text", text_rgb)
-        _hyprctl_keyword("plugin:hyprbars:inactive_button_color", bar_rgb)
+        _hyprctl_keyword("plugin:hyprbars:inactive_button_color", ibar_rgb)
         _hyprctl_keyword("plugin:hyprbars:bar_text_font", _chrome_bar_font(ch))
+        _hyprctl_hyprbarsgradient(
+            f"{bar_rgba} {bar2_rgba} {ibar_rgba} {ibar2_rgba} {direction}"
+        )
         _apply_hyprbars_button_keywords(bar_rgb, text_rgb, ch)
     return True
 
@@ -941,6 +1018,39 @@ def _replace_hypr_assign(text: str, key: str, value: str) -> str:
     return "".join(out)
 
 
+def _hypr_key_present(text: str, key: str) -> bool:
+    key_eq = f"{key} ="
+    key_eq2 = f"{key}="
+    return any(
+        line.lstrip().startswith(key_eq) or line.lstrip().startswith(key_eq2)
+        for line in text.splitlines()
+    )
+
+
+def _replace_or_insert_hypr_assign(text: str, key: str, value: str, after_key: str) -> str:
+    if _hypr_key_present(text, key):
+        return _replace_hypr_assign(text, key, value)
+    lines = text.splitlines(keepends=True)
+    out: list[str] = []
+    after = f"{after_key} ="
+    after2 = f"{after_key}="
+    inserted = False
+    for line in lines:
+        out.append(line)
+        if inserted:
+            continue
+        bare = line.rstrip("\r\n")
+        trimmed = bare.lstrip()
+        indent = bare[: len(bare) - len(trimmed)]
+        if trimmed.startswith(after) or trimmed.startswith(after2):
+            nl = line[len(bare) :] or "\n"
+            out.append(f"{indent}{key} = {value}{nl}")
+            inserted = True
+    if not inserted:
+        out.append(f"{key} = {value}\n")
+    return "".join(out)
+
+
 def _rewrite_hyprbars_buttons(
     text: str, bar_rgb: str, text_rgb: str, chrome: WindowChrome
 ) -> str:
@@ -1021,6 +1131,49 @@ def _hyprctl_keyword(key: str, value: str) -> None:
         pass
 
 
+def _hyprctl_dispatch(name: str, args: str) -> None:
+    if not shutil.which("hyprctl"):
+        return
+    try:
+        subprocess.run(
+            ["hyprctl", "dispatch", name, args],
+            env=_hypr_env(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=5,
+        )
+    except Exception:
+        pass
+
+
+def _active_ninepatch_path() -> Path:
+    return _THEME_DIR / "chrome" / "border-9.png"
+
+
+def _sync_hypr_ninepatch(_chrome: WindowChrome) -> None:
+    return
+
+
+def _hyprctl_hyprbarsgradient(args: str) -> None:
+    if not shutil.which("hyprctl"):
+        return
+    try:
+        subprocess.run(
+            ["hyprctl", "hyprbarsfill", args],
+            env=_hypr_env(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=5,
+        )
+    except Exception:
+        pass
+    _hyprctl_dispatch("hyprbarsgradient", args)
+
+
 def _theme_session_safe() -> bool:
     """True during Hyprland session bring-up — avoid reload / process thrash."""
     return bool(os.environ.get("NEURONIX_THEME_NO_HYPR_RELOAD"))
@@ -1066,6 +1219,7 @@ def sync_shell_chrome(profile: Optional[Profile] = None) -> bool:
     if active and inactive:
         _sync_hypr_window_borders(active, inactive, profile.border_hex())
     _sync_hypr_window_geometry(chrome.border_size, chrome.rounding)
+    _sync_hypr_ninepatch(chrome)
     _sync_hypr_workspace_background(bg)
     _sync_gtk_term_colors(profile)
     _sync_gtk_user_css(profile)
@@ -1347,6 +1501,23 @@ treeview header button {{
   border-color: {border};
 }}
 label, .label {{ color: {fg}; }}
+/* Child labels ignore row :selected color; force ink on the accent chip. */
+*:selected, *:selected *,
+row:selected, row:selected *,
+list row:selected, list row:selected *,
+listview > row:selected, listview > row:selected *,
+gridview > child:selected, gridview > child:selected *,
+columnview row:selected, columnview row:selected *,
+treeview:selected, treeview:selected *,
+treeview.view:selected, treeview.view:selected *,
+.view:selected, .view:selected *,
+.content-view:selected, .content-view:selected *,
+placessidebar row:selected, placessidebar row:selected *,
+.sidebar row:selected, .sidebar row:selected *,
+menuitem:hover, menuitem:hover *,
+modelbutton:hover, modelbutton:hover * {{
+  color: {on_accent};
+}}
 separator {{ background-color: {border}; }}
 scale trough {{
   background-color: {border};
@@ -1574,6 +1745,14 @@ window.filechooser button.suggested-action {{
   background-color: {accent};
   color: {on_accent};
 }}
+*:selected, *:selected *,
+row:selected, row:selected *,
+listview > row:selected, listview > row:selected *,
+gridview > child:selected, gridview > child:selected *,
+columnview row:selected, columnview row:selected *,
+.view:selected, .view:selected * {{
+  color: {on_accent};
+}}
 {_GTK_USER_CSS_END}
 """
 
@@ -1698,7 +1877,11 @@ checkbutton > check:checked, radiobutton > radio:checked {{
   border-color: {accent};
   color: {on_accent};
 }}
-.view:selected, listview > row:selected, gridview > child:selected {{
+.view:selected, .view:selected *,
+listview > row:selected, listview > row:selected *,
+gridview > child:selected, gridview > child:selected *,
+columnview row:selected, columnview row:selected *,
+row:selected, row:selected * {{
   background-color: {accent};
   color: {on_accent};
 }}
@@ -2198,7 +2381,7 @@ def _sync_waybar_style(
             out = _rewrite_css_block(
                 out,
                 "#workspaces button.active",
-                "  color: @wb_fg;\n  background: @wb_surface;",
+                "  color: @wb_bg;\n  background: @wb_fg;",
             )
             out = _promote_waybar_hardcoded_to_vars(out)
             out = _waybar_gtk_color_refs(out)
@@ -2404,12 +2587,25 @@ def _hex_to_hypr_rgba(hex_color: str, alpha: str) -> Optional[str]:
     return f"rgba({h.lower()}{alpha})"
 
 
-def _hypr_gradient(a: str, b: str) -> Optional[str]:
-    aa = _hex_to_hypr_rgba(a, "ff")
-    bb = _hex_to_hypr_rgba(b, "ff")
+def _hypr_gradient(a: str, b: str, direction: str = "ltr") -> Optional[str]:
+    left, right = (b, a) if direction == "rtl" else (a, b)
+    aa = _hex_to_hypr_rgba(left, "ff")
+    bb = _hex_to_hypr_rgba(right, "ff")
     if not aa or not bb:
         return None
-    return f"{aa} {bb} 45deg"
+    return f"{aa} {bb} 0deg"
+
+
+def _chrome_bar_stops(chrome: WindowChrome, bar_hex: str, text_hex: str) -> tuple[str, str]:
+    if chrome.bar:
+        return chrome.bar
+    return (bar_hex, _mix_hex(bar_hex, text_hex, 0.22))
+
+
+def _chrome_bar_inactive_stops(chrome: WindowChrome, bar_hex: str) -> tuple[str, str]:
+    if chrome.bar_inactive:
+        return chrome.bar_inactive
+    return (bar_hex, _mix_hex(bar_hex, "#000000", 0.18))
 
 
 def _sync_hypr_window_borders(active: str, inactive: str, panel_hex: str) -> None:
@@ -2457,11 +2653,7 @@ def _sync_hypr_window_geometry(border_size: int, rounding: int) -> None:
 
 
 def install_chrome_ninepatch(profile_id: str, src: str | Path) -> Optional[Path]:
-    """Copy a 9-slice PNG into ``~/.config/gtk-apps/chrome/<id>/border-9.png``.
-
-    Stock Hyprland still paints a gradient stroke. The editor preview (and a
-    future compositor plugin) reads this file.
-    """
+    """Copy a 9-slice PNG into ``~/.config/gtk-apps/chrome/<id>/border-9.png``."""
     ident = (profile_id or "").strip()
     src_path = Path(src)
     if not ident or not src_path.is_file():

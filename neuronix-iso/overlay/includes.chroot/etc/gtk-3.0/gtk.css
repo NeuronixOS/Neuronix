@@ -32,3 +32,13 @@ headerbar button.titlebutton.close {
   box-shadow: none;
   -gtk-icon-transform: scale(0);
 }
+
+/* Selected rows: child labels ignore inherited cream fg on the orange chip. */
+*:selected, *:selected *,
+row:selected, row:selected *,
+listview > row:selected, listview > row:selected *,
+gridview > child:selected, gridview > child:selected *,
+columnview row:selected, columnview row:selected *,
+.view:selected, .view:selected * {
+  color: #1d2021;
+}

@@ -1,187 +1,304 @@
-#!/bin/sh
-# Date & time helper for waybar clock clicks (calendar, 12/24h, set clock, timezone).
-set -eu
+#!/usr/bin/env python3
+"""Date and time menu. Calendar, clock format, and time zone open on the right."""
+from __future__ import annotations
 
-# Freeze the bar click before PATH/GTK work (Active-User jiggles the pointer).
-if [ -z "${NEURONIX_CLICK_XY:-}" ]; then
-	NEURONIX_CLICK_XY="$(/usr/bin/hyprctl cursorpos 2>/dev/null | tr -d ' ' || true)"
-	export NEURONIX_CLICK_XY
-fi
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
 
-export PATH="${HOME}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games${PATH:+:$PATH}"
-_uid="$(id -u)"
-export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_uid}}"
-export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+import gi
 
-if [ -r /usr/share/neuronix/neuronix-hyprland-session-env.sh ]; then
-	# shellcheck disable=SC1091
-	. /usr/share/neuronix/neuronix-hyprland-session-env.sh
-	neuronix_hyprland_session_env
-fi
-export PATH="${HOME}/.local/bin:${PATH}"
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
-WAYBAR_CONF="${HOME}/.config/waybar/config"
-PREF_DIR="${HOME}/.config/neuronix"
-PREF_FILE="${PREF_DIR}/clock-format"
-
-_dlg() {
-	# Shared GNOME-style layer-shell dialogs under the frozen Waybar click.
-	if [ -f "${HOME}/.local/share/neuronix/neuronix_choice_dialog.py" ]; then
-		python3 "${HOME}/.local/share/neuronix/neuronix_choice_dialog.py" "$@"
-		return $?
-	fi
-	if [ -f /usr/share/neuronix/neuronix_choice_dialog.py ]; then
-		python3 /usr/share/neuronix/neuronix_choice_dialog.py "$@"
-		return $?
-	fi
-	return 127
-}
-
-_current_fmt() {
-	if [ -f "${PREF_FILE}" ]; then
-		read -r _f <"${PREF_FILE}" || _f=12
-		printf '%s' "${_f}"
-		return
-	fi
-	printf '12'
-}
-
-_apply_waybar_format() {
-	_mode="$1"
-	mkdir -p "${PREF_DIR}"
-	printf '%s\n' "${_mode}" >"${PREF_FILE}"
-	[ -f "${WAYBAR_CONF}" ] || return 0
-	if [ "${_mode}" = "24" ]; then
-		_fmt='{:%a %b %d  %H:%M}'
-	else
-		_fmt='{:%a %b %d  %I:%M %p}'
-	fi
-	python3 - "${WAYBAR_CONF}" "${_fmt}" <<'PY'
-import json, sys
-path, fmt = sys.argv[1], sys.argv[2]
-with open(path, encoding="utf-8") as f:
-    cfg = json.load(f)
-clock = cfg.setdefault("clock", {})
-clock["format"] = fmt
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(cfg, f, indent=2)
-    f.write("\n")
-PY
-	if pgrep -x waybar >/dev/null 2>&1; then
-		pkill -USR2 -x waybar 2>/dev/null || {
-			pkill -x waybar 2>/dev/null || true
-			sleep 0.2
-			waybar &
-		}
-	fi
-}
-
-_show_calendar() {
-	if command -v neuronix-calendar >/dev/null 2>&1; then
-		neuronix-calendar || true
-		return 0
-	fi
-	_picked="$(_dlg calendar "Calendar" "Today is $(date '+%A, %B %d %Y')" 2>/dev/null)" || return 0
-	[ -n "${_picked}" ] && notify-send -a Neuronix -t 4000 "Calendar" "Selected: ${_picked}" 2>/dev/null || true
-}
-
-_set_datetime() {
-	_date="$(_dlg calendar "Set date" "Choose the system date:" 2>/dev/null)" || return 0
-	[ -n "${_date}" ] || return 0
-	# Calendar returns YYYY-MM-DD; keep a friendly display for the time step.
-	_date_disp="$(date -d "${_date}" '+%Y-%m-%d' 2>/dev/null || printf '%s' "${_date}")"
-	_time="$(_dlg entry "Set time" "Enter time as HH:MM (24-hour) for ${_date_disp}:" --default="$(date '+%H:%M')" 2>/dev/null)" || return 0
-	[ -n "${_time}" ] || return 0
-	_iso="$(date -d "${_date_disp} ${_time}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" || {
-		_dlg message --kind=error "Date & time" "Could not parse date/time:
-${_date_disp} ${_time}" 2>/dev/null || true
-		return 1
-	}
-	if pkexec timedatectl set-time "${_iso}"; then
-		notify-send -a Neuronix -t 4000 "Date & time" "Set to ${_iso}" 2>/dev/null || true
-	else
-		_dlg message --kind=error "Date & time" "Failed to set system time (need admin rights)." 2>/dev/null || true
-	fi
-}
-
-_set_timezone() {
-	_cur="$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)"
-	_tz="$(
-		timedatectl list-timezones 2>/dev/null | _dlg timezone --current="${_cur}" 2>/dev/null
-	)" || return 0
-	[ -n "${_tz}" ] || return 0
-	if pkexec timedatectl set-timezone "${_tz}"; then
-		notify-send -a Neuronix -t 4000 "Time zone" "Set to ${_tz}" 2>/dev/null || true
-	else
-		_dlg message --kind=error "Time zone" "Failed to set time zone (need admin rights)." 2>/dev/null || true
-	fi
-}
-
-_show_menu() {
-	_cur_fmt="$(_current_fmt)"
-	_clock_now="$(date '+%A, %B %d %Y  %I:%M %p')"
-	_tz_now="$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)"
-	if [ "${_cur_fmt}" = "24" ]; then
-		_toggle_id="fmt12"
-		_toggle_label="Use 12-hour clock"
-		_toggle_desc="Switch the waybar clock to AM/PM"
-	else
-		_toggle_id="fmt24"
-		_toggle_label="Use 24-hour clock"
-		_toggle_desc="Switch the waybar clock to 24-hour time"
-	fi
-
-	_pick="$(
-		NEURONIX_TOGGLE_ID="${_toggle_id}" \
-		NEURONIX_TOGGLE_LABEL="${_toggle_label}" \
-		NEURONIX_TOGGLE_DESC="${_toggle_desc}" \
-		NEURONIX_CLOCK_NOW="${_clock_now}" \
-		NEURONIX_TZ_NOW="${_tz_now}" \
-		python3 - <<'PY'
-import os, sys
 sys.path.insert(0, "/usr/share/neuronix")
 sys.path.insert(0, os.path.expanduser("~/.local/share/neuronix"))
-from neuronix_choice_dialog import choose
+from neuronix_choice_dialog import DrillItem, MonthCalendar, show_drilldown  # noqa: E402
 
-items = [
-    ("calendar", "Calendar", "Pick a date on the calendar"),
-    (
-        os.environ["NEURONIX_TOGGLE_ID"],
-        os.environ["NEURONIX_TOGGLE_LABEL"],
-        os.environ["NEURONIX_TOGGLE_DESC"],
-    ),
-    ("setclock", "Set date & time", "Change the system clock (admin)"),
-    ("timezone", "Time zone", "Change the system time zone (admin)"),
-]
-pick = choose(
-    "Date & Time",
-    f"{os.environ['NEURONIX_CLOCK_NOW']}\nTimezone: {os.environ['NEURONIX_TZ_NOW']}",
-    items,
-    width=520,
-    height=560,
-)
-if pick:
-    print(pick)
-PY
-	)" || true
+PREF = os.path.expanduser("~/.config/neuronix/clock-format")
+WAYBAR = os.path.expanduser("~/.config/waybar/config")
+FMT_12 = "{:%I:%M %p  %b %d}"
+FMT_24 = "{:%H:%M  %b %d}"
 
-	[ -n "${_pick:-}" ] || exit 0
 
-	case "${_pick}" in
-		calendar) _show_calendar ;;
-		fmt12) _apply_waybar_format 12 ;;
-		fmt24) _apply_waybar_format 24 ;;
-		setclock) _set_datetime ;;
-		timezone) _set_timezone ;;
-		*) exit 0 ;;
-	esac
-}
+def _sibling_script(name: str) -> str:
+    me = os.path.realpath(__file__)
+    here = os.path.dirname(me)
+    for path in (
+        os.path.join(os.path.expanduser("~/.local/bin"), name),
+        os.path.join(here, name),
+        os.path.join("/usr/local/bin", name),
+    ):
+        if os.path.isfile(path) and os.path.realpath(path) != me:
+            return path
+    return ""
 
-case "${1:-menu}" in
-	calendar) _show_calendar ;;
-	menu|"") _show_menu ;;
-	*)
-		echo "Usage: neuronix-datetime [calendar|menu]" >&2
-		exit 1
-		;;
-esac
+
+def _notify(summary: str, body: str) -> None:
+    subprocess.Popen(
+        ["notify-send", "-a", "Neuronix", "-t", "4000", summary, body],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _close() -> None:
+    GLib.idle_add(Gtk.main_quit)
+
+
+def _current_fmt() -> str:
+    try:
+        mode = open(PREF, encoding="utf-8").read().strip()
+    except Exception:
+        return "12"
+    return "24" if mode == "24" else "12"
+
+
+def _clock_now() -> str:
+    return dt.datetime.now().strftime("%A, %B %d %Y  %I:%M %p")
+
+
+def _timezone_now() -> str:
+    try:
+        return subprocess.check_output(
+            ["timedatectl", "show", "-p", "Timezone", "--value"],
+            text=True,
+            timeout=3,
+        ).strip() or "UTC"
+    except Exception:
+        return "UTC"
+
+
+def _apply_waybar_format(mode: str) -> bool:
+    os.makedirs(os.path.dirname(PREF), exist_ok=True)
+    with open(PREF, "w", encoding="utf-8") as handle:
+        handle.write(mode + "\n")
+    fmt = FMT_24 if mode == "24" else FMT_12
+    try:
+        with open(WAYBAR, encoding="utf-8") as handle:
+            cfg = json.load(handle)
+        clock = cfg.setdefault("clock", {})
+        clock["format"] = fmt
+        with open(WAYBAR, "w", encoding="utf-8") as handle:
+            json.dump(cfg, handle, indent=2)
+            handle.write("\n")
+    except Exception:
+        return False
+    subprocess.run(["pkill", "-USR2", "-x", "waybar"], check=False)
+    return True
+
+
+def _toggle_clock(item_id: str) -> None:
+    mode = "12" if item_id == "fmt12" else "24"
+    if _apply_waybar_format(mode):
+        _notify("Clock", "Using a 12-hour clock." if mode == "12" else "Using a 24-hour clock.")
+    else:
+        _notify("Clock", "Saved the preference, but the bar format could not be updated.")
+    _close()
+
+
+def _calendar_page() -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    today = dt.date.today()
+    cal = MonthCalendar()
+    picked = Gtk.Label(label=today.isoformat(), xalign=0.0)
+    picked.get_style_context().add_class("neuronix-subtitle")
+
+    def _on_day(*_a) -> None:
+        year, month, day = cal.get_date()
+        picked.set_text(f"{int(year):04d}-{int(month) + 1:02d}-{int(day):02d}")
+
+    cal.connect("day-selected", _on_day)
+    box.pack_start(cal, True, True, 0)
+    box.pack_start(picked, False, False, 0)
+    return box
+
+
+def _set_clock_page() -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    cal = MonthCalendar()
+    entry = Gtk.Entry()
+    entry.get_style_context().add_class("neuronix-entry")
+    entry.set_text(dt.datetime.now().strftime("%H:%M"))
+    hint = Gtk.Label(label="Time as HH:MM, 24-hour", xalign=0.0)
+    hint.get_style_context().add_class("neuronix-subtitle")
+    note = Gtk.Label(label="", xalign=0.0)
+    note.set_line_wrap(True)
+    note.get_style_context().add_class("neuronix-body")
+    apply_btn = Gtk.Button(label="Set clock")
+    apply_btn.get_style_context().add_class("neuronix-primary")
+
+    def _apply(*_a) -> None:
+        year, month, day = cal.get_date()
+        date = f"{int(year):04d}-{int(month) + 1:02d}-{int(day):02d}"
+        clock = (entry.get_text() or "").strip()
+        try:
+            parsed = dt.datetime.strptime(f"{date} {clock}", "%Y-%m-%d %H:%M")
+        except Exception:
+            note.set_text(f"Could not parse {date} {clock}")
+            return
+        iso = parsed.strftime("%Y-%m-%d %H:%M:%S")
+        result = subprocess.run(
+            ["pkexec", "timedatectl", "set-time", iso],
+            check=False,
+        )
+        if result.returncode == 0:
+            note.set_text(f"Set to {iso}")
+            _notify("Date & time", f"Set to {iso}")
+        else:
+            note.set_text("Failed to set the clock. Admin rights are required.")
+
+    apply_btn.connect("clicked", _apply)
+    box.pack_start(cal, True, True, 0)
+    box.pack_start(hint, False, False, 0)
+    box.pack_start(entry, False, False, 0)
+    box.pack_start(apply_btn, False, False, 0)
+    box.pack_start(note, False, False, 0)
+    return box
+
+
+def _timezone_page() -> Gtk.Widget:
+    current = _timezone_now()
+    try:
+        zones = [
+            line.strip()
+            for line in subprocess.check_output(
+                ["timedatectl", "list-timezones"], text=True, timeout=8
+            ).splitlines()
+            if line.strip()
+        ]
+    except Exception:
+        zones = [current]
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    search = Gtk.SearchEntry()
+    search.set_placeholder_text("Search cities or regions…")
+    note = Gtk.Label(label=f"Current: {current}", xalign=0.0)
+    note.set_line_wrap(True)
+    note.get_style_context().add_class("neuronix-subtitle")
+    listbox = Gtk.ListBox()
+    listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    listbox.get_style_context().add_class("neuronix-list")
+    for zone in zones:
+        row = Gtk.ListBoxRow()
+        row.get_style_context().add_class("neuronix-list-row")
+        city, _, region = zone.partition("/")
+        label = zone.split("/")[-1].replace("_", " ")
+        region_txt = zone if zone == label else zone
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        title = Gtk.Label(label=label, xalign=0.0)
+        title.get_style_context().add_class("neuronix-row-title")
+        title.set_ellipsize(Pango.EllipsizeMode.END)
+        desc = Gtk.Label(
+            label=(region_txt + "  ·  current") if zone == current else region_txt,
+            xalign=0.0,
+        )
+        desc.get_style_context().add_class("neuronix-row-desc")
+        desc.set_ellipsize(Pango.EllipsizeMode.END)
+        inner.pack_start(title, False, False, 0)
+        inner.pack_start(desc, False, False, 0)
+        row.add(inner)
+        row._zone = zone  # type: ignore[attr-defined]
+        row._hay = zone.lower()  # type: ignore[attr-defined]
+        if zone == current:
+            row.get_style_context().add_class("current")
+        listbox.add(row)
+        _ = city
+
+    def _filter(row: Gtk.ListBoxRow) -> bool:
+        query = (search.get_text() or "").strip().lower()
+        if not query:
+            return True
+        return query in str(getattr(row, "_hay", ""))
+
+    listbox.set_filter_func(_filter)
+    search.connect("search-changed", lambda *_: listbox.invalidate_filter())
+
+    def _pick(_lb, row: Gtk.ListBoxRow) -> None:
+        zone = str(getattr(row, "_zone", "") or "")
+        if not zone:
+            return
+        result = subprocess.run(
+            ["pkexec", "timedatectl", "set-timezone", zone],
+            check=False,
+        )
+        if result.returncode == 0:
+            note.set_text(f"Current: {zone}")
+            _notify("Time zone", f"Set to {zone}")
+        else:
+            note.set_text("Failed to set the time zone. Admin rights are required.")
+
+    listbox.connect("row-activated", _pick)
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.get_style_context().add_class("neuronix-list-frame")
+    scroll.set_size_request(380, 280)
+    scroll.set_vexpand(True)
+    scroll.add(listbox)
+    box.pack_start(note, False, False, 0)
+    box.pack_start(search, False, False, 0)
+    box.pack_start(scroll, True, True, 0)
+    return box
+
+
+def datetime_items() -> tuple:
+    cur = _current_fmt()
+    if cur == "24":
+        toggle = DrillItem(
+            "fmt12",
+            "Use 12-hour clock",
+            "Switch the bar clock to AM/PM",
+            action=_toggle_clock,
+        )
+    else:
+        toggle = DrillItem(
+            "fmt24",
+            "Use 24-hour clock",
+            "Switch the bar clock to 24-hour time",
+            action=_toggle_clock,
+        )
+    subtitle = f"{_clock_now()}\nTimezone: {_timezone_now()}"
+    items = [
+        DrillItem("calendar", "Calendar", "Pick a date on the calendar", panel=_calendar_page),
+        toggle,
+        DrillItem(
+            "setclock",
+            "Set date & time",
+            "Change the system clock (admin)",
+            panel=_set_clock_page,
+        ),
+        DrillItem(
+            "timezone",
+            "Time zone",
+            "Change the system time zone (admin)",
+            panel=_timezone_page,
+        ),
+    ]
+    return subtitle, items
+
+
+def main() -> int:
+    os.environ.setdefault("XDG_CURRENT_DESKTOP", "Hyprland")
+    mode = (sys.argv[1] if len(sys.argv) > 1 else "menu").strip().lower()
+    if mode not in ("menu", "calendar", ""):
+        print("Usage: neuronix-datetime [calendar|menu]", file=sys.stderr)
+        return 2
+    hub = _sibling_script("neuronix-settings")
+    if hub:
+        args = [hub, "datetime"]
+        if mode == "calendar":
+            args.append("calendar")
+        os.execv(hub, args)
+    subtitle, items = datetime_items()
+    show_drilldown(
+        "Date & Time",
+        items,
+        subtitle=subtitle,
+        initial="calendar" if mode == "calendar" else None,
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

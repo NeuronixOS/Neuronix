@@ -1,0 +1,18 @@
+#!/bin/bash
+# Floating btop, centered by the window manager the same way as Settings.
+set -eu
+term="gtk-term-launch.sh"
+command -v gtk-term-launch.sh >/dev/null 2>&1 || term="gtk-term"
+if command -v systemd-run >/dev/null 2>&1; then
+	exec systemd-run --user --collect --quiet \
+		--property=KillMode=process \
+		--setenv="PATH=${PATH}" \
+		--setenv="WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" \
+		--setenv="XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-}" \
+		--setenv="HYPRLAND_INSTANCE_SIGNATURE=${HYPRLAND_INSTANCE_SIGNATURE:-}" \
+		--setenv="DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-}" \
+		--setenv="DISPLAY=${DISPLAY:-}" \
+		--setenv="HOME=${HOME}" \
+		-- "${term}" --class org.neuronix.btop --title btop -e btop
+fi
+exec setsid -f "${term}" --class org.neuronix.btop --title btop -e btop

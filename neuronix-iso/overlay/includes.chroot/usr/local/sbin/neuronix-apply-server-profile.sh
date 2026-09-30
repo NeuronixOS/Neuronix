@@ -118,6 +118,7 @@ rm -f /usr/local/bin/neuronix-settings \
 	/usr/local/bin/neuronix-change-background \
 	/usr/local/bin/neuronix-desktop-rmb \
 	/usr/local/bin/neuronix-datetime \
+	/usr/local/bin/neuronix-btop \
 	/usr/local/bin/neuronix-calendar \
 	/usr/local/bin/neuronix-waybar-click \
 	/usr/local/bin/neuronix-waybar-popover \

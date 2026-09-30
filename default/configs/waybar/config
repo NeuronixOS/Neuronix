@@ -104,11 +104,11 @@
       "\uf241",
       "\uf240"
     ],
-    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click battery"
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" setsid -f neuronix-power-settings >/dev/null 2>&1"
   },
   "clock": {
     "interval": 30,
-    "format": "{:%I:%M %p\n%m/%y}",
+    "format": "{:%I:%M %p  %b %d}",
     "tooltip": false,
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-datetime calendar",
     "on-click-right": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-datetime"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import threading
 import sys
 from typing import Callable, Optional
 
@@ -16,12 +17,10 @@ from gi.repository import Gtk, GLib, Pango  # noqa: E402
 sys.path.insert(0, "/usr/share/neuronix")
 sys.path.insert(0, os.path.expanduser("~/.local/share/neuronix"))
 from neuronix_choice_dialog import (  # noqa: E402
+    DrillItem,
     _action_row,
-    _apply_css,
-    _base_panel,
-    _make_tile,
     entry as prompt_entry,
-    freeze_click_xy,
+    show_drilldown,
 )
 
 
@@ -257,14 +256,107 @@ def pack_sound_controls(
     outer.pack_start(scroll, not compact, not compact, 0)
 
 
+def _sound_volume_page() -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    vol_lbl = Gtk.Label(label=f"{_sink_volume_pct()}%", xalign=1.0)
+    vol_lbl.get_style_context().add_class("neuronix-pct")
+    scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 150, 1)
+    scale.set_draw_value(False)
+    scale.set_hexpand(True)
+    scale.get_style_context().add_class("neuronix-scale")
+    scale.set_value(_sink_volume_pct())
+    mute_btn = Gtk.Button()
+    mute_btn.set_relief(Gtk.ReliefStyle.NONE)
+
+    def _refresh_mute_btn() -> None:
+        muted = _sink_muted()
+        mute_btn.set_label("Unmute" if muted else "Mute")
+        mute_btn.get_style_context().remove_class("neuronix-toggle-on")
+        mute_btn.get_style_context().remove_class("neuronix-toggle-off")
+        mute_btn.get_style_context().add_class(
+            "neuronix-toggle-off" if muted else "neuronix-toggle-on"
+        )
+
+    def _on_scale(s: Gtk.Scale) -> None:
+        pct = int(s.get_value())
+        vol_lbl.set_text(f"{pct}%")
+        _set_volume(pct)
+
+    def _on_mute(*_a) -> None:
+        _toggle_mute()
+        _refresh_mute_btn()
+        if not _sink_muted():
+            scale.set_value(_sink_volume_pct())
+            vol_lbl.set_text(f"{_sink_volume_pct()}%")
+
+    _refresh_mute_btn()
+    scale.connect("value-changed", _on_scale)
+    mute_btn.connect("clicked", _on_mute)
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+    row.pack_start(scale, True, True, 0)
+    row.pack_start(vol_lbl, False, False, 0)
+    box.pack_start(row, False, False, 0)
+    box.pack_start(mute_btn, False, False, 0)
+    return box
+
+
+def _sound_output_page() -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    listbox = Gtk.ListBox()
+    listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    listbox.get_style_context().add_class("neuronix-list")
+
+    def _rebuild() -> None:
+        for child in list(listbox.get_children()):
+            listbox.remove(child)
+        cur = _default_sink()
+        for name, state in _list_sinks():
+            row = Gtk.ListBoxRow()
+            row.get_style_context().add_class("neuronix-list-row")
+            inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t = Gtk.Label(label=_friendly_sink(name), xalign=0.0)
+            t.get_style_context().add_class("neuronix-row-title")
+            t.set_ellipsize(Pango.EllipsizeMode.END)
+            desc = "Default" if name == cur else (state.title() if state else "Available")
+            d = Gtk.Label(label=desc, xalign=0.0)
+            d.get_style_context().add_class("neuronix-row-desc")
+            inner.pack_start(t, False, False, 0)
+            inner.pack_start(d, False, False, 0)
+            row.add(inner)
+            row._sink_name = name  # type: ignore[attr-defined]
+            if name == cur:
+                row.get_style_context().add_class("current")
+            listbox.add(row)
+        listbox.show_all()
+
+    def _pick(_lb, row: Gtk.ListBoxRow) -> None:
+        name = getattr(row, "_sink_name", "") or ""
+        if not name:
+            return
+        _set_default_sink(name)
+        _rebuild()
+
+    listbox.connect("row-activated", _pick)
+    _rebuild()
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.get_style_context().add_class("neuronix-list-frame")
+    scroll.set_size_request(360, 240)
+    scroll.set_vexpand(True)
+    scroll.add(listbox)
+    box.pack_start(scroll, True, True, 0)
+    return box
+
+
+def sound_items() -> list:
+    return [
+        DrillItem("volume", "Volume", "Output level and mute", panel=_sound_volume_page),
+        DrillItem("output", "Output", "Choose a device", panel=_sound_output_page),
+    ]
+
+
 def show_sound_panel() -> None:
-    freeze_click_xy()
-    _apply_css()
-    win, outer, _result = _base_panel("Sound", width=420, height=480, subtitle="Output volume")
-    pack_sound_controls(outer, quit_on_advanced=True)
-    win.show_all()
-    win.present()
-    Gtk.main()
+    show_drilldown("Sound", sound_items())
 
 
 # ── Network ──────────────────────────────────────────────────────────────────
@@ -273,34 +365,6 @@ def show_sound_panel() -> None:
 def _wifi_radio_on() -> bool:
     out = (_run(["nmcli", "-t", "-f", "WIFI", "radio"]) or "").strip().lower()
     return out in ("enabled", "on")
-
-
-def _wifi_networks() -> list[dict]:
-    """Deduped Wi-Fi scan rows: ssid, signal, security, in_use."""
-    raw = _run(["nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY,IN-USE", "device", "wifi", "list"])
-    best: dict[str, dict] = {}
-    for line in raw.splitlines():
-        parts = line.split(":")
-        if len(parts) < 4:
-            continue
-        ssid, signal, security, in_use = parts[0], parts[1], parts[2], parts[3]
-        if not ssid:
-            continue
-        try:
-            sig = int(signal)
-        except Exception:
-            sig = 0
-        prev = best.get(ssid)
-        if prev is None or sig > int(prev["signal"]) or in_use == "*":
-            best[ssid] = {
-                "ssid": ssid,
-                "signal": sig,
-                "security": security or "Open",
-                "in_use": in_use == "*",
-            }
-    rows = list(best.values())
-    rows.sort(key=lambda r: (not r["in_use"], -r["signal"], r["ssid"].lower()))
-    return rows
 
 
 def _active_summary() -> str:
@@ -314,7 +378,7 @@ def _active_summary() -> str:
             if typ != "wireguard":
                 continue
         if typ == "802-11-wireless":
-            lines.append(f"Wi‑Fi · {name} ({dev})")
+            lines.append(f"Wi-Fi · {name} ({dev})")
         elif typ == "802-3-ethernet":
             lines.append(f"Ethernet · {name} ({dev})")
         elif typ == "wireguard":
@@ -322,13 +386,330 @@ def _active_summary() -> str:
     return "\n".join(lines) if lines else "No active connection"
 
 
-def _connect_wifi(ssid: str, password: Optional[str] = None) -> bool:
-    if password:
-        return _run_ok(["nmcli", "device", "wifi", "connect", ssid, "password", password], timeout=30)
-    # Try known connection first, then open network
-    if _run_ok(["nmcli", "connection", "up", "id", ssid], timeout=20):
-        return True
-    return _run_ok(["nmcli", "device", "wifi", "connect", ssid], timeout=30)
+def _nm_unescape(text: str) -> str:
+    return text.replace("\\:", ":").replace("\\\\", "\\").strip()
+
+
+def _nm(cmd: list[str], timeout: float = 20.0) -> tuple[bool, str]:
+    try:
+        proc = subprocess.run(
+            cmd,
+            text=True,
+            timeout=timeout,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        return proc.returncode == 0, (proc.stdout or "").strip()
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _nm_error(detail: str, fallback: str) -> str:
+    lines = [line.strip() for line in (detail or "").splitlines() if line.strip()]
+    if not lines:
+        return fallback
+    last = lines[-1]
+    if last.lower().startswith("error:"):
+        last = last.split(":", 1)[1].strip()
+    return last or fallback
+
+
+def _saved_wifi(ssid: str) -> bool:
+    _ok, out = _nm(["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"], timeout=8)
+    for line in out.splitlines():
+        parts = re.split(r"(?<!\\):", line, maxsplit=1)
+        if len(parts) != 2 or parts[1].strip() != "802-11-wireless":
+            continue
+        if _nm_unescape(parts[0]) == ssid:
+            return True
+    return False
+
+
+def _parse_wifi_rows(raw: str) -> list[dict]:
+    best: dict[str, dict] = {}
+    for line in raw.splitlines():
+        parts = re.split(r"(?<!\\):", line, maxsplit=3)
+        if len(parts) < 4:
+            continue
+        ssid = _nm_unescape(parts[0])
+        if not ssid:
+            continue
+        try:
+            signal = int(parts[1].strip())
+        except ValueError:
+            signal = 0
+        security = _nm_unescape(parts[2]) or "Open"
+        active = parts[3].strip().lower() in ("yes", "*")
+        row = best.get(ssid)
+        if row is None:
+            best[ssid] = {
+                "ssid": ssid,
+                "signal": signal,
+                "security": security,
+                "in_use": active,
+            }
+            continue
+        if active:
+            row["in_use"] = True
+        if signal > int(row["signal"]):
+            row["signal"] = signal
+            row["security"] = security
+    rows = list(best.values())
+    rows.sort(key=lambda item: (not item["in_use"], -int(item["signal"]), item["ssid"].lower()))
+    return rows
+
+
+def _scan_wifi(rescan: bool) -> tuple[list[dict], str]:
+    ok, out = _nm(
+        [
+            "nmcli",
+            "-t",
+            "-f",
+            "SSID,SIGNAL,SECURITY,ACTIVE",
+            "device",
+            "wifi",
+            "list",
+            "--rescan",
+            "yes" if rescan else "no",
+        ],
+        timeout=30 if rescan else 10,
+    )
+    rows = _parse_wifi_rows(out)
+    if rows or ok:
+        return rows, ""
+    return [], _nm_error(out, "Could not list networks")
+
+
+def _needs_password(security: str) -> bool:
+    sec = (security or "").strip().lower()
+    return bool(sec) and sec not in ("open", "--", "none", "owe")
+
+
+def _is_enterprise(security: str) -> bool:
+    return "802.1X" in (security or "")
+
+
+def _connect_open(ssid: str) -> tuple[bool, str]:
+    return _nm(["nmcli", "device", "wifi", "connect", ssid], timeout=30)
+
+
+def _connect_with_password(ssid: str, password: str) -> tuple[bool, str]:
+    """Same first step as Settings: nmcli device wifi connect … password.
+
+    A password is collected before that command. Connecting once without a
+    secret leaves a profile that then rejects the real password.
+    """
+    cmd = ["nmcli", "device", "wifi", "connect", ssid, "password", password]
+    ok, out = _nm(cmd, timeout=30)
+    if ok or not _saved_wifi(ssid):
+        return ok, out
+    mok, mout = _nm(
+        [
+            "nmcli",
+            "connection",
+            "modify",
+            "id",
+            ssid,
+            "802-11-wireless-security.psk",
+            password,
+        ],
+        timeout=10,
+    )
+    if mok:
+        uok, uout = _nm(["nmcli", "connection", "up", "id", ssid], timeout=30)
+        if uok:
+            return True, uout
+        return False, uout or mout or out
+    _nm(["nmcli", "connection", "delete", "id", ssid], timeout=10)
+    return _nm(cmd, timeout=30)
+
+
+def _activate_wifi(ssid: str, security: str) -> tuple[bool, str, str]:
+    """Return ok, detail, and 'password' when a secret is still required."""
+    if _saved_wifi(ssid):
+        ok, out = _nm(["nmcli", "connection", "up", "id", ssid], timeout=25)
+        if ok:
+            return True, out, ""
+        if _needs_password(security):
+            return False, out, "password"
+        return False, out, ""
+    if _needs_password(security):
+        return False, "", "password"
+    ok, out = _connect_open(ssid)
+    return ok, out, ""
+
+
+def _attach_wifi_list(
+    listbox: Gtk.ListBox,
+    status: Gtk.Label,
+    on_changed: Optional[Callable[[], None]] = None,
+) -> Callable[[bool], None]:
+    """Fill listbox off the UI thread. Returns start(rescan)."""
+    token = {"n": 0}
+    alive = {"ok": True}
+    busy = {"on": False}
+    listbox.set_activate_on_single_click(True)
+    listbox.connect("destroy", lambda *_a: alive.__setitem__("ok", False))
+    status.set_no_show_all(True)
+
+    def _set_status(text: str) -> None:
+        status.set_text(text)
+        if text:
+            status.show()
+        else:
+            status.hide()
+
+    def _add_rows(rows: list) -> None:
+        for child in list(listbox.get_children()):
+            listbox.remove(child)
+        for net in rows:
+            row = Gtk.ListBoxRow()
+            row.get_style_context().add_class("neuronix-list-row")
+            inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            title = net["ssid"]
+            if net["in_use"]:
+                title = f"{title}  ·  connected"
+                row.get_style_context().add_class("current")
+            heading = Gtk.Label(label=title, xalign=0.0)
+            heading.get_style_context().add_class("neuronix-row-title")
+            heading.set_ellipsize(Pango.EllipsizeMode.END)
+            detail = Gtk.Label(
+                label=f"{net['signal']}%  ·  {net['security']}",
+                xalign=0.0,
+            )
+            detail.get_style_context().add_class("neuronix-row-desc")
+            inner.pack_start(heading, False, False, 0)
+            inner.pack_start(detail, False, False, 0)
+            row.add(inner)
+            row._net = net  # type: ignore[attr-defined]
+            listbox.add(row)
+        listbox.show_all()
+
+    def _apply(gen: int, rows: list, err: str, off_msg: str) -> bool:
+        if not alive["ok"] or gen != token["n"]:
+            return False
+        _add_rows([] if off_msg else rows)
+        if off_msg:
+            _set_status(off_msg)
+        elif err and not rows:
+            _set_status(err)
+        elif not rows:
+            _set_status("No networks found.")
+        else:
+            _set_status("")
+        return False
+
+    def start(rescan: bool) -> None:
+        token["n"] += 1
+        gen = token["n"]
+        _add_rows([])
+        _set_status("Scanning…" if rescan else "Loading networks…")
+
+        def _mark_scanning() -> bool:
+            if alive["ok"] and gen == token["n"]:
+                _set_status("Scanning…")
+            return False
+
+        def work() -> None:
+            if not _wifi_radio_on():
+                GLib.idle_add(_apply, gen, [], "", "Wi-Fi is turned off.")
+                return
+            rows, err = _scan_wifi(rescan)
+            if not rows and not err and not rescan:
+                GLib.idle_add(_mark_scanning)
+                rows, err = _scan_wifi(True)
+            GLib.idle_add(_apply, gen, rows, err, "")
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _finish(gen: int, ssid: str, ok: bool, detail: str) -> bool:
+        busy["on"] = False
+        if not alive["ok"] or gen != token["n"]:
+            return False
+        if ok:
+            if on_changed:
+                on_changed()
+            start(False)
+            return False
+        _set_status(_nm_error(detail, f"Could not connect to {ssid}"))
+        return False
+
+    def _pick(_lb: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
+        if busy["on"] or not alive["ok"]:
+            return
+        net = getattr(row, "_net", None) or {}
+        ssid = net.get("ssid") or ""
+        if not ssid or net.get("in_use"):
+            return
+        security = net.get("security") or ""
+        busy["on"] = True
+        gen = token["n"]
+        _set_status(f"Connecting to {ssid}…")
+
+        def work() -> None:
+            try:
+                if _is_enterprise(security):
+                    if _saved_wifi(ssid):
+                        ok, detail = _nm(["nmcli", "connection", "up", "id", ssid], timeout=30)
+                        if ok:
+                            GLib.idle_add(_finish, gen, ssid, True, "")
+                            return
+                    GLib.idle_add(
+                        _finish,
+                        gen,
+                        ssid,
+                        False,
+                        "Enterprise networks are set up in the Settings app.",
+                    )
+                    return
+                ok, detail, nxt = _activate_wifi(ssid, security)
+                if nxt == "password":
+                    holder: dict[str, Optional[str]] = {"pw": None}
+                    done = threading.Event()
+
+                    def ask() -> bool:
+                        try:
+                            holder["pw"] = prompt_entry(
+                                "Wi-Fi password",
+                                f"Password for {ssid}",
+                                default="",
+                                secret=True,
+                            )
+                        finally:
+                            done.set()
+                        return False
+
+                    GLib.idle_add(ask)
+                    if not done.wait(180):
+                        GLib.idle_add(_finish, gen, ssid, False, "Timed out waiting for a password")
+                        return
+                    password = (holder.get("pw") or "").strip()
+                    if not password:
+                        def _clear() -> bool:
+                            busy["on"] = False
+                            if alive["ok"] and gen == token["n"]:
+                                _set_status("")
+                            return False
+
+                        GLib.idle_add(_clear)
+                        return
+
+                    def _connecting() -> bool:
+                        if alive["ok"] and gen == token["n"]:
+                            _set_status(f"Connecting to {ssid}…")
+                        return False
+
+                    GLib.idle_add(_connecting)
+                    ok, detail = _connect_with_password(ssid, password)
+                GLib.idle_add(_finish, gen, ssid, ok, detail)
+            except Exception as exc:
+                GLib.idle_add(_finish, gen, ssid, False, str(exc))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    listbox.connect("row-activated", _pick)
+    start(False)
+    return start
 
 
 def pack_network_controls(
@@ -349,119 +730,593 @@ def pack_network_controls(
 
     def _refresh_wifi_btn() -> None:
         on = _wifi_radio_on()
-        wifi_btn.set_label("Wi‑Fi On" if on else "Wi‑Fi Off")
+        wifi_btn.set_label("Wi-Fi On" if on else "Wi-Fi Off")
         wifi_btn.get_style_context().remove_class("neuronix-toggle-on")
         wifi_btn.get_style_context().remove_class("neuronix-toggle-off")
         wifi_btn.get_style_context().add_class("neuronix-toggle-on" if on else "neuronix-toggle-off")
 
+    listbox = Gtk.ListBox()
+    listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    listbox.get_style_context().add_class("neuronix-list")
+    status = Gtk.Label(label="Loading networks…", xalign=0.0)
+    status.get_style_context().add_class("neuronix-body")
+    status.set_line_wrap(True)
+    status.set_max_width_chars(42)
+
+    def _changed() -> None:
+        summary.set_text(_active_summary())
+        _refresh_wifi_btn()
+
+    reload_list = _attach_wifi_list(listbox, status, on_changed=_changed)
+
     def _toggle_wifi(*_a) -> None:
         _run_ok(["nmcli", "radio", "wifi", "off" if _wifi_radio_on() else "on"])
         _refresh_wifi_btn()
-        GLib.timeout_add(600, lambda: (_rebuild_wifi(), False)[1])
+        reload_list(False)
 
     _refresh_wifi_btn()
     wifi_btn.connect("clicked", _toggle_wifi)
     outer.pack_start(wifi_btn, False, False, 0)
 
-    nets_lbl = Gtk.Label(label="Wi‑Fi networks", xalign=0.0)
+    nets_lbl = Gtk.Label(label="Wi-Fi networks", xalign=0.0)
     nets_lbl.get_style_context().add_class("neuronix-subtitle")
     outer.pack_start(nets_lbl, False, False, 0)
 
-    listbox = Gtk.ListBox()
-    listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
-    listbox.get_style_context().add_class("neuronix-list")
-    status = Gtk.Label(label="", xalign=0.0)
-    status.get_style_context().add_class("neuronix-subtitle")
-    status.set_line_wrap(True)
-
-    def _rebuild_wifi() -> None:
-        for child in list(listbox.get_children()):
-            listbox.remove(child)
-        summary.set_text(_active_summary())
-        if not _wifi_radio_on():
-            status.set_text("Wi‑Fi is turned off.")
-            listbox.show_all()
-            return
-        status.set_text("")
-        for net in _wifi_networks():
-            row = Gtk.ListBoxRow()
-            row.get_style_context().add_class("neuronix-list-row")
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-            title = net["ssid"]
-            if net["in_use"]:
-                title = f"{title}  ·  connected"
-                row.get_style_context().add_class("current")
-            t = Gtk.Label(label=title, xalign=0.0)
-            t.get_style_context().add_class("neuronix-row-title")
-            t.set_ellipsize(Pango.EllipsizeMode.END)
-            d = Gtk.Label(
-                label=f"{net['signal']}%  ·  {net['security']}",
-                xalign=0.0,
-            )
-            d.get_style_context().add_class("neuronix-row-desc")
-            box.pack_start(t, False, False, 0)
-            box.pack_start(d, False, False, 0)
-            row.add(box)
-            row._net = net  # type: ignore[attr-defined]
-            listbox.add(row)
-        listbox.show_all()
-
-    def _pick_wifi(_lb, row: Gtk.ListBoxRow) -> None:
-        net = getattr(row, "_net", None) or {}
-        ssid = net.get("ssid") or ""
-        if not ssid or net.get("in_use"):
-            return
-        status.set_text(f"Connecting to {ssid}…")
-
-        def _do() -> bool:
-            ok = _connect_wifi(ssid)
-            sec = net.get("security") or ""
-            needs_pw = any(x in sec for x in ("WPA", "WEP", "802.1X"))
-            if not ok and needs_pw:
-                pw = prompt_entry("Wi‑Fi password", f"Password for {ssid}", default="")
-                if pw:
-                    ok = _connect_wifi(ssid, pw)
-            if ok:
-                status.set_text(f"Connected to {ssid}")
-                _rebuild_wifi()
-            else:
-                status.set_text(f"Could not connect to {ssid}")
-            return False
-
-        GLib.idle_add(_do)
-
-    listbox.connect("row-activated", _pick_wifi)
-    _rebuild_wifi()
-
+    inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    inner.pack_start(status, False, False, 0)
+    inner.pack_start(listbox, True, True, 0)
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
     scroll.get_style_context().add_class("neuronix-list-frame")
     scroll.set_size_request(-1, 160 if compact else 180)
     scroll.set_vexpand(not compact)
-    scroll.add(listbox)
+    scroll.add(inner)
     outer.pack_start(scroll, not compact, not compact, 0)
-    outer.pack_start(status, False, False, 0)
 
     refresh = Gtk.Button(label="Refresh")
     refresh.get_style_context().add_class("neuronix-secondary")
-    refresh.connect(
-        "clicked",
-        lambda *_: (
-            _run_ok(["nmcli", "device", "wifi", "rescan"]),
-            GLib.timeout_add(800, lambda: (_rebuild_wifi(), False)[1]),
-        ),
-    )
+    refresh.connect("clicked", lambda *_a: reload_list(True))
     outer.pack_start(_action_row(refresh), False, False, 0)
 
 
+def _network_radio_page() -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    summary = Gtk.Label(label=_active_summary(), xalign=0.0)
+    summary.get_style_context().add_class("neuronix-body")
+    summary.set_line_wrap(True)
+    summary.set_max_width_chars(42)
+    wifi_btn = Gtk.Button()
+    wifi_btn.set_relief(Gtk.ReliefStyle.NONE)
+
+    def _refresh() -> None:
+        on = _wifi_radio_on()
+        wifi_btn.set_label("Wi-Fi On" if on else "Wi-Fi Off")
+        wifi_btn.get_style_context().remove_class("neuronix-toggle-on")
+        wifi_btn.get_style_context().remove_class("neuronix-toggle-off")
+        wifi_btn.get_style_context().add_class("neuronix-toggle-on" if on else "neuronix-toggle-off")
+        summary.set_text(_active_summary())
+
+    def _toggle(*_a) -> None:
+        _run_ok(["nmcli", "radio", "wifi", "off" if _wifi_radio_on() else "on"])
+        _refresh()
+
+    _refresh()
+    wifi_btn.connect("clicked", _toggle)
+    box.pack_start(summary, False, False, 0)
+    box.pack_start(wifi_btn, False, False, 0)
+    return box
+
+
+def _network_list_page() -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    listbox = Gtk.ListBox()
+    listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    listbox.get_style_context().add_class("neuronix-list")
+    status = Gtk.Label(label="Loading networks…", xalign=0.0)
+    status.get_style_context().add_class("neuronix-body")
+    status.set_line_wrap(True)
+    status.set_max_width_chars(42)
+    reload_list = _attach_wifi_list(listbox, status)
+    inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    inner.pack_start(status, False, False, 0)
+    inner.pack_start(listbox, True, True, 0)
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.get_style_context().add_class("neuronix-list-frame")
+    scroll.set_size_request(360, 240)
+    scroll.set_vexpand(True)
+    scroll.add(inner)
+    refresh = Gtk.Button(label="Refresh")
+    refresh.get_style_context().add_class("neuronix-secondary")
+    refresh.connect("clicked", lambda *_a: reload_list(True))
+    box.pack_start(scroll, True, True, 0)
+    box.pack_start(_action_row(refresh), False, False, 0)
+    return box
+
+
+_ETH_SKIP = ("veth", "docker", "br-", "virbr", "vmnet", "tap", "tun")
+
+
+def _link_up(state: str) -> bool:
+    text = (state or "").lower()
+    if any(word in text for word in ("disconnected", "unavailable", "unmanaged", "failed")):
+        return False
+    return "connected" in text and "externally" not in text
+
+
+def _ethernet_devices() -> list[dict]:
+    ok, out = _nm(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device", "status"], timeout=8)
+    if not ok and not out:
+        return []
+    devices: list[dict] = []
+    for line in out.splitlines():
+        parts = line.split(":")
+        if len(parts) < 3:
+            continue
+        dev, typ, state = parts[0], parts[1], ":".join(parts[2:])
+        if typ != "ethernet":
+            continue
+        if state.strip().lower().startswith("unmanaged"):
+            continue
+        if any(dev.startswith(prefix) for prefix in _ETH_SKIP):
+            continue
+        devices.append({"device": dev, "state": state.strip()})
+    return devices
+
+
+def _ethernet_details(device: str) -> dict:
+    _ok, out = _nm(
+        [
+            "nmcli",
+            "-t",
+            "-f",
+            "GENERAL.STATE,GENERAL.CONNECTION,GENERAL.HWADDR,"
+            "WIRED-PROPERTIES.CARRIER,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS",
+            "device",
+            "show",
+            device,
+        ],
+        timeout=8,
+    )
+    info: dict = {"device": device, "dns": []}
+    for line in out.splitlines():
+        if ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        val = _nm_unescape(val)
+        if not val or val == "--":
+            continue
+        if key == "GENERAL.STATE":
+            info["state"] = val
+        elif key == "GENERAL.CONNECTION":
+            info["connection"] = val
+        elif key == "GENERAL.HWADDR":
+            info["mac"] = val
+        elif key == "WIRED-PROPERTIES.CARRIER":
+            info["carrier"] = val
+        elif re.match(r"IP4\.ADDRESS", key):
+            info.setdefault("addresses", []).append(val)
+            if "ip" not in info:
+                pieces = val.split("/")
+                info["ip"] = pieces[0]
+                if len(pieces) == 2:
+                    try:
+                        info["prefix"] = int(pieces[1])
+                    except ValueError:
+                        pass
+        elif key == "IP4.GATEWAY":
+            info["gateway"] = val
+        elif re.match(r"IP4\.DNS", key):
+            info["dns"].append(val)
+    return info
+
+
+def _ethernet_profile(device: str, details: Optional[dict] = None) -> Optional[str]:
+    info = details if details is not None else _ethernet_details(device)
+    conn = info.get("connection")
+    if conn:
+        return str(conn)
+    _ok, out = _nm(["nmcli", "-t", "-f", "NAME,TYPE,DEVICE", "connection", "show"], timeout=8)
+    for line in out.splitlines():
+        parts = re.split(r"(?<!\\):", line)
+        if len(parts) < 3:
+            continue
+        name, typ, dev = _nm_unescape(parts[0]), parts[1].strip(), parts[2].strip()
+        if typ in ("802-3-ethernet", "ethernet") and (dev == device or not dev):
+            return name
+    return None
+
+
+def _ensure_ethernet(device: str) -> tuple[Optional[str], str]:
+    name = _ethernet_profile(device)
+    if name:
+        return name, ""
+    con_name = f"Wired connection {device}"
+    ok, out = _nm(
+        [
+            "nmcli",
+            "connection",
+            "add",
+            "type",
+            "ethernet",
+            "ifname",
+            device,
+            "con-name",
+            con_name,
+        ],
+        timeout=15,
+    )
+    if ok:
+        return con_name, ""
+    return None, _nm_error(out, "Could not create a connection profile.")
+
+
+def _ipv4_settings(conn: str) -> dict:
+    cfg = {
+        "method": "auto",
+        "addresses": "",
+        "gateway": "",
+        "dns": "",
+        "autoconnect": True,
+    }
+    _ok, out = _nm(
+        [
+            "nmcli",
+            "-t",
+            "-f",
+            "ipv4.method,ipv4.addresses,ipv4.gateway,ipv4.dns,connection.autoconnect",
+            "connection",
+            "show",
+            "id",
+            conn,
+        ],
+        timeout=8,
+    )
+    for line in out.splitlines():
+        if ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        val = val.strip()
+        if key == "ipv4.method":
+            cfg["method"] = val or "auto"
+        elif key == "ipv4.addresses":
+            cfg["addresses"] = val
+        elif key == "ipv4.gateway":
+            cfg["gateway"] = val
+        elif key == "ipv4.dns":
+            cfg["dns"] = val.replace("|", " ").replace(",", " ")
+        elif key == "connection.autoconnect":
+            cfg["autoconnect"] = val.lower() == "yes"
+    return cfg
+
+
+def _ethernet_page() -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    alive = {"ok": True}
+    box.connect("destroy", lambda *_a: alive.__setitem__("ok", False))
+    token = {"n": 0}
+
+    status = Gtk.Label(label="Loading ethernet…", xalign=0.0)
+    status.get_style_context().add_class("neuronix-body")
+    status.set_line_wrap(True)
+    status.set_max_width_chars(42)
+    status.set_xalign(0.0)
+    box.pack_start(status, False, False, 0)
+
+    info = Gtk.Label(label="", xalign=0.0)
+    info.get_style_context().add_class("neuronix-subtitle")
+    info.set_line_wrap(True)
+    info.set_max_width_chars(42)
+    info.set_selectable(True)
+
+    dev_combo = Gtk.ComboBoxText()
+    dev_combo.set_hexpand(True)
+
+    connect_btn = Gtk.Button(label="Connect")
+    connect_btn.get_style_context().add_class("neuronix-secondary")
+    disconnect_btn = Gtk.Button(label="Disconnect")
+    disconnect_btn.get_style_context().add_class("neuronix-secondary")
+    apply_btn = Gtk.Button(label="Apply")
+    apply_btn.get_style_context().add_class("neuronix-primary")
+
+    auto_btn = Gtk.RadioButton.new_with_label_from_widget(None, "Automatic (DHCP)")
+    manual_btn = Gtk.RadioButton.new_with_label_from_widget(auto_btn, "Manual")
+    for choice in (auto_btn, manual_btn):
+        child = choice.get_child()
+        if isinstance(child, Gtk.Label):
+            child.get_style_context().add_class("neuronix-body")
+
+    addr = Gtk.Entry()
+    gateway = Gtk.Entry()
+    dns = Gtk.Entry()
+    for ent, hint in (
+        (addr, "192.168.1.10/24"),
+        (gateway, "192.168.1.1"),
+        (dns, "1.1.1.1"),
+    ):
+        ent.get_style_context().add_class("neuronix-entry")
+        ent.set_placeholder_text(hint)
+        ent.set_hexpand(True)
+
+    auto_cb = Gtk.CheckButton(label="Connect automatically")
+    auto_cb.set_active(True)
+    check_lbl = auto_cb.get_child()
+    if isinstance(check_lbl, Gtk.Label):
+        check_lbl.get_style_context().add_class("neuronix-body")
+
+    def _labeled(caption: str, widget: Gtk.Widget) -> Gtk.Box:
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        lab = Gtk.Label(label=caption, xalign=0.0)
+        lab.get_style_context().add_class("neuronix-subtitle")
+        col.pack_start(lab, False, False, 0)
+        col.pack_start(widget, False, False, 0)
+        return col
+
+    def _manual_on(*_a) -> None:
+        manual = manual_btn.get_active()
+        for widget in (addr, gateway, dns):
+            widget.set_sensitive(manual)
+
+    auto_btn.connect("toggled", _manual_on)
+    manual_btn.connect("toggled", _manual_on)
+
+    form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    form.pack_start(info, False, False, 0)
+    form.pack_start(_labeled("Interface", dev_combo), False, False, 0)
+    actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    actions.pack_start(connect_btn, False, False, 0)
+    actions.pack_start(disconnect_btn, False, False, 0)
+    actions.pack_end(apply_btn, False, False, 0)
+    form.pack_start(actions, False, False, 0)
+    form.pack_start(auto_btn, False, False, 0)
+    form.pack_start(manual_btn, False, False, 0)
+    form.pack_start(_labeled("Address", addr), False, False, 0)
+    form.pack_start(_labeled("Gateway", gateway), False, False, 0)
+    form.pack_start(_labeled("DNS", dns), False, False, 0)
+    form.pack_start(auto_cb, False, False, 0)
+    form.set_no_show_all(True)
+    form.hide()
+    box.pack_start(form, False, False, 0)
+
+    def _set_busy(on: bool) -> None:
+        for widget in (connect_btn, disconnect_btn, apply_btn, dev_combo, auto_btn, manual_btn, auto_cb):
+            widget.set_sensitive(not on)
+        if not on:
+            _manual_on()
+
+    def _show_link(device: str, details: dict, conn: Optional[str], cfg: Optional[dict]) -> None:
+        if not alive["ok"]:
+            return
+        state = str(details.get("state") or "unknown")
+        lines = [state]
+        if details.get("carrier"):
+            lines.append(f"Cable: {details['carrier']}")
+        if details.get("mac"):
+            lines.append(f"MAC: {details['mac']}")
+        if details.get("ip"):
+            ip = str(details["ip"])
+            if details.get("prefix"):
+                ip = f"{ip}/{details['prefix']}"
+            lines.append(f"IP: {ip}")
+        if details.get("gateway"):
+            lines.append(f"Gateway: {details['gateway']}")
+        if details.get("dns"):
+            lines.append("DNS: " + ", ".join(details["dns"]))
+        if conn:
+            lines.append(f"Profile: {conn}")
+        info.set_text("\n".join(lines))
+        up = _link_up(state)
+        _set_busy(False)
+        connect_btn.set_sensitive(not up)
+        disconnect_btn.set_sensitive(bool(conn) and up)
+        if cfg and conn:
+            if cfg.get("method") == "manual":
+                manual_btn.set_active(True)
+            else:
+                auto_btn.set_active(True)
+            address = str(cfg.get("addresses") or "")
+            if not address and details.get("ip") and details.get("prefix"):
+                address = f"{details['ip']}/{details['prefix']}"
+            addr.set_text(address)
+            gateway.set_text(str(cfg.get("gateway") or details.get("gateway") or ""))
+            dns_text = str(cfg.get("dns") or "")
+            if not dns_text and details.get("dns"):
+                dns_text = " ".join(details["dns"])
+            dns.set_text(dns_text)
+            auto_cb.set_active(bool(cfg.get("autoconnect", True)))
+        else:
+            auto_btn.set_active(True)
+            addr.set_text("")
+            gateway.set_text("")
+            dns.set_text("")
+            auto_cb.set_active(True)
+        _manual_on()
+        form.set_no_show_all(False)
+        form.show_all()
+        status.set_text("")
+
+    def _load_device(device: str) -> None:
+        token["n"] += 1
+        gen = token["n"]
+        status.set_text("Loading ethernet…")
+
+        def work() -> None:
+            details = _ethernet_details(device)
+            conn = _ethernet_profile(device, details)
+            cfg = _ipv4_settings(conn) if conn else None
+
+            def apply() -> bool:
+                if not alive["ok"] or gen != token["n"]:
+                    return False
+                _show_link(device, details, conn, cfg)
+                return False
+
+            GLib.idle_add(apply)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_device_changed(*_a) -> None:
+        device = dev_combo.get_active_id() or ""
+        if device:
+            _load_device(device)
+
+    dev_combo.connect("changed", _on_device_changed)
+
+    def _reload_devices() -> None:
+        status.set_text("Loading ethernet…")
+
+        def work() -> None:
+            devices = _ethernet_devices()
+
+            def apply() -> bool:
+                if not alive["ok"]:
+                    return False
+                dev_combo.remove_all()
+                if not devices:
+                    form.hide()
+                    status.set_text("No ethernet interfaces found.")
+                    return False
+                for item in devices:
+                    dev_combo.append(item["device"], f"{item['device']}  ·  {item['state']}")
+                dev_combo.set_active(0)
+                return False
+
+            GLib.idle_add(apply)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _after(device: str, ok: bool, detail: str, busy_ok: str) -> bool:
+        if not alive["ok"]:
+            return False
+        if not ok:
+            _set_busy(False)
+            status.set_text(_nm_error(detail, "Could not change ethernet"))
+            return False
+        status.set_text(busy_ok)
+        _load_device(device)
+        return False
+
+    def _on_connect(*_a) -> None:
+        device = dev_combo.get_active_id() or ""
+        if not device:
+            return
+        status.set_text(f"Connecting {device}…")
+
+        def work() -> None:
+            conn, err = _ensure_ethernet(device)
+            if not conn:
+                GLib.idle_add(_after, device, False, err, "")
+                return
+            ok, out = _nm(["nmcli", "connection", "up", "id", conn], timeout=30)
+            GLib.idle_add(_after, device, ok, out, f"Connected {device}")
+
+        _set_busy(True)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_disconnect(*_a) -> None:
+        device = dev_combo.get_active_id() or ""
+        if not device:
+            return
+        status.set_text(f"Disconnecting {device}…")
+
+        def work() -> None:
+            conn = _ethernet_profile(device)
+            if not conn:
+                GLib.idle_add(_after, device, False, "No active connection.", "")
+                return
+            ok, out = _nm(["nmcli", "connection", "down", "id", conn], timeout=20)
+            GLib.idle_add(_after, device, ok, out, f"Disconnected {device}")
+
+        _set_busy(True)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_apply(*_a) -> None:
+        device = dev_combo.get_active_id() or ""
+        if not device:
+            return
+        manual = manual_btn.get_active()
+        address = addr.get_text().strip()
+        gate = gateway.get_text().strip()
+        dns_text = dns.get_text().strip()
+        autoconnect = "yes" if auto_cb.get_active() else "no"
+        if manual and (not address or "/" not in address):
+            status.set_text("Address needs a prefix, for example 192.168.1.10/24")
+            return
+        status.set_text("Applying…")
+        _set_busy(True)
+
+        def work() -> None:
+            conn, err = _ensure_ethernet(device)
+            if not conn:
+                GLib.idle_add(_after, device, False, err, "")
+                return
+            cmds = [
+                ["nmcli", "connection", "modify", "id", conn, "connection.autoconnect", autoconnect]
+            ]
+            if not manual:
+                cmds.append(
+                    [
+                        "nmcli",
+                        "connection",
+                        "modify",
+                        "id",
+                        conn,
+                        "ipv4.method",
+                        "auto",
+                        "ipv4.addresses",
+                        "",
+                        "ipv4.gateway",
+                        "",
+                        "ipv4.dns",
+                        "",
+                    ]
+                )
+            else:
+                modify = [
+                    "nmcli",
+                    "connection",
+                    "modify",
+                    "id",
+                    conn,
+                    "ipv4.method",
+                    "manual",
+                    "ipv4.addresses",
+                    address,
+                    "ipv4.gateway",
+                    gate,
+                    "ipv4.dns",
+                    dns_text,
+                ]
+                cmds.append(modify)
+            cmds.append(["nmcli", "connection", "up", "id", conn])
+            last = ""
+            ok = True
+            for cmd in cmds:
+                ok, last = _nm(cmd, timeout=45)
+                if not ok:
+                    break
+            GLib.idle_add(_after, device, ok, last, "Ethernet settings applied.")
+
+        threading.Thread(target=work, daemon=True).start()
+
+    connect_btn.connect("clicked", _on_connect)
+    disconnect_btn.connect("clicked", _on_disconnect)
+    apply_btn.connect("clicked", _on_apply)
+    _manual_on()
+    _reload_devices()
+    return box
+
+
+def network_items() -> list:
+    return [
+        DrillItem("wifi", "Wi-Fi", "Radio and current connection", panel=_network_radio_page),
+        DrillItem("networks", "Networks", "Choose a wireless network", panel=_network_list_page),
+        DrillItem("ethernet", "Ethernet", "Wired address and connection", panel=_ethernet_page),
+    ]
+
+
 def show_network_panel() -> None:
-    freeze_click_xy()
-    _apply_css()
-    win, outer, _result = _base_panel("Network", width=440, height=560, subtitle=_active_summary())
-    pack_network_controls(outer, quit_on_advanced=True)
-    win.show_all()
-    win.present()
-    Gtk.main()
+    show_drilldown("Network", network_items())
 
 
 # ── CPU / Memory ─────────────────────────────────────────────────────────────
@@ -538,40 +1393,29 @@ def _fmt_gib(kib: float) -> str:
 
 
 def _open_btop_detached(*, quit_after: bool = True) -> None:
-    popover = _which("neuronix-waybar-popover")
     term = _which("gtk-term-launch.sh") or _which("gtk-term") or "gtk-term"
     btop = _which("btop") or "btop"
-    argv = [
-        term,
-        "--class",
-        "org.neuronix.btop",
-        "--title",
-        "btop",
-        "-e",
-        btop,
-    ]
-    if popover:
-        _launch_detached(
-            [
-                popover,
-                "--class",
-                "org.neuronix.btop",
-                "--width",
-                "960",
-                "--height",
-                "640",
-                "--",
-                *argv,
-            ]
-        )
-    else:
-        _launch_detached(argv)
+    _launch_detached(
+        [
+            term,
+            "--class",
+            "org.neuronix.btop",
+            "--title",
+            "btop",
+            "-e",
+            btop,
+        ]
+    )
     if quit_after:
         GLib.idle_add(Gtk.main_quit)
 
 
 def pack_cpu_controls(
-    outer: Gtk.Box, *, quit_on_advanced: bool = True, compact: bool = False
+    outer: Gtk.Box,
+    *,
+    quit_on_advanced: bool = True,
+    compact: bool = False,
+    include_btop: bool = True,
 ) -> None:
     """Embed CPU stats into an existing container."""
     usage = _cpu_usage_pct()
@@ -626,31 +1470,43 @@ def pack_cpu_controls(
     scroll.add(listbox)
     outer.pack_start(scroll, not compact, not compact, 0)
 
-    btop_btn = Gtk.Button(label="Open btop…")
-    btop_btn.get_style_context().add_class("neuronix-secondary")
-    btop_btn.connect(
-        "clicked", lambda *_: _open_btop_detached(quit_after=quit_on_advanced)
-    )
-    outer.pack_start(_action_row(btop_btn), False, False, 0)
+    if include_btop:
+        btop_btn = Gtk.Button(label="Open btop…")
+        btop_btn.get_style_context().add_class("neuronix-secondary")
+        btop_btn.connect(
+            "clicked", lambda *_: _open_btop_detached(quit_after=quit_on_advanced)
+        )
+        outer.pack_start(_action_row(btop_btn), False, False, 0)
+
+
+def _cpu_usage_page() -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    pack_cpu_controls(box, include_btop=False)
+    return box
+
+
+def cpu_items() -> list:
+    return [
+        DrillItem("usage", "Usage", _cpu_model()[:64], panel=_cpu_usage_page, icon="cpu"),
+        DrillItem(
+            "btop",
+            "Open btop",
+            "Full process view",
+            action=lambda _i: _open_btop_detached(),
+        ),
+    ]
 
 
 def show_cpu_panel() -> None:
-    freeze_click_xy()
-    _apply_css()
-    win, outer, _result = _base_panel(
-        "CPU",
-        width=420,
-        height=360,
-        subtitle=_cpu_model()[:72],
-    )
-    pack_cpu_controls(outer, quit_on_advanced=True)
-    win.show_all()
-    win.present()
-    Gtk.main()
+    show_drilldown("CPU", cpu_items())
 
 
 def pack_memory_controls(
-    outer: Gtk.Box, *, quit_on_advanced: bool = True, compact: bool = False
+    outer: Gtk.Box,
+    *,
+    quit_on_advanced: bool = True,
+    compact: bool = False,
+    include_btop: bool = True,
 ) -> None:
     """Embed Memory stats into an existing container."""
     info = _meminfo()
@@ -707,66 +1563,60 @@ def pack_memory_controls(
     scroll.add(listbox)
     outer.pack_start(scroll, not compact, not compact, 0)
 
-    btop_btn = Gtk.Button(label="Open btop…")
-    btop_btn.get_style_context().add_class("neuronix-secondary")
-    btop_btn.connect(
-        "clicked", lambda *_: _open_btop_detached(quit_after=quit_on_advanced)
-    )
-    outer.pack_start(_action_row(btop_btn), False, False, 0)
+    if include_btop:
+        btop_btn = Gtk.Button(label="Open btop…")
+        btop_btn.get_style_context().add_class("neuronix-secondary")
+        btop_btn.connect(
+            "clicked", lambda *_: _open_btop_detached(quit_after=quit_on_advanced)
+        )
+        outer.pack_start(_action_row(btop_btn), False, False, 0)
 
 
-def show_memory_panel() -> None:
-    freeze_click_xy()
-    _apply_css()
+def _memory_usage_page() -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    pack_memory_controls(box, include_btop=False)
+    return box
+
+
+def _memory_subtitle() -> str:
     info = _meminfo()
     total = float(info.get("MemTotal", 0))
     avail = float(info.get("MemAvailable", info.get("MemFree", 0)))
     used = max(0.0, total - avail)
-    win, outer, _result = _base_panel(
-        "Memory",
-        width=420,
-        height=340,
-        subtitle=f"{_fmt_gib(used)} used of {_fmt_gib(total)}",
-    )
-    pack_memory_controls(outer, quit_on_advanced=True)
-    win.show_all()
-    win.present()
-    Gtk.main()
+    return f"{_fmt_gib(used)} used of {_fmt_gib(total)}"
 
 
-def show_power_panel() -> None:
-    freeze_click_xy()
-    _apply_css()
-    win, outer, _result = _base_panel("Power", width=340, height=256)
+def memory_items() -> list:
+    return [
+        DrillItem("usage", "Usage", _memory_subtitle(), panel=_memory_usage_page, icon="dialog-memory"),
+        DrillItem(
+            "btop",
+            "Open btop",
+            "Full process view",
+            action=lambda _i: _open_btop_detached(),
+        ),
+    ]
 
+
+def show_memory_panel() -> None:
+    show_drilldown("Memory", memory_items())
+
+
+def power_items() -> list:
     def _go(action: str) -> None:
         helper = _which("neuronix-session-action") or "neuronix-session-action"
         _launch_detached([helper, action])
         GLib.idle_add(Gtk.main_quit)
 
-    col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-    col.pack_start(
-        _make_tile("logout", "Log Out", "End this session", _go),
-        False,
-        False,
-        0,
-    )
-    col.pack_start(
-        _make_tile("reboot", "Reboot", "Restart this computer", _go),
-        False,
-        False,
-        0,
-    )
-    col.pack_start(
-        _make_tile("shutdown", "Shut Down", "Power off this computer", _go),
-        False,
-        False,
-        0,
-    )
-    outer.pack_start(col, True, True, 0)
-    win.show_all()
-    win.present()
-    Gtk.main()
+    return [
+        DrillItem("logout", "Log Out", "End this session", action=_go),
+        DrillItem("reboot", "Reboot", "Restart this computer", action=_go),
+        DrillItem("shutdown", "Shut Down", "Power off this computer", action=_go),
+    ]
+
+
+def show_power_panel() -> None:
+    show_drilldown("Power", power_items())
 
 
 def main() -> int:

@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Combined Waybar settings window. The clicked section opens on the right."""
+from __future__ import annotations
+
+import os
+import sys
+
+os.environ.setdefault("XDG_CURRENT_DESKTOP", "Hyprland")
+
+share = os.path.expanduser("~/.local/share/neuronix")
+sys.path.insert(0, "/usr/share/neuronix")
+sys.path.insert(0, share)
+
+from neuronix_choice_dialog import HubAction, HubSection, show_hub  # noqa: E402
+import neuronix_quick_settings as quick  # noqa: E402
+
+
+def _load(path: str, name: str) -> dict:
+    ns: dict = {"__name__": name, "__file__": path, "__package__": None}
+    with open(path, encoding="utf-8") as handle:
+        exec(compile(handle.read(), path, "exec"), ns)
+    return ns
+
+
+def _sibling_script(name: str) -> str:
+    """User copy, this file's directory, then the system bin."""
+    me = os.path.realpath(__file__)
+    here = os.path.dirname(me)
+    for path in (
+        os.path.join(os.path.expanduser("~/.local/bin"), name),
+        os.path.join(here, name),
+        os.path.join("/usr/local/bin", name),
+    ):
+        if os.path.isfile(path) and os.path.realpath(path) != me:
+            return path
+    return ""
+
+
+def _plain(items):
+    return "", items, None
+
+
+def main() -> int:
+    sync_path = _sibling_script("gtk-sync-menu")
+    clock_path = _sibling_script("neuronix-datetime")
+    missing = [
+        name
+        for name, path in (
+            ("gtk-sync-menu", sync_path),
+            ("neuronix-datetime", clock_path),
+        )
+        if not path
+    ]
+    if missing:
+        print("neuronix-settings: missing " + ", ".join(missing), file=sys.stderr)
+        return 1
+    sync = _load(sync_path, "gtk_sync_menu")
+    clock = _load(clock_path, "neuronix_datetime")
+
+    def _sync():
+        return "Choose an action.", sync["sync_items"](), None
+
+    def _clock():
+        subtitle, items = clock["datetime_items"]()
+        return subtitle, items, None
+
+    sections = [
+        HubSection("sync", "GTK-Sync", "emblem-synchronizing", _sync),
+        HubSection("datetime", "Date & Time", "x-office-calendar", _clock),
+        HubSection("sound", "Sound", "audio-volume-high", lambda: _plain(quick.sound_items())),
+        HubSection("network", "Network", "network-wireless", lambda: _plain(quick.network_items())),
+        HubSection("cpu", "CPU", "cpu", lambda: _plain(quick.cpu_items())),
+        HubSection("memory", "Memory", "dialog-memory", lambda: _plain(quick.memory_items())),
+        HubSection("power", "Power", "system-shutdown", lambda: _plain(quick.power_items())),
+    ]
+    section = (sys.argv[1] if len(sys.argv) > 1 else "sound").strip().lower()
+    drill = (sys.argv[2] if len(sys.argv) > 2 else "").strip().lower()
+    aliases = {
+        "volume": "sound",
+        "audio": "sound",
+        "pulse": "sound",
+        "wifi": "network",
+        "nm": "network",
+        "ram": "memory",
+        "mem": "memory",
+        "session": "power",
+        "calendar": "datetime",
+        "clock": "datetime",
+    }
+    section = aliases.get(section, section)
+
+    def _open(cmd: str) -> None:
+        exe = quick._which(cmd) or cmd
+        quick._launch_detached([exe])
+
+    footer = [
+        HubAction("themes", "Themes", "preferences-desktop-theme", lambda: _open("gtk-theme-editor")),
+        HubAction("all-settings", "All settings", "preferences-system", lambda: _open("hypr-settings")),
+    ]
+    show_hub(sections, section, drill, footer)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

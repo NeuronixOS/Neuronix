@@ -87,11 +87,11 @@ window#waybar {
 }
 
 #clock {
-  padding: 2px 12px;
+  padding: 0 14px;
   margin: 4px 4px;
   color: @wb_fg;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 16px;
 }
 
 #tray {
@@ -123,6 +123,7 @@ window#waybar {
   border-radius: 14px;
 }
 
+#custom-layout,
 #custom-gtk-sync,
 #battery {
   padding: 0 10px;
@@ -136,6 +137,18 @@ window#waybar {
 
 #custom-gtk-sync {
   min-width: 3.2em;
+}
+
+#custom-layout {
+  min-width: 28px;
+  margin-left: 8px;
+  padding: 0 10px;
+  font-size: 15px;
+}
+
+#custom-layout.tile,
+#custom-layout.float {
+  color: @wb_fg;
 }
 
 #custom-gtk-sync.ok {

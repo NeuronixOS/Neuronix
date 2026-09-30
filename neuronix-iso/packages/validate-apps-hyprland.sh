@@ -136,13 +136,16 @@ if grep -q '"custom/power"' "$BUILD_ROOT/default/configs/waybar/config" 2>/dev/n
 	&& grep -q '#custom-power' "$BUILD_ROOT/default/configs/waybar/style.css" 2>/dev/null \
 	&& grep -qE 'power \| session' "$OVERLAY/usr/local/bin/neuronix-waybar-click" 2>/dev/null \
 	&& grep -q 'def show_power_panel' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
-	&& grep -q '_make_tile("logout"' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
-	&& grep -q '_make_tile("reboot"' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
-	&& grep -q '_make_tile("shutdown"' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
+	&& grep -q 'DrillItem("logout"' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
+	&& grep -q 'DrillItem("reboot"' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
+	&& grep -q 'DrillItem("shutdown"' "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py" 2>/dev/null \
+	&& grep -q 'def show_hub' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null \
+	&& grep -q '_hub sound' "$OVERLAY/usr/local/bin/neuronix-waybar-click" 2>/dev/null \
+	&& [[ -x "$OVERLAY/usr/local/bin/neuronix-settings" ]] \
 	&& grep -qE '^[[:space:]]*logout\)' "$OVERLAY/usr/local/bin/neuronix-session-action" 2>/dev/null \
 	&& grep -qE '^[[:space:]]*reboot\)' "$OVERLAY/usr/local/bin/neuronix-session-action" 2>/dev/null \
 	&& grep -qE '^[[:space:]]*shutdown(\|poweroff)?\)' "$OVERLAY/usr/local/bin/neuronix-session-action" 2>/dev/null; then
-	echo "  OK  Waybar power icon → Log Out / Reboot / Shut Down popover"
+	echo "  OK  Waybar power icon → centered Log Out / Reboot / Shut Down dialog"
 	_ok=$((_ok + 1))
 else
 	echo "  MISSING  Waybar custom/power (default config + overlay click/session helpers)"

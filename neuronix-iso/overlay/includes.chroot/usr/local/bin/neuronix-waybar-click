@@ -66,7 +66,8 @@ _hub() {
 
 case "${1:-}" in
 	volume|sound|audio|pulse)
-		_hub sound && exit 0
+		# Open Sound already on the volume slider, not the Volume/Output menu.
+		_hub sound volume && exit 0
 		_quick sound && exit 0
 		# Fallback: full Sound tab in hypr-settings (pavucontrol removed).
 		if command -v systemd-run >/dev/null 2>&1; then

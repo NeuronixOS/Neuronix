@@ -32,7 +32,7 @@
       "#2e2e2e"
     ],
     "chrome": {
-      "border_size": 10,
+      "border_size": 3,
       "rounding": 8,
       "bevel": "flat",
       "gradient": "rtl",
@@ -137,7 +137,7 @@
       "border_size": 4,
       "rounding": 4,
       "bevel": "flat",
-      "gradient": "ltr",
+      "gradient": "rtl",
       "bar": [
         "#3c3d37",
         "#ffbe6f"
@@ -382,7 +382,7 @@
       "#343330"
     ],
     "chrome": {
-      "border_size": 10,
+      "border_size": 3,
       "rounding": 8,
       "bevel": "flat",
       "gradient": "rtl",
@@ -439,7 +439,7 @@
       "border_size": 4,
       "rounding": 4,
       "bevel": "flat",
-      "gradient": "ltr",
+      "gradient": "rtl",
       "bar": [
         "#3c3a36",
         "#34312f"

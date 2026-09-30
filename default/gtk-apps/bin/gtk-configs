@@ -5,8 +5,8 @@ SCRIPT="$(readlink -f "$0")"
 LIB="$(cd "$(dirname "$SCRIPT")" && pwd)"
 APP="$LIB/apps/gtk-configs"
 THEME=""
-for cand in "$LIB/gtk-theme/python" /usr/share/neuronix/gtk-theme/python; do
-  [[ -d "$cand" ]] && THEME="$cand" && break
+for cand in "$LIB/python" "$LIB/gtk-theme/python" /usr/share/neuronix/gtk-theme/python; do
+  [[ -f "$cand/gtk_theme.py" ]] && THEME="$cand" && break
 done
 export PYTHONPATH="${THEME:+$THEME:}${PYTHONPATH:-}"
 exec python3 "$APP/configs.py" "$@"

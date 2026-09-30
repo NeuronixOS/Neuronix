@@ -452,7 +452,7 @@ button.neuronix-day.neuronix-picked:not(.neuronix-today) {{
 button.neuronix-day.neuronix-today,
 button.neuronix-day.neuronix-today:hover {{
   background-color: {accent};
-  color: #000000;
+  color: {on_accent};
 }}
 button.neuronix-day.neuronix-other,
 button.neuronix-day.neuronix-other:hover {{
@@ -485,7 +485,7 @@ calendar.neuronix-cal:selected {{
 calendar.neuronix-cal.highlight,
 calendar.neuronix-cal.highlight:selected {{
   background-color: {accent};
-  color: #000000;
+  color: {on_accent};
   border-radius: 8px;
 }}
 scale.neuronix-scale {{
@@ -591,7 +591,8 @@ def _glass_root(box: Gtk.Box) -> None:
             return False
         cr.save()
         _rounded_rect(cr, 0, 0, width, height, 8)
-        cr.set_source_rgba(46 / 255, 52 / 255, 64 / 255, 0.5)
+        rgb = _hex_rgb(_theme_chrome()["bg"]) or (46, 52, 64)
+        cr.set_source_rgba(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, 0.5)
         cr.fill()
         cr.restore()
         return False
@@ -599,15 +600,75 @@ def _glass_root(box: Gtk.Box) -> None:
     box.connect("draw", _draw)
 
 
-def _hex_to_rgba(h: str, a: float) -> str:
-    h = h.lstrip("#")
+def _hex_rgb(h: str) -> Optional[Tuple[int, int, int]]:
+    h = (h or "").strip().lstrip("#")
     if len(h) == 3:
         h = "".join(ch * 2 for ch in h)
+    if len(h) != 6:
+        return None
     try:
-        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    except Exception:
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except ValueError:
+        return None
+
+
+def _hex_to_rgba(h: str, a: float) -> str:
+    rgb = _hex_rgb(h)
+    if rgb is None:
         return f"rgba(46, 46, 46, {a:.2f})"
+    r, g, b = rgb
     return f"rgba({r}, {g}, {b}, {a:.2f})"
+
+
+def _relative_luminance(h: str) -> float:
+    rgb = _hex_rgb(h)
+    if rgb is None:
+        return 0.0
+
+    def channel(c: int) -> float:
+        x = c / 255.0
+        return x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (channel(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _profile_catalog_paths() -> list[str]:
+    home = os.path.expanduser("~")
+    return [
+        os.path.join(home, ".config/gtk-apps/custom-profiles.json"),
+        os.path.join(home, ".local/share/neuronix/gtk-theme/profiles.json"),
+        "/usr/local/lib/neuronix/gtk-apps/gtk-theme/profiles.json",
+        "/usr/share/neuronix/gtk-theme/profiles.json",
+        "/usr/local/lib/neuronix/gtk-apps/profiles.json",
+    ]
+
+
+def _active_profile() -> dict:
+    """The profile named in ~/.config/gtk-apps/theme.toml."""
+    profile_id = ""
+    theme_path = os.path.expanduser("~/.config/gtk-apps/theme.toml")
+    try:
+        text = open(theme_path, encoding="utf-8").read()
+    except OSError:
+        text = ""
+    match = re.search(r'(?m)^\s*profile\s*=\s*"([^"]+)"', text)
+    if match:
+        profile_id = match.group(1).strip()
+    if not profile_id:
+        return {}
+    for path in _profile_catalog_paths():
+        try:
+            data = json.loads(open(path, encoding="utf-8").read())
+        except (OSError, json.JSONDecodeError):
+            continue
+        items = data.get("profiles") if isinstance(data, dict) else data
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if isinstance(item, dict) and item.get("id") == profile_id:
+                return item
+    return {}
 
 
 def _enable_rgba(win: Gtk.Window) -> None:
@@ -639,12 +700,25 @@ def _mix_hex(a: str, b: str, t: float) -> str:
 
 
 def _theme_chrome() -> dict[str, str]:
-    """Fuzzel palette from fuzzel.ini: Nord window, frost accent, polar selection."""
-    bg = "#2e3440"
-    fg = "#d8dee9"
-    accent = "#81a1c1"
-    border = "#3f4551"
-    selection = "#3f4551"
+    """Colors from the active gtk-theme profile, not a fixed Nord palette."""
+    profile = _active_profile()
+    bg = str(profile.get("background") or "#2e3440")
+    fg = str(profile.get("foreground") or "#d8dee9")
+    palette = profile.get("palette") if isinstance(profile.get("palette"), list) else []
+    accent = palette[4] if len(palette) > 4 and isinstance(palette[4], str) else _mix_hex(bg, fg, 0.45)
+    border = str(profile.get("border") or _mix_hex(bg, fg, 0.22))
+    if _hex_rgb(bg) is None:
+        bg = "#2e3440"
+    if _hex_rgb(fg) is None:
+        fg = "#d8dee9"
+    if _hex_rgb(accent) is None:
+        accent = _mix_hex(bg, fg, 0.45)
+    if _hex_rgb(border) is None:
+        border = _mix_hex(bg, fg, 0.22)
+    selection = _mix_hex(bg, fg, 0.16)
+    hint = _mix_hex(fg, bg, 0.38)
+    well_border = _mix_hex(border, fg, 0.28)
+    on_accent = "#1d2021" if _relative_luminance(accent) >= 0.45 else fg
     return {
         "bg": bg,
         "fg": fg,
@@ -655,11 +729,11 @@ def _theme_chrome() -> dict[str, str]:
         "btn_border": border,
         "btn_hover": selection,
         "accent": accent,
-        "on_accent": fg,
-        "muted": fg,
-        "hint": "#aeb6c6",
+        "on_accent": on_accent,
+        "muted": hint,
+        "hint": hint,
         "well": _hex_to_rgba(bg, 0.4),
-        "well_border": "#4c566a",
+        "well_border": well_border,
     }
 
 

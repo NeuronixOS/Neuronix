@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+"""GTK-Sync menu. Centered Fuzzel-style list; status pages open on the right."""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk  # noqa: E402
+
+sys.path.insert(0, "/usr/share/neuronix")
+sys.path.insert(0, os.path.expanduser("~/.local/share/neuronix"))
+from neuronix_choice_dialog import (  # noqa: E402
+    DrillItem,
+    make_text_page,
+    show_drilldown,
+    text_panel,
+)
+
+CFG = os.path.expanduser("~/.config/gtk-sync/client.toml")
+RUNTIME = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+STATUS_JSON = os.path.join(RUNTIME, "gtk-sync", "status.json")
+
+
+def _sibling_script(name: str) -> str:
+    me = os.path.realpath(__file__)
+    here = os.path.dirname(me)
+    for path in (
+        os.path.join(os.path.expanduser("~/.local/bin"), name),
+        os.path.join(here, name),
+        os.path.join("/usr/local/bin", name),
+    ):
+        if os.path.isfile(path) and os.path.realpath(path) != me:
+            return path
+    return ""
+
+
+def _run(cmd: list[str], timeout: float = 8.0) -> str:
+    try:
+        return subprocess.check_output(
+            cmd, text=True, timeout=timeout, stderr=subprocess.STDOUT
+        )
+    except Exception as exc:
+        return str(getattr(exc, "output", "") or "")
+
+
+def _ok(cmd: list[str], timeout: float = 12.0) -> bool:
+    try:
+        subprocess.run(
+            cmd,
+            check=True,
+            timeout=timeout,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _notify(summary: str, body: str) -> None:
+    subprocess.Popen(
+        ["notify-send", "-a", "GTK-Sync", summary, body],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _close(_item_id: str = "") -> None:
+    GLib.idle_add(Gtk.main_quit)
+
+
+def _sync_root() -> str:
+    try:
+        text = open(CFG, encoding="utf-8").read()
+    except Exception:
+        return ""
+    match = re.search(r'(?m)^\s*root\s*=\s*["\']([^"\']+)["\']', text)
+    return match.group(1) if match else ""
+
+
+def _client_active() -> bool:
+    return _ok(["systemctl", "--user", "is-active", "--quiet", "gtk-sync-client"], timeout=3)
+
+
+def _client_label() -> str:
+    if _client_active():
+        return "Running"
+    if _ok(["systemctl", "--user", "is-enabled", "--quiet", "gtk-sync-client"], timeout=3):
+        return "Stopped (enabled at login)"
+    if os.path.isfile(CFG):
+        return "Stopped"
+    return "Not set up"
+
+
+def status_text() -> str:
+    state = _client_label()
+    root = _sync_root()
+    phase, busy, pending, active_n = "—", "no", 0, 0
+    line = "Up to date"
+    if _client_active() and os.path.isfile(STATUS_JSON):
+        try:
+            st = json.load(open(STATUS_JSON, encoding="utf-8"))
+            phase = str(st.get("phase") or "idle")
+            busy = "yes" if st.get("busy") else "no"
+            files = st.get("files") or {}
+            pending = sum(1 for v in files.values() if v in ("pending", "syncing"))
+            active = st.get("active") or []
+            active_n = len(active)
+            if phase in ("pulling", "pushing") or (st.get("busy") and phase != "scanning"):
+                if active:
+                    first = active[0] if isinstance(active[0], dict) else {}
+                    name = os.path.basename(str(first.get("path") or "")) or "file"
+                    direction = str(first.get("direction") or "")
+                    arrow = {
+                        "down": "Downloading",
+                        "up": "Uploading",
+                    }.get(direction, "Syncing")
+                    extra = max(0, len(active) - 1) + pending
+                    line = f"{arrow} {name}" + (f"  (+{extra} more)" if extra else "")
+                elif pending:
+                    line = f"Syncing ({pending} files)"
+                else:
+                    line = f"Syncing ({phase})"
+            elif phase == "scanning":
+                line = "Scanning library…"
+            elif pending:
+                line = f"Pending ({pending} files)"
+        except Exception:
+            line = "Status file could not be read"
+    elif _client_active():
+        phase = "idle"
+        line = "Connected — waiting for status"
+    elif state == "Not set up":
+        line = "Open Files and choose Setup Sync to get started"
+    else:
+        line = "Client is not running"
+    parts = [
+        "Sync status",
+        "",
+        f"Client\n  {state}",
+        "",
+        f"Activity\n  {line}",
+        "",
+        f"Folder\n  {root or '(not configured)'}",
+    ]
+    if _client_active():
+        parts.append("")
+        parts.append(f"Phase\n  {phase}  (busy: {busy})")
+        if pending or active_n:
+            parts.append("")
+            parts.append(f"Transfers\n  {active_n} active · {pending} pending")
+    return "\n".join(parts) + "\n"
+
+
+def activity_text() -> str:
+    text = _run(
+        ["journalctl", "--user", "-u", "gtk-sync-client", "-n", "80", "--no-pager"],
+        timeout=8,
+    ).strip()
+    return text or "No recent activity for the sync client yet.\n"
+
+
+def server_text() -> str:
+    if _ok(["systemctl", "is-active", "--quiet", "gtk-sync"], timeout=3):
+        detail = _run(["systemctl", "status", "gtk-sync", "--no-pager", "-l"], timeout=6)
+        return "Server\n\nSystem service: Running\n\n" + "\n".join(detail.splitlines()[:20])
+    if _ok(["systemctl", "--user", "is-active", "--quiet", "gtk-sync"], timeout=3):
+        detail = _run(["systemctl", "--user", "status", "gtk-sync", "--no-pager", "-l"], timeout=6)
+        return "Server\n\nUser service: Running\n\n" + "\n".join(detail.splitlines()[:20])
+    return (
+        "Server\n\nNot running on this machine.\n\n"
+        "That is normal for a client-only setup.\n"
+        "The server usually runs on your sync host.\n"
+    )
+
+
+def _launch(argv: list[str]) -> None:
+    env = os.environ.copy()
+    run = ["systemd-run", "--user", "--collect", "--quiet", "--property=KillMode=process"]
+    for key in (
+        "WAYLAND_DISPLAY",
+        "XDG_RUNTIME_DIR",
+        "HYPRLAND_INSTANCE_SIGNATURE",
+        "DBUS_SESSION_BUS_ADDRESS",
+        "DISPLAY",
+        "PATH",
+        "HOME",
+        "XDG_CURRENT_DESKTOP",
+    ):
+        val = env.get(key)
+        if val:
+            run.append(f"--setenv={key}={val}")
+    run.extend(["--", *argv])
+    try:
+        result = subprocess.run(run, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode == 0:
+            return
+    except Exception:
+        pass
+    subprocess.Popen(
+        argv,
+        start_new_session=True,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _open_folder(_item_id: str) -> None:
+    from shutil import which
+
+    root = _sync_root()
+    if not root or not os.path.isdir(root):
+        _notify("GTK-Sync", "No sync folder yet. Open Files and choose Setup Sync first.")
+        _close()
+        return
+    if which("gtk-files"):
+        _launch(["gtk-files", root])
+    elif which("xdg-open"):
+        _launch(["xdg-open", root])
+    else:
+        _notify("GTK-Sync", f"No file manager found.\n{root}")
+        _close()
+        return
+    _notify("GTK-Sync", root)
+    _close()
+
+
+def _start(_item_id: str) -> None:
+    if not os.path.isfile(CFG):
+        _notify("GTK-Sync", "Sync is not set up yet. Open Files and choose Setup Sync first.")
+    elif _ok(["systemctl", "--user", "enable", "--now", "gtk-sync-client"]):
+        _notify("GTK-Sync", "Sync client started.")
+    else:
+        _notify("GTK-Sync", "Could not start the sync client.")
+    _close()
+
+
+def _stop(_item_id: str) -> None:
+    _ok(["systemctl", "--user", "stop", "gtk-sync-client"])
+    try:
+        os.remove(STATUS_JSON)
+    except Exception:
+        pass
+    _notify("GTK-Sync", "Sync client stopped.")
+    _close()
+
+
+def _restart(_item_id: str) -> None:
+    if not os.path.isfile(CFG):
+        _notify("GTK-Sync", "Sync is not set up yet. Open Files and choose Setup Sync first.")
+    elif _ok(["systemctl", "--user", "restart", "gtk-sync-client"]):
+        _notify("GTK-Sync", "Sync client restarted.")
+    else:
+        _notify("GTK-Sync", "Could not restart the sync client.")
+    _close()
+
+
+def sync_items() -> list:
+    return [
+        DrillItem("open", "Open folder", "Browse your synced files", action=_open_folder),
+        DrillItem("status", "Status", "See if sync is running", panel=lambda: make_text_page(status_text())),
+        DrillItem("start", "Start", "Start the sync client", action=_start),
+        DrillItem("stop", "Stop", "Stop the sync client", action=_stop),
+        DrillItem("restart", "Restart", "Restart the sync client", action=_restart),
+        DrillItem(
+            "activity",
+            "Activity",
+            "Recent sync log",
+            panel=lambda: make_text_page(activity_text(), monospace=True),
+        ),
+        DrillItem(
+            "server",
+            "Server",
+            "Local server status",
+            panel=lambda: make_text_page(server_text(), monospace=True),
+        ),
+    ]
+
+
+def main() -> int:
+    os.environ.setdefault("XDG_CURRENT_DESKTOP", "Hyprland")
+    if len(sys.argv) > 1 and sys.argv[1] in ("--status", "--status-loop"):
+        text_panel("GTK-Sync", status_text(), subtitle="Status")
+        return 0
+    hub = _sibling_script("neuronix-settings")
+    if hub:
+        os.execv(hub, [hub, "sync"])
+    show_drilldown("GTK-Sync", sync_items(), subtitle="Choose an action.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

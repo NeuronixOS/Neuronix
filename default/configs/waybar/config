@@ -11,7 +11,8 @@
     "hyprland/window"
   ],
   "modules-center": [
-    "hyprland/workspaces"
+    "hyprland/workspaces",
+    "custom/layout"
   ],
   "modules-right": [
     "clock",
@@ -41,18 +42,47 @@
     "tooltip": "Power",
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click power"
   },
+  "custom/layout": {
+    "exec": "$HOME/.config/hypr/window-manager.py layout-status",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "tooltip": true,
+    "on-click": "$HOME/.config/hypr/window-manager.py layout-toggle"
+  },
   "custom/gtk-sync": {
     "exec": "$HOME/.config/waybar/gtk-sync-status.sh",
     "return-type": "json",
     "interval": 3,
     "format": "{}",
     "tooltip": true,
-    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" gtk-sync-menu",
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click sync",
     "on-click-right": "$HOME/.config/waybar/gtk-sync-status.sh"
   },
   "hyprland/workspaces": {
     "format": "{id}",
-    "on-click": "activate"
+    "on-click": "activate",
+    "persistent-workspaces": {
+      "HDMI-A-1": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "eDP-1": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "DP-3": [
+        11
+      ],
+      "DP-4": [
+        12
+      ]
+    }
   },
   "hyprland/window": {
     "format": "{}",
@@ -104,13 +134,13 @@
       "\uf241",
       "\uf240"
     ],
-    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" setsid -f neuronix-power-settings >/dev/null 2>&1"
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click battery"
   },
   "clock": {
     "interval": 30,
-    "format": "{:%I:%M %p  %b %d}",
+    "format": "{:%a %b %d  %I:%M %p}",
     "tooltip": false,
-    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-datetime calendar",
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click datetime",
     "on-click-right": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-datetime"
   },
   "tray": {

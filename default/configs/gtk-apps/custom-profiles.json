@@ -78,30 +78,6 @@
     ]
   },
   {
-    "id": "custom-monokai",
-    "name": "Monokai",
-    "foreground": "#f8f8f2",
-    "background": "#272822",
-    "palette": [
-      "#272822",
-      "#f92672",
-      "#a6e22e",
-      "#f4bf75",
-      "#77767b",
-      "#ae81ff",
-      "#a1efe4",
-      "#f8f8f2",
-      "#75715e",
-      "#f92672",
-      "#a6e22e",
-      "#f4bf75",
-      "#c64600",
-      "#ae81ff",
-      "#a1efe4",
-      "#f9f8f5"
-    ]
-  },
-  {
     "id": "custom-monokai-2",
     "name": "Kevin Desktop",
     "foreground": "#f8f8f2",
@@ -156,78 +132,6 @@
     }
   },
   {
-    "id": "custom-gruvbox-dark",
-    "name": "Gruvbox Dark",
-    "foreground": "#ebdbb2",
-    "background": "#282828",
-    "palette": [
-      "#282828",
-      "#cc241d",
-      "#98971a",
-      "#d79921",
-      "#458588",
-      "#b16286",
-      "#689d6a",
-      "#a89984",
-      "#928374",
-      "#fb4934",
-      "#b8bb26",
-      "#fabd2f",
-      "#83a598",
-      "#d3869b",
-      "#8ec07c",
-      "#ebdbb2"
-    ]
-  },
-  {
-    "id": "custom-tomorrow-night",
-    "name": "Tomorrow Night",
-    "foreground": "#c5c8c6",
-    "background": "#1d1f21",
-    "palette": [
-      "#1d1f21",
-      "#cc6666",
-      "#b5bd68",
-      "#f0c674",
-      "#e66100",
-      "#b294bb",
-      "#8abeb7",
-      "#c5c8c6",
-      "#969896",
-      "#cc6666",
-      "#b5bd68",
-      "#f0c674",
-      "#81a2be",
-      "#b294bb",
-      "#8abeb7",
-      "#ffffff"
-    ]
-  },
-  {
-    "id": "custom-monokai-3",
-    "name": "Monokai",
-    "foreground": "#f8f8f2",
-    "background": "#272822",
-    "palette": [
-      "#272822",
-      "#f92672",
-      "#a6e22e",
-      "#f4bf75",
-      "#66d9ef",
-      "#ae81ff",
-      "#a1efe4",
-      "#f8f8f2",
-      "#75715e",
-      "#f92672",
-      "#a6e22e",
-      "#f4bf75",
-      "#66d9ef",
-      "#ae81ff",
-      "#a1efe4",
-      "#f9f8f5"
-    ]
-  },
-  {
     "id": "custom-tomorrow-night-2",
     "name": "Tomorrow Night",
     "foreground": "#c5c8c6",
@@ -251,55 +155,6 @@
       "#ffffff"
     ],
     "border": "#3b3d3f"
-  },
-  {
-    "id": "custom-gruvbox-dark-2",
-    "name": "Gruvbox Dark",
-    "foreground": "#ebdbb2",
-    "background": "#282828",
-    "palette": [
-      "#282828",
-      "#cc241d",
-      "#98971a",
-      "#d79921",
-      "#458588",
-      "#b16286",
-      "#689d6a",
-      "#a89984",
-      "#928374",
-      "#fb4934",
-      "#b8bb26",
-      "#fabd2f",
-      "#83a598",
-      "#d3869b",
-      "#8ec07c",
-      "#ebdbb2"
-    ]
-  },
-  {
-    "id": "custom-gruvbox-dark-3",
-    "name": "Gruvbox Dark",
-    "foreground": "#ebdbb2",
-    "background": "#282828",
-    "palette": [
-      "#282828",
-      "#cc241d",
-      "#98971a",
-      "#d79921",
-      "#886445",
-      "#b16286",
-      "#689d6a",
-      "#a89984",
-      "#928374",
-      "#fb4934",
-      "#b8bb26",
-      "#fabd2f",
-      "#83a598",
-      "#d3869b",
-      "#8ec07c",
-      "#ebdbb2"
-    ],
-    "border": "#4b4841"
   },
   {
     "id": "custom-monokai-4",
@@ -350,7 +205,655 @@
     ]
   },
   {
-    "id": "custom-gruvbox-dark-4",
+    "id": "custom-nord",
+    "name": "Nord",
+    "foreground": "#d8dee9",
+    "background": "#2e3440",
+    "palette": [
+      "#3b4252",
+      "#bf616a",
+      "#a3be8c",
+      "#ebcb8b",
+      "#81a1c1",
+      "#b48ead",
+      "#88c0d0",
+      "#e5e9f0",
+      "#4c566a",
+      "#bf616a",
+      "#a3be8c",
+      "#ebcb8b",
+      "#81a1c1",
+      "#b48ead",
+      "#8fbcbb",
+      "#eceff4"
+    ],
+    "border": "#4d535e",
+    "border_active": [
+      "#4d535e",
+      "#7e848f"
+    ],
+    "border_inactive": [
+      "#3f4551",
+      "#383e4a"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3f4551",
+        "#616772"
+      ],
+      "bar_inactive": [
+        "#3c424e",
+        "#363c48"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-catppuccin-mocha",
+    "name": "Catppuccin Mocha",
+    "foreground": "#cdd6f4",
+    "background": "#1e1e2e",
+    "palette": [
+      "#45475a",
+      "#f38ba8",
+      "#a6e3a1",
+      "#f9e2af",
+      "#89b4fa",
+      "#f5c2e7",
+      "#94e2d5",
+      "#bac2de",
+      "#585b70",
+      "#f38ba8",
+      "#a6e3a1",
+      "#f9e2af",
+      "#89b4fa",
+      "#f5c2e7",
+      "#94e2d5",
+      "#cdd6f4"
+    ],
+    "border": "#3e3f52",
+    "border_active": [
+      "#3e3f52",
+      "#70748b"
+    ],
+    "border_inactive": [
+      "#303042",
+      "#29293a"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#303042",
+        "#535569"
+      ],
+      "bar_inactive": [
+        "#2c2d3e",
+        "#262738"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-ros-pine-2",
+    "name": "Rosé Pine",
+    "foreground": "#e0def4",
+    "background": "#191724",
+    "palette": [
+      "#26233a",
+      "#eb6f92",
+      "#31748f",
+      "#f6c177",
+      "#9ccfd8",
+      "#c4a7e7",
+      "#ebbcba",
+      "#e0def4",
+      "#6e6a86",
+      "#eb6f92",
+      "#31748f",
+      "#f6c177",
+      "#9ccfd8",
+      "#c4a7e7",
+      "#ebbcba",
+      "#e0def4"
+    ],
+    "border": "#3d3b49",
+    "border_active": [
+      "#3d3b49",
+      "#767485"
+    ],
+    "border_inactive": [
+      "#2d2b39",
+      "#252331"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#2d2b39",
+        "#545262"
+      ],
+      "bar_inactive": [
+        "#292735",
+        "#23212e"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-gruvbox-light",
+    "name": "Gruvbox Light",
+    "foreground": "#3c3836",
+    "background": "#fbf1c7",
+    "palette": [
+      "#fbf1c7",
+      "#cc241d",
+      "#98971a",
+      "#d79921",
+      "#458588",
+      "#b16286",
+      "#689d6a",
+      "#7c6f64",
+      "#928374",
+      "#9d0006",
+      "#79740e",
+      "#b57614",
+      "#076678",
+      "#8f3f71",
+      "#427b58",
+      "#3c3836"
+    ],
+    "border": "#d9d0ad",
+    "border_active": [
+      "#d9d0ad",
+      "#a29b83"
+    ],
+    "border_inactive": [
+      "#e8dfb8",
+      "#f0e6be"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#e8dfb8",
+        "#c2ba9b"
+      ],
+      "bar_inactive": [
+        "#ece2bb",
+        "#f2e8c0"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-tokyo-night-storm",
+    "name": "Tokyo Night Storm",
+    "foreground": "#c0caf5",
+    "background": "#24283b",
+    "palette": [
+      "#1d202f",
+      "#f7768e",
+      "#9ece6a",
+      "#e0af68",
+      "#7aa2f7",
+      "#bb9af7",
+      "#7dcfff",
+      "#a9b1d6",
+      "#414868",
+      "#f7768e",
+      "#9ece6a",
+      "#e0af68",
+      "#7aa2f7",
+      "#bb9af7",
+      "#7dcfff",
+      "#c0caf5"
+    ],
+    "border": "#40455c",
+    "border_active": [
+      "#40455c",
+      "#6d7492"
+    ],
+    "border_inactive": [
+      "#34384e",
+      "#2e3246"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#34384e",
+        "#535873"
+      ],
+      "bar_inactive": [
+        "#30354a",
+        "#2b3044"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-night-owl",
+    "name": "Night Owl",
+    "foreground": "#d6deeb",
+    "background": "#011627",
+    "palette": [
+      "#011627",
+      "#ef5350",
+      "#22da6e",
+      "#addb67",
+      "#82aaff",
+      "#c792ea",
+      "#21c7a8",
+      "#ffffff",
+      "#575656",
+      "#ef5350",
+      "#22da6e",
+      "#ffeb95",
+      "#82aaff",
+      "#c792ea",
+      "#7fdbca",
+      "#ffffff"
+    ],
+    "border": "#273a4a",
+    "border_active": [
+      "#273a4a",
+      "#647382"
+    ],
+    "border_inactive": [
+      "#162a3b",
+      "#0e2233"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#162a3b",
+        "#405262"
+      ],
+      "bar_inactive": [
+        "#122637",
+        "#0b2031"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-one-dark-2",
+    "name": "One Dark",
+    "foreground": "#abb2bf",
+    "background": "#282c34",
+    "palette": [
+      "#282c34",
+      "#e06c75",
+      "#98c379",
+      "#e5c07b",
+      "#61afef",
+      "#c678dd",
+      "#56b6c2",
+      "#abb2bf",
+      "#5c6370",
+      "#e06c75",
+      "#98c379",
+      "#e5c07b",
+      "#61afef",
+      "#c678dd",
+      "#56b6c2",
+      "#ffffff"
+    ],
+    "border": "#40444d",
+    "border_active": [
+      "#40444d",
+      "#656b75"
+    ],
+    "border_inactive": [
+      "#353942",
+      "#30343c"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#353942",
+        "#4f545e"
+      ],
+      "bar_inactive": [
+        "#32373f",
+        "#2e333b"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-dracula",
+    "name": "Dracula",
+    "foreground": "#f8f8f2",
+    "background": "#282a36",
+    "palette": [
+      "#21222c",
+      "#ff5555",
+      "#50fa7b",
+      "#f1fa8c",
+      "#bd93f9",
+      "#ff79c6",
+      "#8be9fd",
+      "#f8f8f2",
+      "#6272a4",
+      "#ff6e6e",
+      "#69ff94",
+      "#ffffa5",
+      "#d6acff",
+      "#ff92df",
+      "#a4ffff",
+      "#ffffff"
+    ],
+    "border": "#4d4f58",
+    "border_active": [
+      "#4d4f58",
+      "#898a8e"
+    ],
+    "border_inactive": [
+      "#3d3f49",
+      "#353741"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3d3f49",
+        "#66686e"
+      ],
+      "bar_inactive": [
+        "#393a45",
+        "#32343f"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-everforest-dark",
+    "name": "Everforest Dark",
+    "foreground": "#d3c6aa",
+    "background": "#2d353b",
+    "palette": [
+      "#475258",
+      "#e67e80",
+      "#a7c080",
+      "#dbbc7f",
+      "#7fbbb3",
+      "#d699b6",
+      "#83c092",
+      "#d3c6aa",
+      "#7a8478",
+      "#e67e80",
+      "#a7c080",
+      "#dbbc7f",
+      "#7fbbb3",
+      "#d699b6",
+      "#83c092",
+      "#d3c6aa"
+    ],
+    "border": "#4b4f4f",
+    "border_active": [
+      "#4b4f4f",
+      "#7b796f"
+    ],
+    "border_inactive": [
+      "#3e4446",
+      "#373e42"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3e4446",
+        "#5f615c"
+      ],
+      "bar_inactive": [
+        "#3a4144",
+        "#353c40"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-tokyo-night-2",
+    "name": "Tokyo Night",
+    "foreground": "#c0caf5",
+    "background": "#1a1b26",
+    "palette": [
+      "#15161e",
+      "#f7768e",
+      "#9ece6a",
+      "#e0af68",
+      "#7aa2f7",
+      "#bb9af7",
+      "#7dcfff",
+      "#a9b1d6",
+      "#414868",
+      "#f7768e",
+      "#9ece6a",
+      "#e0af68",
+      "#7aa2f7",
+      "#bb9af7",
+      "#7dcfff",
+      "#c0caf5"
+    ],
+    "border": "#383b4b",
+    "border_active": [
+      "#383b4b",
+      "#686d87"
+    ],
+    "border_inactive": [
+      "#2b2d3b",
+      "#242633"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#2b2d3b",
+        "#4c5064"
+      ],
+      "bar_inactive": [
+        "#272937",
+        "#222330"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-github-dark",
+    "name": "GitHub Dark",
+    "foreground": "#e6edf3",
+    "background": "#0d1117",
+    "palette": [
+      "#484f58",
+      "#ff7b72",
+      "#3fb950",
+      "#d29922",
+      "#58a6ff",
+      "#bc8cff",
+      "#39c5cf",
+      "#b1bac4",
+      "#6e7681",
+      "#ffa198",
+      "#56d364",
+      "#e3b341",
+      "#79c0ff",
+      "#d2a8ff",
+      "#56d4dd",
+      "#ffffff"
+    ],
+    "border": "#34393f",
+    "border_active": [
+      "#34393f",
+      "#72787e"
+    ],
+    "border_inactive": [
+      "#23272d",
+      "#1a1e24"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#23272d",
+        "#4e5359"
+      ],
+      "bar_inactive": [
+        "#1e2329",
+        "#171c22"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-synthwave-84",
+    "name": "Synthwave '84",
+    "foreground": "#f92aad",
+    "background": "#2b213a",
+    "palette": [
+      "#241b2f",
+      "#f97e72",
+      "#72f1b8",
+      "#fede5d",
+      "#36f9f6",
+      "#ff7edb",
+      "#f97e72",
+      "#ffffff",
+      "#848bbd",
+      "#f88414",
+      "#72f1b8",
+      "#fff951",
+      "#36f9f6",
+      "#ff7edb",
+      "#f97e72",
+      "#ffffff"
+    ],
+    "border": "#50234f",
+    "border_active": [
+      "#50234f",
+      "#8b2570"
+    ],
+    "border_inactive": [
+      "#402246",
+      "#382241"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#402246",
+        "#69245d"
+      ],
+      "bar_inactive": [
+        "#3b2243",
+        "#35223f"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-gruvbox-dark-7",
     "name": "Gruvbox Dark",
     "foreground": "#ebdbb2",
     "background": "#282828",
@@ -404,49 +907,1021 @@
     }
   },
   {
-    "id": "custom-gruvbox-dark-5",
-    "name": "Gruvbox Dark",
-    "foreground": "#ebdbb2",
-    "background": "#282828",
+    "id": "custom-neuronix-red",
+    "name": "Neuronix Red",
+    "foreground": "#ebd6d7",
+    "background": "#27010a",
     "palette": [
-      "#282828",
-      "#cc241d",
-      "#98971a",
-      "#d79921",
-      "#ffbe6f",
-      "#b16286",
-      "#689d6a",
-      "#a89984",
-      "#928374",
-      "#fb4934",
-      "#b8bb26",
-      "#fabd2f",
-      "#83a598",
-      "#d3869b",
-      "#8ec07c",
-      "#ebdbb2"
+      "#27010a",
+      "#50ef86",
+      "#a922da",
+      "#6788db",
+      "#ff8282",
+      "#eae392",
+      "#c721b1",
+      "#ffffff",
+      "#565756",
+      "#50ef86",
+      "#a922da",
+      "#95f1ff",
+      "#ff8282",
+      "#eae392",
+      "#db7fcf",
+      "#ffffff"
     ],
-    "border": "#4b4841",
+    "border": "#4a272f",
     "border_active": [
-      "#4b4841",
-      "#31322c"
+      "#4a272f",
+      "#826469"
     ],
     "border_inactive": [
-      "#3c3a36",
-      "#343330"
+      "#3b161e",
+      "#330e16"
     ],
     "chrome": {
-      "border_size": 4,
-      "rounding": 4,
+      "border_size": 1,
+      "rounding": 8,
       "bevel": "flat",
       "gradient": "rtl",
       "bar": [
-        "#3c3a36",
-        "#34312f"
+        "#3b161e",
+        "#624047"
       ],
       "bar_inactive": [
-        "#34312f",
-        "#32302f"
+        "#37121a",
+        "#310b14"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-red-orange",
+    "name": "Neuronix Red-Orange",
+    "foreground": "#ebdad6",
+    "background": "#270201",
+    "palette": [
+      "#270201",
+      "#50efae",
+      "#d722da",
+      "#676bdb",
+      "#ffa182",
+      "#dbea92",
+      "#c72187",
+      "#ffffff",
+      "#565757",
+      "#50efae",
+      "#d722da",
+      "#95d7ff",
+      "#ffa182",
+      "#dbea92",
+      "#db7fb8",
+      "#ffffff"
+    ],
+    "border": "#4a2827",
+    "border_active": [
+      "#4a2827",
+      "#826664"
+    ],
+    "border_inactive": [
+      "#3b1716",
+      "#330f0e"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3b1716",
+        "#624140"
+      ],
+      "bar_inactive": [
+        "#371312",
+        "#310c0b"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-orange",
+    "name": "Neuronix Orange",
+    "foreground": "#ebdfd6",
+    "background": "#270b01",
+    "palette": [
+      "#270b01",
+      "#50efd5",
+      "#c64600",
+      "#8067db",
+      "#ffc182",
+      "#c5ea92",
+      "#ff7800",
+      "#ffffff",
+      "#565757",
+      "#50efd5",
+      "#c64600",
+      "#95bcff",
+      "#ffc182",
+      "#c5ea92",
+      "#ffbe6f",
+      "#ffffff"
+    ],
+    "border": "#4a3127",
+    "border_active": [
+      "#4a3127",
+      "#826e64"
+    ],
+    "border_inactive": [
+      "#3b2016",
+      "#33180e"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3b2016",
+        "#624a40"
+      ],
+      "bar_inactive": [
+        "#371c12",
+        "#31150b"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-yellow-orange",
+    "name": "Neuronix Yellow-Orange",
+    "foreground": "#ebe4d6",
+    "background": "#271401",
+    "palette": [
+      "#271401",
+      "#50e4ef",
+      "#da2284",
+      "#9b67db",
+      "#ffde82",
+      "#b0ea92",
+      "#c72137",
+      "#ffffff",
+      "#565757",
+      "#50e4ef",
+      "#da2284",
+      "#95a3ff",
+      "#ffde82",
+      "#b0ea92",
+      "#db7f8b",
+      "#ffffff"
+    ],
+    "border": "#4a3927",
+    "border_active": [
+      "#4a3927",
+      "#827564"
+    ],
+    "border_inactive": [
+      "#3b2916",
+      "#33210e"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3b2916",
+        "#625240"
+      ],
+      "bar_inactive": [
+        "#372512",
+        "#311e0b"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-yellow",
+    "name": "Neuronix Yellow",
+    "foreground": "#ebe9d6",
+    "background": "#271d01",
+    "palette": [
+      "#271d01",
+      "#50beef",
+      "#da2259",
+      "#b667db",
+      "#fffb82",
+      "#9cea92",
+      "#c73221",
+      "#ffffff",
+      "#565757",
+      "#50beef",
+      "#da2259",
+      "#9f95ff",
+      "#fffb82",
+      "#9cea92",
+      "#db887f",
+      "#ffffff"
+    ],
+    "border": "#4a4127",
+    "border_active": [
+      "#4a4127",
+      "#827c64"
+    ],
+    "border_inactive": [
+      "#3b3216",
+      "#332a0e"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3b3216",
+        "#625a40"
+      ],
+      "bar_inactive": [
+        "#372e12",
+        "#31270b"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-yellow-green",
+    "name": "Neuronix Yellow-Green",
+    "foreground": "#e0ebd6",
+    "background": "#1a2701",
+    "palette": [
+      "#1a2701",
+      "#505cef",
+      "#da5c22",
+      "#db67b8",
+      "#b6ff82",
+      "#92eabe",
+      "#c79821",
+      "#ffffff",
+      "#565657",
+      "#505cef",
+      "#da5c22",
+      "#e195ff",
+      "#b6ff82",
+      "#92eabe",
+      "#dbc17f",
+      "#ffffff"
+    ],
+    "border": "#3d4a27",
+    "border_active": [
+      "#3d4a27",
+      "#768264"
+    ],
+    "border_inactive": [
+      "#2e3b16",
+      "#26330e"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#2e3b16",
+        "#556240"
+      ],
+      "bar_inactive": [
+        "#2a3712",
+        "#24310b"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-green",
+    "name": "Neuronix Green",
+    "foreground": "#d6ebdc",
+    "background": "#012704",
+    "palette": [
+      "#012704",
+      "#b950ef",
+      "#d0da22",
+      "#db6c67",
+      "#82ffaa",
+      "#92d4ea",
+      "#7bc721",
+      "#ffffff",
+      "#575657",
+      "#b950ef",
+      "#d0da22",
+      "#ff95cf",
+      "#82ffaa",
+      "#92d4ea",
+      "#b1db7f",
+      "#ffffff"
+    ],
+    "border": "#274a2b",
+    "border_active": [
+      "#274a2b",
+      "#648268"
+    ],
+    "border_inactive": [
+      "#163b1a",
+      "#0e3312"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#163b1a",
+        "#406244"
+      ],
+      "bar_inactive": [
+        "#123716",
+        "#0b310e"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-teal",
+    "name": "Neuronix Teal",
+    "foreground": "#d6ebea",
+    "background": "#01271e",
+    "palette": [
+      "#01271e",
+      "#ef50b9",
+      "#53da22",
+      "#dbba67",
+      "#82ffff",
+      "#9299ea",
+      "#21c737",
+      "#ffffff",
+      "#575657",
+      "#ef50b9",
+      "#53da22",
+      "#ffa395",
+      "#82ffff",
+      "#9299ea",
+      "#7fdb8c",
+      "#ffffff"
+    ],
+    "border": "#274a42",
+    "border_active": [
+      "#274a42",
+      "#64827d"
+    ],
+    "border_inactive": [
+      "#163b33",
+      "#0e332b"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#163b33",
+        "#40625b"
+      ],
+      "bar_inactive": [
+        "#12372f",
+        "#0b3128"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-blue",
+    "name": "Neuronix Blue",
+    "foreground": "#d6deeb",
+    "background": "#011627",
+    "palette": [
+      "#011627",
+      "#ef5350",
+      "#22da6e",
+      "#addb67",
+      "#82aaff",
+      "#c792ea",
+      "#21c7a8",
+      "#ffffff",
+      "#575656",
+      "#ef5350",
+      "#22da6e",
+      "#ffeb95",
+      "#82aaff",
+      "#c792ea",
+      "#7fdbca",
+      "#ffffff"
+    ],
+    "border": "#273a4a",
+    "border_active": [
+      "#273a4a",
+      "#647382"
+    ],
+    "border_inactive": [
+      "#162a3b",
+      "#0e2233"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#162a3b",
+        "#405262"
+      ],
+      "bar_inactive": [
+        "#122637",
+        "#0b2031"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-indigo",
+    "name": "Neuronix Indigo",
+    "foreground": "#dad6eb",
+    "background": "#020127",
+    "palette": [
+      "#020127",
+      "#efaf50",
+      "#22dad9",
+      "#6adb67",
+      "#a282ff",
+      "#ea92da",
+      "#2186c7",
+      "#ffffff",
+      "#575756",
+      "#efaf50",
+      "#22dad9",
+      "#d6ff95",
+      "#a282ff",
+      "#ea92da",
+      "#7fb7db",
+      "#ffffff"
+    ],
+    "border": "#28274a",
+    "border_active": [
+      "#28274a",
+      "#666482"
+    ],
+    "border_inactive": [
+      "#17163b",
+      "#0f0e33"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#17163b",
+        "#424062"
+      ],
+      "bar_inactive": [
+        "#131237",
+        "#0c0b31"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-purple",
+    "name": "Neuronix Purple",
+    "foreground": "#e6d6eb",
+    "background": "#180127",
+    "palette": [
+      "#180127",
+      "#d3ef50",
+      "#2271da",
+      "#67dba8",
+      "#eb82ff",
+      "#ea92a7",
+      "#2125c7",
+      "#ffffff",
+      "#575756",
+      "#d3ef50",
+      "#2271da",
+      "#98ff95",
+      "#eb82ff",
+      "#ea92a7",
+      "#7f81db",
+      "#ffffff"
+    ],
+    "border": "#3d274a",
+    "border_active": [
+      "#3d274a",
+      "#786482"
+    ],
+    "border_inactive": [
+      "#2d163b",
+      "#250e33"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#2d163b",
+        "#554062"
+      ],
+      "bar_inactive": [
+        "#291237",
+        "#220b31"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-magenta",
+    "name": "Neuronix Magenta",
+    "foreground": "#ebd6e4",
+    "background": "#270120",
+    "palette": [
+      "#270120",
+      "#77ef50",
+      "#3e22da",
+      "#67ccdb",
+      "#ff82cb",
+      "#eab092",
+      "#7c21c7",
+      "#ffffff",
+      "#565756",
+      "#77ef50",
+      "#3e22da",
+      "#95ffcf",
+      "#ff82cb",
+      "#eab092",
+      "#b27fdb",
+      "#ffffff"
+    ],
+    "border": "#4a2743",
+    "border_active": [
+      "#4a2743",
+      "#82647b"
+    ],
+    "border_inactive": [
+      "#3b1634",
+      "#330e2c"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3b1634",
+        "#62405b"
+      ],
+      "bar_inactive": [
+        "#371230",
+        "#310b2a"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-brown",
+    "name": "Neuronix Brown",
+    "foreground": "#d5c2b5",
+    "background": "#581e0c",
+    "palette": [
+      "#581e0c",
+      "#51dcc1",
+      "#c835ab",
+      "#7765cb",
+      "#efaa6e",
+      "#b6d980",
+      "#bb336a",
+      "#dbdbdb",
+      "#626262",
+      "#51dcc1",
+      "#c835ab",
+      "#7aaaf0",
+      "#efaa6e",
+      "#b6d980",
+      "#cb7698",
+      "#dbdbdb"
+    ],
+    "border": "#5f4339",
+    "border_active": [
+      "#5f4339",
+      "#83716a"
+    ],
+    "border_inactive": [
+      "#593529",
+      "#562d20"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#593529",
+        "#6e564e"
+      ],
+      "bar_inactive": [
+        "#573125",
+        "#562a1c"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-tan",
+    "name": "Neuronix Beige",
+    "foreground": "#483f37",
+    "background": "#f0e3de",
+    "palette": [
+      "#f0e3de",
+      "#509990",
+      "#af719e",
+      "#66588e",
+      "#7c5c37",
+      "#5e7344",
+      "#b47c8f",
+      "#262626",
+      "#b0b1b1",
+      "#509990",
+      "#af719e",
+      "#334771",
+      "#7c5c37",
+      "#5e7344",
+      "#805362",
+      "#262626"
+    ],
+    "border": "#cfc7c3",
+    "border_active": [
+      "#cfc7c3",
+      "#9e9894"
+    ],
+    "border_inactive": [
+      "#ddd3cf",
+      "#e4dad5"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#ddd3cf",
+        "#bbb3af"
+      ],
+      "bar_inactive": [
+        "#e1d7d2",
+        "#e7dcd7"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-white",
+    "name": "Neuronix White",
+    "foreground": "#3e3f41",
+    "background": "#e6e7e8",
+    "palette": [
+      "#e6e7e8",
+      "#7a6f6f",
+      "#8b958f",
+      "#74786f",
+      "#54585f",
+      "#5c585f",
+      "#949d9b",
+      "#262626",
+      "#b0b0b0",
+      "#7a6f6f",
+      "#8b958f",
+      "#57554d",
+      "#54585f",
+      "#5c585f",
+      "#666d6c",
+      "#262626"
+    ],
+    "border": "#c8c9ca",
+    "border_active": [
+      "#c8c9ca",
+      "#98999a"
+    ],
+    "border_inactive": [
+      "#d5d6d7",
+      "#dcddde"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#d5d6d7",
+        "#b4b5b6"
+      ],
+      "bar_inactive": [
+        "#d8dadb",
+        "#dedfe0"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-gray",
+    "name": "Neuronix Gray",
+    "foreground": "#e0e0e0",
+    "background": "#141414",
+    "palette": [
+      "#141414",
+      "#a0a0a0",
+      "#7e7e7e",
+      "#a1a1a1",
+      "#c0c0c0",
+      "#bebebe",
+      "#747474",
+      "#ffffff",
+      "#565656",
+      "#a0a0a0",
+      "#7e7e7e",
+      "#cacaca",
+      "#c0c0c0",
+      "#bebebe",
+      "#adadad",
+      "#ffffff"
+    ],
+    "border": "#393939",
+    "border_active": [
+      "#393939",
+      "#737373"
+    ],
+    "border_inactive": [
+      "#282828",
+      "#202020"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#282828",
+        "#515151"
+      ],
+      "bar_inactive": [
+        "#242424",
+        "#1e1e1e"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-neuronix-black",
+    "name": "Neuronix Black",
+    "foreground": "#cccccc",
+    "background": "#060606",
+    "palette": [
+      "#060606",
+      "#a9a9a9",
+      "#282828",
+      "#aaaaaa",
+      "#bbbbbb",
+      "#b9b9b9",
+      "#252525",
+      "#dddddd",
+      "#1c1c1c",
+      "#a9a9a9",
+      "#282828",
+      "#c0c0c0",
+      "#bbbbbb",
+      "#b9b9b9",
+      "#b0b0b0",
+      "#dddddd"
+    ],
+    "border": "#121212",
+    "border_active": [
+      "#121212",
+      "#252525"
+    ],
+    "border_inactive": [
+      "#0d0d0d",
+      "#0a0a0a"
+    ],
+    "chrome": {
+      "border_size": 1,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#0d0d0d",
+        "#1a1a1a"
+      ],
+      "bar_inactive": [
+        "#0c0c0c",
+        "#0a0a0a"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-monokai",
+    "name": "Monokai",
+    "foreground": "#f8f8f2",
+    "background": "#272822",
+    "palette": [
+      "#272822",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#66d9ef",
+      "#ae81ff",
+      "#a1efe4",
+      "#f8f8f2",
+      "#75715e",
+      "#f92672",
+      "#a6e22e",
+      "#f4bf75",
+      "#66d9ef",
+      "#ae81ff",
+      "#a1efe4",
+      "#f9f8f5"
+    ],
+    "border": "#4d4d47",
+    "border_active": [
+      "#4d4d47",
+      "#898983"
+    ],
+    "border_inactive": [
+      "#3c3d37",
+      "#34352f"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#3c3d37",
+        "#656660"
+      ],
+      "bar_inactive": [
+        "#383933",
+        "#31322c"
+      ],
+      "buttons": {
+        "size": 18,
+        "kit": "gnome",
+        "minimize": "−",
+        "maximize": "□",
+        "close": "×"
+      }
+    }
+  },
+  {
+    "id": "custom-night-owl-2",
+    "name": "Night Owl",
+    "foreground": "#d6deeb",
+    "background": "#011627",
+    "palette": [
+      "#011627",
+      "#ef5350",
+      "#22da6e",
+      "#addb67",
+      "#82aaff",
+      "#c792ea",
+      "#21c7a8",
+      "#ffffff",
+      "#575656",
+      "#ef5350",
+      "#22da6e",
+      "#ffeb95",
+      "#82aaff",
+      "#c792ea",
+      "#7fdbca",
+      "#ffffff"
+    ],
+    "border": "#273a4a",
+    "border_active": [
+      "#273a4a",
+      "#647382"
+    ],
+    "border_inactive": [
+      "#162a3b",
+      "#0e2233"
+    ],
+    "chrome": {
+      "border_size": 3,
+      "rounding": 8,
+      "bevel": "flat",
+      "gradient": "rtl",
+      "bar": [
+        "#162a3b",
+        "#405262"
+      ],
+      "bar_inactive": [
+        "#122637",
+        "#0b2031"
       ],
       "buttons": {
         "size": 18,

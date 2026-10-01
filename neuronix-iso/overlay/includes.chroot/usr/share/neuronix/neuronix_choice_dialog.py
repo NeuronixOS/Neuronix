@@ -214,24 +214,38 @@ box.neuronix-sep {{
 label.neuronix-title {{
   color: {fg};
   font-family: Sans;
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 22px;
+  font-weight: 600;
+}}
+label.neuronix-heading {{
+  color: {hint};
+  font-family: Sans;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 12px;
+  margin-bottom: 2px;
 }}
 label.neuronix-subtitle {{
-  color: {fg};
+  color: {hint};
   font-family: Sans;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 400;
+}}
+label a {{
+  color: {accent};
+}}
+label a:hover {{
+  color: {fg};
 }}
 button.neuronix-tile {{
   background-color: transparent;
   background-image: none;
   color: {fg};
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   box-shadow: none;
   outline: none;
-  padding: 4px 8px;
+  padding: 8px 10px;
   margin: 0;
   min-height: 0;
 }}
@@ -249,8 +263,8 @@ button.neuronix-tile:hover label.neuronix-chevron {{
 button.neuronix-tile label.neuronix-row-title {{
   color: {fg};
   font-family: Sans;
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 15px;
+  font-weight: 500;
 }}
 button.neuronix-tile label.neuronix-row-desc {{
   color: {hint};
@@ -290,14 +304,14 @@ button.neuronix-xclose:hover {{
 label.neuronix-body {{
   color: {fg};
   font-family: Sans;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 400;
 }}
 entry.neuronix-entry, entry {{
   background-color: {tile};
   color: {fg};
   font-family: Sans;
-  font-size: 16px;
+  font-size: 11px;
   border: 1px solid {border};
   border-radius: 0;
   padding: 4px 8px;
@@ -331,9 +345,9 @@ list.neuronix-list, listbox.neuronix-list {{
 }}
 row.neuronix-list-row {{
   background-color: transparent;
-  border-radius: 0;
-  padding: 4px 8px;
-  margin: 0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin: 1px 0;
   min-height: 0;
   border: none;
 }}
@@ -352,14 +366,14 @@ row.neuronix-list-row.current:not(:selected) {{
 row.neuronix-list-row label {{
   color: {fg};
   font-family: Sans;
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 13px;
+  font-weight: 500;
 }}
 row.neuronix-list-row label.neuronix-row-title {{
   color: {fg};
   font-family: Sans;
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 13px;
+  font-weight: 500;
 }}
 row.neuronix-list-row label.neuronix-row-desc {{
   color: {hint};
@@ -388,12 +402,34 @@ row.neuronix-list-row:selected:hover label.neuronix-row-title {{
 row.neuronix-list-row:selected:hover label.neuronix-row-desc {{
   color: {hint};
 }}
+scrolledwindow.neuronix-list-frame label,
+scrolledwindow.neuronix-list-frame row.neuronix-list-row label,
+scrolledwindow.neuronix-list-frame row.neuronix-list-row label.neuronix-row-title,
+scrolledwindow.neuronix-well label,
+scrolledwindow.neuronix-well row.neuronix-list-row label,
+scrolledwindow.neuronix-well row.neuronix-list-row label.neuronix-row-title,
+scrolledwindow.neuronix-scroll label {{
+  color: {fg};
+  font-family: Sans;
+  font-size: 11px;
+  font-weight: 400;
+}}
+scrolledwindow.neuronix-list-frame label.neuronix-row-desc,
+scrolledwindow.neuronix-list-frame row.neuronix-list-row label.neuronix-row-desc,
+scrolledwindow.neuronix-well label.neuronix-row-desc,
+scrolledwindow.neuronix-well row.neuronix-list-row label.neuronix-row-desc,
+scrolledwindow.neuronix-scroll label.neuronix-row-desc {{
+  color: {hint};
+  font-family: Sans;
+  font-size: 10px;
+  font-weight: 400;
+}}
 textview.neuronix-text, textview.neuronix-text text {{
   background-color: transparent;
   background-image: none;
   color: {fg};
   font-family: Sans;
-  font-size: 16px;
+  font-size: 11px;
   border-radius: 0;
   padding: 4px 2px;
 }}
@@ -408,10 +444,10 @@ button.neuronix-toggle-off {{
   border-radius: 8px;
   box-shadow: none;
   outline: none;
-  padding: 4px 12px;
+  padding: 6px 12px;
   font-family: Sans;
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 13px;
+  font-weight: 500;
   min-height: 0;
 }}
 button.neuronix-primary:hover,
@@ -509,8 +545,8 @@ scale.neuronix-scale slider {{
 label.neuronix-pct {{
   color: {fg};
   font-family: Sans;
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 14px;
+  font-weight: 500;
   min-width: 40px;
 }}
 """
@@ -1767,7 +1803,7 @@ def make_text_page(body: str, *, monospace: bool = False) -> Gtk.Widget:
         pass
     if monospace:
         try:
-            view.override_font(Pango.FontDescription("Sans 16"))
+            view.override_font(Pango.FontDescription("monospace 11"))
         except Exception:
             pass
     scroll = Gtk.ScrolledWindow()
@@ -1958,6 +1994,34 @@ def attach_drill(
     return {"on_key": _on_key, "selected": selected}
 
 
+def attach_page(
+    parent: Gtk.Box,
+    title: str,
+    widget: Gtk.Widget,
+    *,
+    on_quit: Callable[[], None],
+) -> Dict[str, object]:
+    """Fill the right column with one settings page."""
+    title_lbl = Gtk.Label(label=title, xalign=0.0)
+    title_lbl.get_style_context().add_class("neuronix-title")
+    pack_title_with_close(parent, title_lbl, on_quit)
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.get_style_context().add_class("neuronix-clear")
+    scroll.set_hexpand(True)
+    scroll.set_vexpand(True)
+    scroll.add(widget)
+    parent.pack_start(scroll, True, True, 0)
+
+    def _on_key(_w, event):
+        if event.keyval != Gdk.KEY_Escape:
+            return False
+        on_quit()
+        return True
+
+    return {"on_key": _on_key}
+
+
 class HubSection:
     """One entry in the combined settings window."""
 
@@ -1966,12 +2030,16 @@ class HubSection:
         section_id: str,
         label: str,
         icon: str,
-        build: Callable[[], Tuple[str, Sequence[DrillItem], Optional[str]]],
+        build: Optional[Callable[[], Tuple[str, Sequence[DrillItem], Optional[str]]]] = None,
+        page: Optional[Callable[[], Gtk.Widget]] = None,
     ) -> None:
+        if build is None and page is None:
+            raise ValueError(f"section {section_id} needs a menu or a page")
         self.id = section_id
         self.label = label
         self.icon = icon
         self.build = build
+        self.page = page
 
 
 class HubAction:
@@ -2088,8 +2156,8 @@ def show_hub(
     if initial_id not in by_id and catalog:
         initial_id = catalog[0].id
 
-    nav_w = 210
-    content_w = 480
+    nav_w = 220
+    content_w = 720
     panel_w = nav_w + content_w + 72
 
     win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
@@ -2113,10 +2181,19 @@ def show_hub(
     body.set_vexpand(True)
     outer.pack_start(body, True, True, 0)
 
+    nav_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    nav_col.set_size_request(nav_w, -1)
+    nav_col.set_vexpand(True)
+    body.pack_start(nav_col, False, False, 0)
+
+    nav_scroll = Gtk.ScrolledWindow()
+    nav_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    nav_scroll.set_vexpand(True)
+    nav_scroll.get_style_context().add_class("neuronix-clear")
     nav = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
     nav.set_size_request(nav_w, -1)
-    nav.set_vexpand(True)
-    body.pack_start(nav, False, False, 0)
+    nav_scroll.add(nav)
+    nav_col.pack_start(nav_scroll, True, True, 0)
 
     sep = Gtk.Box()
     sep.set_size_request(1, -1)
@@ -2130,11 +2207,7 @@ def show_hub(
     right.set_vexpand(True)
     body.pack_start(right, True, True, 0)
 
-    panel_h = 500
-    for section in catalog:
-        subtitle, items, _preset = section.build()
-        panel_h = max(panel_h, _section_window_height(len(list(items)), subtitle or ""))
-    panel_h = max(panel_h, 36 + (len(catalog) + len(actions)) * 56)
+    panel_h = 700
     size = {"h": panel_h}
     buttons: Dict[str, Gtk.Button] = {}
 
@@ -2172,20 +2245,22 @@ def show_hub(
         for child in list(right.get_children()):
             right.remove(child)
             child.destroy()
-        subtitle, items, preset = section.build()
-        if drill_id:
-            preset = drill_id
-        rows = list(items)
         win.set_title(section.label)
-        state = attach_drill(
-            right,
-            section.label,
-            rows,
-            subtitle=subtitle or "",
-            initial=preset,
-            on_quit=_quit,
-            on_change=_lock_size,
-        )
+        if section.page is not None:
+            state = attach_page(right, section.label, section.page(), on_quit=_quit)
+        else:
+            subtitle, items, preset = section.build()
+            if drill_id:
+                preset = drill_id
+            state = attach_drill(
+                right,
+                section.label,
+                list(items),
+                subtitle=subtitle or "",
+                initial=preset,
+                on_quit=_quit,
+                on_change=_lock_size,
+            )
         win._neuronix_key = state["on_key"]  # type: ignore[attr-defined]
         _lock_size()
         right.show_all()
@@ -2196,7 +2271,12 @@ def show_hub(
             return handler(widget, event)
         return False
 
-    for section in catalog:
+    nav_sections = sorted(
+        (section for section in catalog if section.id != "about"),
+        key=lambda section: section.label.casefold(),
+    )
+    nav_sections.extend(section for section in catalog if section.id == "about")
+    for section in nav_sections:
         btn = _make_tile(
             section.id,
             section.label,
@@ -2205,20 +2285,19 @@ def show_hub(
             show_chevron=False,
             icon=section.icon,
         )
+        if section.id == "about":
+            btn.set_margin_top(28)
         buttons[section.id] = btn
         nav.pack_start(btn, False, False, 0)
 
     if actions:
-        spacer = Gtk.Box()
-        spacer.set_vexpand(True)
-        nav.pack_start(spacer, True, True, 0)
         for action in actions:
             def _run(item_id: str, act: HubAction = action) -> None:
                 _ = item_id
                 act.run()
                 _quit()
 
-            nav.pack_start(
+            nav_col.pack_start(
                 _make_tile(action.id, action.label, "", _run, show_chevron=False, icon=action.icon),
                 False,
                 False,

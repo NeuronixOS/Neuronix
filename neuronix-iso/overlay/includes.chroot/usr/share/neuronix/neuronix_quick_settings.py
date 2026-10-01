@@ -204,7 +204,7 @@ def pack_sound_controls(
     outer.pack_start(mute_btn, False, False, 0)
 
     devices_lbl = Gtk.Label(label="Output device", xalign=0.0)
-    devices_lbl.get_style_context().add_class("neuronix-subtitle")
+    devices_lbl.get_style_context().add_class("neuronix-heading")
     outer.pack_start(devices_lbl, False, False, 0)
 
     listbox = Gtk.ListBox()
@@ -758,8 +758,8 @@ def pack_network_controls(
     wifi_btn.connect("clicked", _toggle_wifi)
     outer.pack_start(wifi_btn, False, False, 0)
 
-    nets_lbl = Gtk.Label(label="Wi-Fi networks", xalign=0.0)
-    nets_lbl.get_style_context().add_class("neuronix-subtitle")
+    nets_lbl = Gtk.Label(label="Available networks", xalign=0.0)
+    nets_lbl.get_style_context().add_class("neuronix-heading")
     outer.pack_start(nets_lbl, False, False, 0)
 
     inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -1416,6 +1416,7 @@ def pack_cpu_controls(
     quit_on_advanced: bool = True,
     compact: bool = False,
     include_btop: bool = True,
+    framed: bool = True,
 ) -> None:
     """Embed CPU stats into an existing container."""
     usage = _cpu_usage_pct()
@@ -1423,16 +1424,30 @@ def pack_cpu_controls(
     cores = _cpu_count()
     model = _cpu_model()
 
-    model_lbl = Gtk.Label(label=model[:72], xalign=0.0)
-    model_lbl.get_style_context().add_class("neuronix-subtitle")
-    model_lbl.set_line_wrap(True)
-    outer.pack_start(model_lbl, False, False, 0)
-
-    listbox = Gtk.ListBox()
-    listbox.set_selection_mode(Gtk.SelectionMode.NONE)
-    listbox.get_style_context().add_class("neuronix-list")
+    if framed:
+        model_lbl = Gtk.Label(label=model[:72], xalign=0.0)
+        model_lbl.get_style_context().add_class("neuronix-subtitle")
+        model_lbl.set_line_wrap(True)
+        outer.pack_start(model_lbl, False, False, 0)
+        listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.get_style_context().add_class("neuronix-list")
+    else:
+        listbox = None
 
     def _add(title: str, value: str) -> None:
+        if not framed:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            name = Gtk.Label(label=title, xalign=0.0)
+            name.set_width_chars(16)
+            name.get_style_context().add_class("neuronix-row-title")
+            val = Gtk.Label(label=value, xalign=0.0)
+            val.set_line_wrap(True)
+            val.get_style_context().add_class("neuronix-subtitle")
+            row.pack_start(name, False, False, 0)
+            row.pack_start(val, True, True, 0)
+            outer.pack_start(row, False, False, 0)
+            return
         row = Gtk.ListBoxRow()
         row.set_selectable(False)
         row.set_activatable(False)
@@ -1462,13 +1477,14 @@ def pack_cpu_controls(
     except Exception:
         pass
 
-    scroll = Gtk.ScrolledWindow()
-    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-    scroll.get_style_context().add_class("neuronix-list-frame")
-    scroll.set_size_request(-1, 120 if compact else 140)
-    scroll.set_vexpand(not compact)
-    scroll.add(listbox)
-    outer.pack_start(scroll, not compact, not compact, 0)
+    if framed:
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.get_style_context().add_class("neuronix-list-frame")
+        scroll.set_size_request(-1, 120 if compact else 140)
+        scroll.set_vexpand(not compact)
+        scroll.add(listbox)
+        outer.pack_start(scroll, not compact, not compact, 0)
 
     if include_btop:
         btop_btn = Gtk.Button(label="Open btop…")
@@ -1507,6 +1523,7 @@ def pack_memory_controls(
     quit_on_advanced: bool = True,
     compact: bool = False,
     include_btop: bool = True,
+    framed: bool = True,
 ) -> None:
     """Embed Memory stats into an existing container."""
     info = _meminfo()
@@ -1518,18 +1535,32 @@ def pack_memory_controls(
     swap_f = float(info.get("SwapFree", 0))
     swap_u = max(0.0, swap_t - swap_f)
 
-    summary = Gtk.Label(
-        label=f"{_fmt_gib(used)} used of {_fmt_gib(total)}",
-        xalign=0.0,
-    )
-    summary.get_style_context().add_class("neuronix-subtitle")
-    outer.pack_start(summary, False, False, 0)
-
-    listbox = Gtk.ListBox()
-    listbox.set_selection_mode(Gtk.SelectionMode.NONE)
-    listbox.get_style_context().add_class("neuronix-list")
+    if framed:
+        summary = Gtk.Label(
+            label=f"{_fmt_gib(used)} used of {_fmt_gib(total)}",
+            xalign=0.0,
+        )
+        summary.get_style_context().add_class("neuronix-subtitle")
+        outer.pack_start(summary, False, False, 0)
+        listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.get_style_context().add_class("neuronix-list")
+    else:
+        listbox = None
 
     def _add(title: str, value: str) -> None:
+        if not framed:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            name = Gtk.Label(label=title, xalign=0.0)
+            name.set_width_chars(16)
+            name.get_style_context().add_class("neuronix-row-title")
+            val = Gtk.Label(label=value, xalign=0.0)
+            val.set_line_wrap(True)
+            val.get_style_context().add_class("neuronix-subtitle")
+            row.pack_start(name, False, False, 0)
+            row.pack_start(val, True, True, 0)
+            outer.pack_start(row, False, False, 0)
+            return
         row = Gtk.ListBoxRow()
         row.set_selectable(False)
         row.set_activatable(False)
@@ -1555,13 +1586,14 @@ def pack_memory_controls(
     cached = float(info.get("Cached", 0)) + float(info.get("Buffers", 0))
     _add("Buffers / cache", _fmt_gib(cached))
 
-    scroll = Gtk.ScrolledWindow()
-    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-    scroll.get_style_context().add_class("neuronix-list-frame")
-    scroll.set_size_request(-1, 120 if compact else 140)
-    scroll.set_vexpand(not compact)
-    scroll.add(listbox)
-    outer.pack_start(scroll, not compact, not compact, 0)
+    if framed:
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.get_style_context().add_class("neuronix-list-frame")
+        scroll.set_size_request(-1, 120 if compact else 140)
+        scroll.set_vexpand(not compact)
+        scroll.add(listbox)
+        outer.pack_start(scroll, not compact, not compact, 0)
 
     if include_btop:
         btop_btn = Gtk.Button(label="Open btop…")

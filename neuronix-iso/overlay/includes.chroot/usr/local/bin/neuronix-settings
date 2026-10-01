@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Combined Waybar settings window. The clicked section opens on the right."""
+"""Waybar settings window. Every Settings page opens here."""
 from __future__ import annotations
 
 import os
@@ -8,11 +8,15 @@ import sys
 os.environ.setdefault("XDG_CURRENT_DESKTOP", "Hyprland")
 
 share = os.path.expanduser("~/.local/share/neuronix")
-sys.path.insert(0, "/usr/share/neuronix")
+here = os.path.dirname(os.path.realpath(__file__))
+# Installed Neuronix modules win. A checkout next to this script still works.
 sys.path.insert(0, share)
+sys.path.insert(0, here)
+sys.path.insert(0, "/usr/share/neuronix")
 
-from neuronix_choice_dialog import HubAction, HubSection, show_hub  # noqa: E402
+from neuronix_choice_dialog import HubSection, show_hub  # noqa: E402
 import neuronix_quick_settings as quick  # noqa: E402
+import neuronix_settings_pages as pages  # noqa: E402
 
 
 def _load(path: str, name: str) -> dict:
@@ -25,7 +29,6 @@ def _load(path: str, name: str) -> dict:
 def _sibling_script(name: str) -> str:
     """User copy, this file's directory, then the system bin."""
     me = os.path.realpath(__file__)
-    here = os.path.dirname(me)
     for path in (
         os.path.join(os.path.expanduser("~/.local/bin"), name),
         os.path.join(here, name),
@@ -62,42 +65,51 @@ def main() -> int:
 
     def _clock():
         subtitle, items = clock["datetime_items"]()
-        return subtitle, items, None
+        return subtitle, items, "calendar"
 
     sections = [
+        HubSection("wifi", "Wi-Fi", "network-wireless", page=pages.wifi_page),
+        HubSection("ethernet", "Ethernet", "network-wired", page=pages.ethernet_page),
+        HubSection("bluetooth", "Bluetooth", "bluetooth", page=pages.bluetooth_page),
+        HubSection("displays", "Displays", "video-display", page=pages.displays_page),
+        HubSection("sound", "Sound", "audio-volume-high", page=pages.sound_page),
+        HubSection("apps", "Apps", "preferences-desktop-default-applications", page=pages.apps_page),
+        HubSection("themes", "Themes", "preferences-desktop-theme", page=pages.themes_page),
+        HubSection("configs", "Configs", "folder", page=pages.configs_page),
+        HubSection("screensaver", "Screensaver", "preferences-desktop-screensaver", page=pages.screensaver_page),
+        HubSection("system", "System", "preferences-system", page=pages.system_page),
         HubSection("sync", "GTK-Sync", "emblem-synchronizing", _sync),
         HubSection("datetime", "Date & Time", "x-office-calendar", _clock),
-        HubSection("sound", "Sound", "audio-volume-high", lambda: _plain(quick.sound_items())),
-        HubSection("network", "Network", "network-wireless", lambda: _plain(quick.network_items())),
-        HubSection("cpu", "CPU", "cpu", lambda: _plain(quick.cpu_items())),
-        HubSection("memory", "Memory", "dialog-memory", lambda: _plain(quick.memory_items())),
+        HubSection("keyboard", "Keyboard", "input-keyboard", page=pages.keyboard_page),
+        HubSection("about", "About", "help-about", page=pages.about_page),
         HubSection("power", "Power", "system-shutdown", lambda: _plain(quick.power_items())),
     ]
-    section = (sys.argv[1] if len(sys.argv) > 1 else "sound").strip().lower()
+    section = (sys.argv[1] if len(sys.argv) > 1 else "wifi").strip().lower()
     drill = (sys.argv[2] if len(sys.argv) > 2 else "").strip().lower()
     aliases = {
         "volume": "sound",
         "audio": "sound",
         "pulse": "sound",
-        "wifi": "network",
-        "nm": "network",
-        "ram": "memory",
-        "mem": "memory",
+        "network": "wifi",
+        "nm": "wifi",
+        "cpu": "system",
+        "battery": "system",
+        "memory": "system",
+        "ram": "system",
+        "mem": "system",
         "session": "power",
         "calendar": "datetime",
         "clock": "datetime",
+        "gtk-sync": "sync",
+        "gtksync": "sync",
+        "theme": "themes",
+        "appearance": "themes",
+        "config": "configs",
+        "idle": "screensaver",
+        "date-time": "datetime",
     }
     section = aliases.get(section, section)
-
-    def _open(cmd: str) -> None:
-        exe = quick._which(cmd) or cmd
-        quick._launch_detached([exe])
-
-    footer = [
-        HubAction("themes", "Themes", "preferences-desktop-theme", lambda: _open("gtk-theme-editor")),
-        HubAction("all-settings", "All settings", "preferences-system", lambda: _open("hypr-settings")),
-    ]
-    show_hub(sections, section, drill, footer)
+    show_hub(sections, section, drill)
     return 0
 
 

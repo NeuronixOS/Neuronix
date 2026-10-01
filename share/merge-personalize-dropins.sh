@@ -479,23 +479,18 @@ PY
 		_info "  usr/local/bin/$src_helper"
 	done
 
-	# Centered Waybar dialogs. configs/neuronix is the live source; the overlay
-	# copies stay for a stock image. Skip neuronix-waybar-click here: that file
-	# is a home wrapper that execs /usr/local/bin/neuronix-waybar-click.
+	# Date, btop, and GTK-Sync can still come from personalize configs.
+	# The settings window (neuronix-settings and its Python modules) belongs
+	# to this Neuronix tree and is not overwritten from KvNix.
+	# Skip neuronix-waybar-click: that file is a home wrapper.
 	if [[ -d "$dest/neuronix" ]]; then
 		mkdir -p "$INCLUDES/usr/local/bin" "$INCLUDES/usr/share/neuronix"
-		local nx_bin nx_lib
-		for nx_bin in neuronix-settings neuronix-datetime neuronix-btop gtk-sync-menu; do
+		local nx_bin
+		for nx_bin in neuronix-datetime neuronix-btop gtk-sync-menu; do
 			[[ -f "$dest/neuronix/$nx_bin" ]] || continue
 			cp -a "$dest/neuronix/$nx_bin" "$INCLUDES/usr/local/bin/$nx_bin"
 			chmod 0755 "$INCLUDES/usr/local/bin/$nx_bin"
 			_info "  usr/local/bin/$nx_bin"
-		done
-		for nx_lib in neuronix_choice_dialog.py neuronix_quick_settings.py; do
-			[[ -f "$dest/neuronix/$nx_lib" ]] || continue
-			cp -a "$dest/neuronix/$nx_lib" "$INCLUDES/usr/share/neuronix/$nx_lib"
-			chmod 0644 "$INCLUDES/usr/share/neuronix/$nx_lib"
-			_info "  usr/share/neuronix/$nx_lib"
 		done
 	fi
 

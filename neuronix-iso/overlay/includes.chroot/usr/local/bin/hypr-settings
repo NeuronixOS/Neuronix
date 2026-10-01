@@ -1,18 +1,9 @@
 #!/usr/bin/env bash
-# Neuronix hypr-settings launcher
+# The Qt settings app now opens inside the Waybar settings window.
 set -euo pipefail
-APP=/usr/local/lib/neuronix/hypr-settings
-# Suite theme module (Profile menu / theme.toml)
-for _theme in \
-	/usr/share/neuronix/gtk-theme/python \
-	/usr/local/lib/neuronix/gtk-apps/gtk-theme/python; do
-	if [[ -f "$_theme/gtk_theme.py" ]]; then
-		export PYTHONPATH="${_theme}${PYTHONPATH:+:$PYTHONPATH}"
-		break
-	fi
-done
-# GTK3 Qt platform theme paints item-view text black; Fusion + our palette.
-export QT_STYLE_OVERRIDE=Fusion
-unset QT_QPA_PLATFORMTHEME
-cd "$APP"
-exec /usr/bin/python3 "$APP/main.py" "$@"
+arg="${1:-}"
+arg="${arg#--}"
+if [[ -n "$arg" ]]; then
+	exec neuronix-settings "$arg"
+fi
+exec neuronix-settings

@@ -78,20 +78,14 @@ install_app() {
 
 	cat >"${wrapper}" <<'EOF'
 #!/usr/bin/env bash
-# Neuronix hypr-settings launcher
+# The Qt settings app now opens inside the Waybar settings window.
 set -euo pipefail
-APP=/usr/local/lib/neuronix/hypr-settings
-# Suite theme module (Profile menu / theme.toml)
-for _theme in \
-	/usr/share/neuronix/gtk-theme/python \
-	/usr/local/lib/neuronix/gtk-apps/gtk-theme/python; do
-	if [[ -f "$_theme/gtk_theme.py" ]]; then
-		export PYTHONPATH="${_theme}${PYTHONPATH:+:$PYTHONPATH}"
-		break
-	fi
-done
-cd "$APP"
-exec /usr/bin/python3 "$APP/main.py" "$@"
+arg="${1:-}"
+arg="${arg#--}"
+if [[ -n "$arg" ]]; then
+	exec neuronix-settings "$arg"
+fi
+exec neuronix-settings
 EOF
 	chmod 0755 "${wrapper}"
 
@@ -101,13 +95,13 @@ Type=Application
 Name=Settings
 GenericName=System Settings
 Comment=Wi‑Fi, Bluetooth, Displays, Sound, Themes, Configs, and more for Hyprland
-Exec=hypr-settings
+Exec=neuronix-settings
 Icon=preferences-system
 Terminal=false
 Categories=Settings;DesktopSettings;System;
 Keywords=settings;wifi;bluetooth;display;sound;themes;appearance;configs;hyprland;
 StartupNotify=true
-StartupWMClass=hypr-settings
+StartupWMClass=neuronix-choice
 EOF
 	chmod 0644 "${desktop}"
 

@@ -1234,6 +1234,13 @@ def _ask_sudo_password() -> str | None:
     win.set_resizable(False)
     win.get_style_context().add_class("neuronix-choice")
     choice.center_layer_window(win, 440, 230)
+    try:
+        gi.require_version("GtkLayerShell", "0.1")
+        from gi.repository import GtkLayerShell
+
+        GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
+    except Exception:
+        pass
 
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     outer.get_style_context().add_class("neuronix-root")

@@ -317,6 +317,57 @@ entry.neuronix-entry, entry {{
   padding: 4px 8px;
   min-height: 0;
 }}
+window.neuronix-choice combobox button,
+window.neuronix-choice combobox button.combo {{
+  background-color: {tile};
+  background-image: none;
+  color: {fg};
+  border: 1px solid {border};
+  border-radius: 0;
+  box-shadow: none;
+  padding: 4px 8px;
+  min-height: 0;
+  font-family: Sans;
+  font-size: 11px;
+}}
+window.neuronix-choice combobox button:hover {{
+  background-color: {selection};
+  color: {fg};
+}}
+window.neuronix-choice combobox button label,
+window.neuronix-choice combobox button cellview {{
+  color: {fg};
+  background-color: transparent;
+  background-image: none;
+}}
+window.neuronix-choice combobox arrow {{
+  color: {fg};
+  -gtk-icon-source: -gtk-icontheme("pan-down-symbolic");
+  min-width: 16px;
+  min-height: 16px;
+}}
+window.neuronix-choice combobox window.popup,
+window.neuronix-choice combobox window.popup menu,
+window.neuronix-choice combobox window.popup treeview,
+window.neuronix-choice combobox window.popup treeview.view {{
+  background-color: {tile};
+  background-image: none;
+  color: {fg};
+  border: 1px solid {border};
+}}
+window.neuronix-choice combobox menuitem,
+window.neuronix-choice combobox menuitem cellview {{
+  color: {fg};
+  background-color: transparent;
+  background-image: none;
+}}
+window.neuronix-choice combobox menuitem:hover,
+window.neuronix-choice combobox menuitem:selected,
+window.neuronix-choice combobox window.popup treeview:selected,
+window.neuronix-choice combobox window.popup treeview:selected:focus {{
+  background-color: {selection};
+  color: {fg};
+}}
 scrolledwindow.neuronix-scroll,
 scrolledwindow.neuronix-list-frame,
 scrolledwindow.neuronix-well {{
@@ -2217,6 +2268,10 @@ def show_hub(
     def _lock_size() -> None:
         panel_h = int(size["h"])
         center_layer_window(win, panel_w, panel_h)
+        try:
+            GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
+        except Exception:
+            pass
         geom = Gdk.Geometry()
         geom.min_width = panel_w
         geom.max_width = panel_w

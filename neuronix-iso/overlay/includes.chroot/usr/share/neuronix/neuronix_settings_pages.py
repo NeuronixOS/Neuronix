@@ -8,12 +8,13 @@ import os
 import platform
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib, Pango  # noqa: E402
+from gi.repository import Gdk, Gtk, GLib, Pango  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 for _p in (
@@ -782,6 +783,249 @@ def keyboard_page() -> Gtk.Widget:
     apply.connect("clicked", _apply)
     box.pack_start(apply, False, False, 0)
     box.pack_start(msg, False, False, 0)
+    return box
+
+
+_UPDATE = {
+    "running": False,
+    "status": "Installs available package upgrades.",
+    "log": "",
+    "sink": None,
+}
+
+
+def _update_emit(kind: str, text: str) -> None:
+    """Append log text or replace the status line on the open Updates page."""
+    sink = _UPDATE.get("sink")
+
+    def _do(current=sink) -> bool:
+        if _UPDATE.get("sink") is not current or current is None:
+            return False
+        if kind == "log":
+            buf = current["buf"]
+            buf.insert(buf.get_end_iter(), text)
+            current["view"].scroll_to_iter(buf.get_end_iter(), 0.0, False, 0.0, 1.0)
+        elif kind == "status":
+            current["status"].set_text(text)
+        elif kind == "idle":
+            current["button"].set_sensitive(True)
+        return False
+
+    GLib.idle_add(_do)
+
+
+def _run_apt(password: str, argv: list[str]) -> int:
+    cmd = ["sudo", "-k", "-S", "-p", "", "--"]
+    stdbuf = "/usr/bin/stdbuf"
+    if os.path.isfile(stdbuf):
+        cmd.extend([stdbuf, "-oL", "-eL"])
+    cmd.extend(argv)
+    env = os.environ.copy()
+    env["DEBIAN_FRONTEND"] = "noninteractive"
+    env["APT_LISTCHANGES_FRONTEND"] = "none"
+    env["NEEDRESTART_MODE"] = "a"
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            bufsize=1,
+        )
+    except OSError as exc:
+        _update_emit("log", str(exc) + "\n")
+        return 127
+    assert proc.stdin is not None and proc.stdout is not None
+    try:
+        proc.stdin.write(password + "\n")
+        proc.stdin.close()
+    except BrokenPipeError:
+        pass
+    for line in proc.stdout:
+        _UPDATE["log"] += line
+        _update_emit("log", line)
+    return proc.wait()
+
+
+def _update_worker(password: str) -> None:
+    steps = (
+        ("Running apt update…", ["apt", "update"], "sudo apt update"),
+        (
+            "Running apt upgrade…",
+            [
+                "apt",
+                "upgrade",
+                "-y",
+                "-o",
+                "Dpkg::Options::=--force-confdef",
+                "-o",
+                "Dpkg::Options::=--force-confold",
+            ],
+            "sudo apt upgrade -y",
+        ),
+    )
+    ok = True
+    for status, argv, shown in steps:
+        _UPDATE["status"] = status
+        _update_emit("status", status)
+        header = f"$ {shown}\n"
+        _UPDATE["log"] += header
+        _update_emit("log", header)
+        if _run_apt(password, argv) != 0:
+            ok = False
+            break
+        _UPDATE["log"] += "\n"
+        _update_emit("log", "\n")
+    _UPDATE["running"] = False
+    if ok:
+        _UPDATE["status"] = "Upgrade finished."
+        _update_emit("status", _UPDATE["status"])
+        _update_emit("idle", "ok")
+    else:
+        _UPDATE["status"] = "Update failed. Check the output below."
+        _update_emit("status", _UPDATE["status"])
+        _update_emit("idle", "fail")
+
+
+def _ask_sudo_password() -> str | None:
+    """Modal password dialog. Uses its own loop so closing it leaves Settings open."""
+    import neuronix_choice_dialog as choice
+
+    choice._apply_css()
+    result: dict = {"value": None, "done": False}
+    loop = GLib.MainLoop()
+    win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+    win.set_title("Sudo password")
+    win.set_decorated(False)
+    win.set_resizable(False)
+    win.get_style_context().add_class("neuronix-choice")
+    choice.center_layer_window(win, 440, 230)
+
+    outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    outer.get_style_context().add_class("neuronix-root")
+    choice._glass_root(outer)
+    win.add(outer)
+
+    def _finish(value: str | None):
+        if result["done"]:
+            return False
+        result["done"] = True
+        result["value"] = value
+        loop.quit()
+        return False
+
+    title = Gtk.Label(label="Sudo password", xalign=0.0)
+    title.get_style_context().add_class("neuronix-title")
+    choice.pack_title_with_close(outer, title, lambda: _finish(None))
+
+    prompt = Gtk.Label(label="Enter your sudo password to upgrade.", xalign=0.0)
+    prompt.set_line_wrap(True)
+    prompt.set_max_width_chars(42)
+    prompt.get_style_context().add_class("neuronix-subtitle")
+    outer.pack_start(prompt, False, False, 0)
+
+    ent = Gtk.Entry()
+    ent.set_visibility(False)
+    ent.set_activates_default(True)
+    ent.get_style_context().add_class("neuronix-entry")
+    try:
+        ent.set_input_purpose(Gtk.InputPurpose.PASSWORD)
+    except Exception:
+        pass
+    outer.pack_start(ent, False, False, 0)
+
+    cancel = Gtk.Button(label="Cancel")
+    cancel.set_relief(Gtk.ReliefStyle.NONE)
+    cancel.get_style_context().add_class("neuronix-secondary")
+    upgrade = Gtk.Button(label="Upgrade")
+    upgrade.set_relief(Gtk.ReliefStyle.NONE)
+    upgrade.get_style_context().add_class("neuronix-primary")
+    upgrade.set_can_default(True)
+
+    def _ok(*_a) -> None:
+        if not ent.get_text():
+            ent.grab_focus()
+            return
+        _finish(ent.get_text())
+
+    cancel.connect("clicked", lambda *_: _finish(None))
+    upgrade.connect("clicked", _ok)
+    ent.connect("activate", _ok)
+    outer.pack_start(choice._action_row(cancel, upgrade), False, False, 0)
+    win.set_default(upgrade)
+    win.connect(
+        "key-press-event",
+        lambda _w, event: _finish(None) if event.keyval == Gdk.KEY_Escape else False,
+    )
+    win.connect("destroy", lambda *_: _finish(None))
+    win.show_all()
+    win.present()
+    ent.grab_focus()
+    loop.run()
+    if win.get_realized():
+        win.hide()
+    win.destroy()
+    return result["value"]
+
+
+def updates_page() -> Gtk.Widget:
+    box = _page()
+    box.pack_start(
+        _note("Runs apt update, then installs available upgrades."),
+        False,
+        False,
+        0,
+    )
+    button = _button("Upgrade")
+    box.pack_start(button, False, False, 0)
+    status = _note(_UPDATE["status"])
+    box.pack_start(status, False, False, 0)
+
+    buf = Gtk.TextBuffer()
+    if _UPDATE["log"]:
+        buf.set_text(_UPDATE["log"])
+    view = Gtk.TextView.new_with_buffer(buf)
+    view.set_editable(False)
+    view.set_monospace(True)
+    view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+    view.get_style_context().add_class("neuronix-text")
+    scroll = Gtk.ScrolledWindow()
+    scroll.get_style_context().add_class("neuronix-well")
+    scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    scroll.set_vexpand(True)
+    scroll.set_size_request(-1, 280)
+    scroll.add(view)
+    box.pack_start(scroll, True, True, 0)
+
+    sink = {"buf": buf, "view": view, "status": status, "button": button}
+    _UPDATE["sink"] = sink
+
+    def _drop(*_a) -> None:
+        if _UPDATE.get("sink") is sink:
+            _UPDATE["sink"] = None
+
+    box.connect("destroy", _drop)
+
+    if _UPDATE["running"]:
+        button.set_sensitive(False)
+
+    def _start(*_a) -> None:
+        if _UPDATE["running"]:
+            return
+        password = _ask_sudo_password()
+        if not password:
+            return
+        _UPDATE["running"] = True
+        _UPDATE["log"] = ""
+        _UPDATE["status"] = "Running apt update…"
+        buf.set_text("")
+        status.set_text(_UPDATE["status"])
+        button.set_sensitive(False)
+        threading.Thread(target=_update_worker, args=(password,), daemon=True).start()
+
+    button.connect("clicked", _start)
     return box
 
 

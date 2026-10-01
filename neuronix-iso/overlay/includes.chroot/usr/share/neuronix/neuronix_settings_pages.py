@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import configparser
 import json
+import math
 import os
 import platform
 import subprocess
@@ -11,10 +12,12 @@ import sys
 import threading
 from pathlib import Path
 
+import cairo
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gdk, Gtk, GLib, Pango  # noqa: E402
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import Gdk, Gtk, GLib, Pango, PangoCairo  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 for _p in (
@@ -453,23 +456,352 @@ def apps_page() -> Gtk.Widget:
     return box
 
 
+def _gtk_theme():
+    for path in (
+        "/usr/local/lib/neuronix/gtk-apps/gtk-theme/python",
+        "/usr/share/neuronix/gtk-theme/python",
+    ):
+        if os.path.isdir(path) and path not in sys.path:
+            sys.path.insert(0, path)
+    import gtk_theme
+
+    return gtk_theme
+
+
+def _rgb(hex_color: str) -> tuple[float, float, float]:
+    raw = (hex_color or "").strip().lstrip("#")
+    if len(raw) != 6:
+        return (0.2, 0.2, 0.2)
+    try:
+        return tuple(int(raw[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
+    except ValueError:
+        return (0.2, 0.2, 0.2)
+
+
+def _mix(a: tuple[float, float, float], b: tuple[float, float, float], t: float) -> tuple[float, float, float]:
+    return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
+
+
+def _rounded(cr: cairo.Context, x: float, y: float, w: float, h: float, r: float) -> None:
+    r = max(0.0, min(r, w / 2.0, h / 2.0))
+    if r < 0.5:
+        cr.rectangle(x, y, w, h)
+        return
+    cr.new_sub_path()
+    cr.arc(x + w - r, y + r, r, -math.pi / 2, 0)
+    cr.arc(x + w - r, y + h - r, r, 0, math.pi / 2)
+    cr.arc(x + r, y + h - r, r, math.pi / 2, math.pi)
+    cr.arc(x + r, y + r, r, math.pi, 3 * math.pi / 2)
+    cr.close_path()
+
+
+def _pango_layout(cr: cairo.Context, text: str, px: float, bold: bool = False):
+    layout = PangoCairo.create_layout(cr)
+    desc = Pango.FontDescription.from_string("DejaVu Sans, sans-serif")
+    if bold:
+        desc.set_weight(Pango.Weight.BOLD)
+    desc.set_absolute_size(px * Pango.SCALE)
+    layout.set_font_description(desc)
+    layout.set_text(text, -1)
+    return layout
+
+
+def _pango_show(cr: cairo.Context, x: float, y: float, text: str, px: float, bold: bool = False) -> tuple[int, int]:
+    layout = _pango_layout(cr, text, px, bold)
+    cr.move_to(x, y)
+    PangoCairo.show_layout(cr, layout)
+    return layout.get_pixel_size()
+
+
+def _bar_colors(chrome, fill, fg, focused: bool) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    src = chrome.bar if focused else (chrome.bar_inactive or chrome.bar)
+    if src:
+        a = _rgb(src[0])
+        b = _rgb(src[1]) if len(src) > 1 else _mix(a, fg, 0.22 if focused else 0.10)
+        return a, b
+    if focused:
+        return _mix(fill, fg, 0.10), _mix(fill, fg, 0.22)
+    return _mix(fill, fg, 0.06), _mix(fill, (0.0, 0.0, 0.0), 0.12)
+
+
+def _paint_fake_window(cr, x, y, fw, fh, chrome, bg, fg, outer, inner, title: str, focused: bool) -> None:
+    thickness = float(chrome.border_size)
+    radius = float(chrome.rounding)
+    highlight = _mix(outer, (1.0, 1.0, 1.0), 0.45)
+    shadow = _mix(outer, (0.0, 0.0, 0.0), 0.45)
+    fill = bg if focused else _mix(bg, (0.0, 0.0, 0.0), 0.08)
+
+    _rounded(cr, x, y, fw, fh, radius)
+    cr.set_source_rgb(*fill)
+    cr.fill()
+
+    if chrome.bevel == "inner":
+        cr.set_source_rgb(*shadow)
+        cr.set_line_width(max(2.0, thickness))
+        _rounded(cr, x + thickness / 2, y + thickness / 2, max(1.0, fw - thickness), max(1.0, fh - thickness), radius)
+        cr.stroke()
+        cr.set_source_rgb(*highlight)
+        cr.set_line_width(max(1.0, thickness * 0.35))
+        inset = thickness * 0.55
+        _rounded(
+            cr,
+            x + inset,
+            y + inset,
+            max(1.0, fw - inset * 2),
+            max(1.0, fh - inset * 2),
+            max(0.0, radius - inset * 0.3),
+        )
+        cr.stroke()
+    elif chrome.bevel == "double":
+        cr.set_source_rgb(*outer)
+        cr.set_line_width(max(1.0, thickness * 0.4))
+        _rounded(
+            cr,
+            x + thickness * 0.25,
+            y + thickness * 0.25,
+            max(1.0, fw - thickness * 0.5),
+            max(1.0, fh - thickness * 0.5),
+            radius,
+        )
+        cr.stroke()
+        cr.set_source_rgb(*inner)
+        inset = thickness * 0.75
+        cr.set_line_width(max(1.0, thickness * 0.4))
+        _rounded(
+            cr,
+            x + inset,
+            y + inset,
+            max(1.0, fw - inset * 2),
+            max(1.0, fh - inset * 2),
+            max(0.0, radius - inset * 0.4),
+        )
+        cr.stroke()
+    else:
+        rtl = chrome.gradient == "rtl"
+        x0, x1 = (x + fw, x) if rtl else (x, x + fw)
+        pat = cairo.LinearGradient(x0, y, x1, y)
+        pat.add_color_stop_rgb(0.0, *outer)
+        pat.add_color_stop_rgb(1.0, *inner)
+        cr.set_source(pat)
+        cr.set_line_width(max(1.0, thickness))
+        _rounded(
+            cr,
+            x + thickness / 2,
+            y + thickness / 2,
+            max(1.0, fw - thickness),
+            max(1.0, fh - thickness),
+            max(0.0, radius),
+        )
+        cr.stroke()
+
+    bar_h = 22.0
+    bar_inset = max(2.0, thickness)
+    inner_x = x + bar_inset
+    inner_y = y + bar_inset
+    inner_w = max(8.0, fw - bar_inset * 2)
+    b0, b1 = _bar_colors(chrome, fill, fg, focused)
+    if not focused:
+        b0 = _mix(b0, (0.0, 0.0, 0.0), 0.12)
+        b1 = _mix(b1, (0.0, 0.0, 0.0), 0.12)
+    rtl = chrome.gradient == "rtl"
+    gx0, gx1 = (inner_x + inner_w, inner_x) if rtl else (inner_x, inner_x + inner_w)
+    bar = cairo.LinearGradient(gx0, inner_y, gx1, inner_y)
+    bar.add_color_stop_rgb(0.0, *b0)
+    bar.add_color_stop_rgb(1.0, *b1)
+    cr.set_source(bar)
+    cr.rectangle(inner_x, inner_y, inner_w, bar_h)
+    cr.fill()
+
+    cr.set_source_rgb(*fg)
+    _pango_show(cr, inner_x + 8, inner_y + 4, title, 11, True)
+    glyphs = (chrome.minimize, chrome.maximize, chrome.close)
+    glyph_px = float(min(chrome.button_size, 22))
+    gx = inner_x + inner_w - 8
+    for glyph in reversed(glyphs):
+        tw, _th = _pango_layout(cr, glyph, glyph_px, False).get_pixel_size()
+        gx -= tw + 10
+        _pango_show(cr, gx, inner_y + 2, glyph, glyph_px, False)
+
+
+def _luminance(rgb: tuple[float, float, float]) -> float:
+    def channel(c: float) -> float:
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (channel(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _paint_chip(cr, x, y, w, h, text, fill, ink, border=None) -> None:
+    _rounded(cr, x, y, w, h, 8)
+    cr.set_source_rgb(*fill)
+    cr.fill()
+    if border is not None:
+        cr.set_source_rgb(*border)
+        cr.set_line_width(1)
+        _rounded(cr, x + 0.5, y + 0.5, max(1, w - 1), max(1, h - 1), 8)
+        cr.stroke()
+    tw, th = _pango_layout(cr, text, 13, True).get_pixel_size()
+    cr.set_source_rgb(*ink)
+    _pango_show(cr, x + (w - tw) / 2, y + (h - th) / 2, text, 13, True)
+
+
+def _draw_theme_preview(area: Gtk.DrawingArea, cr: cairo.Context, profile) -> bool:
+    w = area.get_allocated_width()
+    h = area.get_allocated_height()
+    if w < 20 or h < 20 or profile is None:
+        return False
+    bg = _rgb(profile.background)
+    fg = _rgb(profile.foreground)
+    palette = getattr(profile, "palette", ()) or ()
+    accent = _rgb(palette[4]) if len(palette) > 4 else _mix(bg, fg, 0.45)
+    selection = _mix(bg, fg, 0.16)
+    hint = _mix(fg, bg, 0.38)
+    border = _mix(bg, fg, 0.22)
+    on_accent = (0.11, 0.12, 0.13) if _luminance(accent) >= 0.45 else fg
+    cr.set_source_rgb(*bg)
+    cr.paint()
+
+    chrome_h = min(150.0, max(110.0, h * 0.42))
+    cr.set_source_rgb(bg[0] * 0.55, bg[1] * 0.55, bg[2] * 0.55)
+    cr.rectangle(0, 0, w, chrome_h)
+    cr.fill()
+    pad = 10.0
+    stack = 16.0
+    fw = max(48.0, w - pad * 2 - stack)
+    fh = max(56.0, chrome_h - pad * 2 - stack)
+    chrome = profile.chrome
+    i0, i1 = profile.border_inactive_stops()
+    a0, a1 = profile.border_active_stops()
+    _paint_fake_window(
+        cr, pad + stack, pad, fw, fh, chrome, bg, _mix(fg, bg, 0.45), _rgb(i0), _rgb(i1), "Inactive", False
+    )
+    _paint_fake_window(cr, pad, pad + stack, fw, fh, chrome, bg, fg, _rgb(a0), _rgb(a1), "Window", True)
+
+    y = chrome_h + 12
+    cr.set_source_rgb(*hint)
+    _pango_show(cr, pad, y, "Settings", 11)
+    y += 22
+    row_w = max(40.0, w - pad * 2)
+    row_h = 34.0
+    _rounded(cr, pad, y, row_w, row_h, 6)
+    cr.set_source_rgb(*selection)
+    cr.fill()
+    cr.set_source_rgb(*fg)
+    _pango_show(cr, pad + 12, y + 8, "Selected item", 13, True)
+    y += row_h + 4
+    cr.set_source_rgb(*fg)
+    _pango_show(cr, pad + 12, y + 8, "Item", 13)
+    cr.set_source_rgb(*hint)
+    _pango_show(cr, pad + 118, y + 10, "Detail", 11)
+    y += row_h + 12
+    gap = 8.0
+    bw = max(40.0, (row_w - gap) / 2)
+    bh = 34.0
+    _paint_chip(cr, pad, y, bw, bh, "Button", _mix(bg, fg, 0.08), fg, border)
+    _paint_chip(cr, pad + bw + gap, y, bw, bh, "Accent", accent, on_accent)
+    return False
+
+
 def themes_page() -> Gtk.Widget:
     box = _page()
-    box.pack_start(
-        _note("Themes opens the GTK theme editor. The editor applies colors, borders, and window chrome."),
-        False,
-        False,
-        0,
-    )
-    btn = _button("Open Theme Editor")
+    try:
+        theme = _gtk_theme()
+        profiles = theme.all_profiles()
+    except Exception as exc:
+        box.pack_start(_note(str(exc)), False, False, 0)
+        return box
+    if not profiles:
+        box.pack_start(_note("No themes were found."), False, False, 0)
+        return box
 
-    def _open(*_a) -> None:
+    names: dict[str, int] = {}
+    for profile in profiles:
+        names[profile.name] = names.get(profile.name, 0) + 1
+    box.pack_start(_section("Theme"), False, False, 0)
+    combo = Gtk.ComboBoxText()
+    ids: list[str] = []
+    for profile in profiles:
+        ids.append(profile.id)
+        label = profile.name if names[profile.name] == 1 else f"{profile.name} ({profile.id})"
+        combo.append_text(label)
+    current = theme.load_theme_id()
+    combo.set_active(ids.index(current) if current in ids else 0)
+    box.pack_start(combo, False, False, 0)
+
+    chosen = {"profile": profiles[combo.get_active()]}
+    area = Gtk.DrawingArea()
+    area.set_size_request(-1, 360)
+    area.set_hexpand(True)
+    frame = Gtk.ScrolledWindow()
+    frame.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.NEVER)
+    frame.get_style_context().add_class("neuronix-well")
+    frame.set_size_request(-1, 384)
+    frame.add(area)
+    box.pack_start(frame, False, False, 0)
+    actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    apply_btn = _button("Apply")
+    edit_btn = _button("Edit")
+    apply_btn.get_style_context().remove_class("neuronix-secondary")
+    apply_btn.get_style_context().add_class("neuronix-primary")
+    apply_btn.set_hexpand(True)
+    edit_btn.set_hexpand(True)
+    apply_btn.set_size_request(140, 40)
+    edit_btn.set_size_request(140, 40)
+    actions.pack_start(apply_btn, True, True, 0)
+    actions.pack_start(edit_btn, True, True, 0)
+    box.pack_start(actions, False, False, 0)
+    status = _note(chosen["profile"].name)
+    box.pack_start(status, False, False, 0)
+
+    def _draw(widget, cr):
+        return _draw_theme_preview(widget, cr, chosen["profile"])
+
+    def _pick() -> object | None:
+        index = combo.get_active()
+        if index < 0:
+            return None
+        return next((item for item in profiles if item.id == ids[index]), None)
+
+    def _changed(*_a) -> None:
+        profile = _pick()
+        if profile is None:
+            return
+        chosen["profile"] = profile
+        area.queue_draw()
+        if profile.id == theme.load_theme_id():
+            status.set_text(f"{profile.name} is in use")
+        else:
+            status.set_text(profile.name)
+
+    def _apply(*_a) -> None:
+        profile = chosen.get("profile")
+        if profile is None:
+            return
+        try:
+            theme.select_theme(profile.id, gtk_version=3)
+            status.set_text(f"Applied {profile.name}")
+        except Exception as exc:
+            status.set_text(str(exc))
+
+    def _edit(*_a) -> None:
+        profile = chosen.get("profile")
+        if profile is None:
+            return
+        request = Path.home() / ".config" / "gtk-apps" / "editor-request"
+        try:
+            request.parent.mkdir(parents=True, exist_ok=True)
+            request.write_text(profile.id + "\n", encoding="utf-8")
+        except OSError as exc:
+            status.set_text(str(exc))
+            return
         exe = quick._which("gtk-theme-editor") or "gtk-theme-editor"
         quick._launch_detached([exe])
         GLib.idle_add(Gtk.main_quit)
 
-    btn.connect("clicked", _open)
-    box.pack_start(btn, False, False, 0)
+    area.connect("draw", _draw)
+    combo.connect("changed", _changed)
+    apply_btn.connect("clicked", _apply)
+    edit_btn.connect("clicked", _edit)
     return box
 
 

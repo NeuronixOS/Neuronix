@@ -53,6 +53,9 @@ neuronix_hyprland_session_env() {
 		fi
 	fi
 
+	# Pointer size for GTK and XWayland. LibreOffice's generic toolkit ignores
+	# this and draws its own huge cursor unless the gtk3 plugin is installed.
+	export XCURSOR_SIZE="${XCURSOR_SIZE:-24}"
 	if [ -f /usr/lib/libreoffice/program/libvclplug_gtk3lo.so ]; then
 		export SAL_USE_VCLPLUGIN=gtk3
 	fi

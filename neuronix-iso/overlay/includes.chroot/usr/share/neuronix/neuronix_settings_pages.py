@@ -207,15 +207,225 @@ def bluetooth_page() -> Gtk.Widget:
     return box
 
 
+def _logical_size(mon: dict) -> tuple[int, int]:
+    """Size in the layout, after scale and rotation. Hyprland y grows downward."""
+    scale = float(mon.get("scale") or 1) or 1.0
+    width = max(1, int(round(float(mon.get("width") or 1) / scale)))
+    height = max(1, int(round(float(mon.get("height") or 1) / scale)))
+    if int(mon.get("transform") or 0) in (1, 3, 5, 7):
+        width, height = height, width
+    return width, height
+
+
+def _map_view(mons: list, width: int, height: int, pad: float = 18.0) -> dict:
+    if not mons or width < 40 or height < 40:
+        return {"ok": False}
+    sizes = [_logical_size(m) for m in mons]
+    min_x = min(int(m.get("x") or 0) for m in mons)
+    min_y = min(int(m.get("y") or 0) for m in mons)
+    span_w = max(int(m.get("x") or 0) + sizes[i][0] for i, m in enumerate(mons)) - min_x
+    span_h = max(int(m.get("y") or 0) + sizes[i][1] for i, m in enumerate(mons)) - min_y
+    span_w = max(span_w, 1)
+    span_h = max(span_h, 1)
+    scale = min((width - pad * 2) / span_w, (height - pad * 2) / span_h)
+    scale = max(scale, 0.0001)
+    used_w = span_w * scale
+    used_h = span_h * scale
+    return {
+        "ok": True,
+        "min_x": min_x,
+        "min_y": min_y,
+        "scale": scale,
+        "ox": (width - used_w) / 2,
+        "oy": (height - used_h) / 2,
+    }
+
+
+def _map_rect(mon: dict, view: dict) -> tuple[float, float, float, float]:
+    lw, lh = _logical_size(mon)
+    x = view["ox"] + (int(mon.get("x") or 0) - view["min_x"]) * view["scale"]
+    y = view["oy"] + (int(mon.get("y") or 0) - view["min_y"]) * view["scale"]
+    return x, y, lw * view["scale"], lh * view["scale"]
+
+
+def _snap_monitor(mons: list, idx: int) -> None:
+    """Dock the dragged display against the nearest neighbor edge, keeping the slide axis."""
+    if idx < 0 or idx >= len(mons) or len(mons) < 2:
+        return
+    mon = mons[idx]
+    lw, lh = _logical_size(mon)
+    best = None
+    for other_i, other in enumerate(mons):
+        if other_i == idx:
+            continue
+        ow, oh = _logical_size(other)
+        ox, oy = int(other.get("x") or 0), int(other.get("y") or 0)
+        limit = max(180, int(min(lw, lh, ow, oh) * 0.4))
+        for nx, ny in (
+            (ox + ow, int(mon.get("y") or 0)),
+            (ox - lw, int(mon.get("y") or 0)),
+            (int(mon.get("x") or 0), oy + oh),
+            (int(mon.get("x") or 0), oy - lh),
+        ):
+            dist = abs(nx - int(mon.get("x") or 0)) + abs(ny - int(mon.get("y") or 0))
+            if dist > limit:
+                continue
+            if best is None or dist < best[0]:
+                best = (dist, nx, ny)
+    if best:
+        mon["x"], mon["y"] = best[1], best[2]
+
+
 def displays_page() -> Gtk.Widget:
     box = _page()
     status = _note("Reading monitors…")
     box.pack_start(status, False, False, 0)
+    hint = _note("Drag a display. Edges snap together when you let go.")
+    box.pack_start(hint, False, False, 0)
+
+    canvas = Gtk.DrawingArea()
+    canvas.set_size_request(-1, 280)
+    canvas.set_hexpand(True)
+    canvas.add_events(
+        Gdk.EventMask.BUTTON_PRESS_MASK
+        | Gdk.EventMask.BUTTON_RELEASE_MASK
+        | Gdk.EventMask.POINTER_MOTION_MASK
+        | Gdk.EventMask.BUTTON1_MOTION_MASK
+    )
+    box.pack_start(canvas, False, False, 0)
+
     rows_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     box.pack_start(rows_box, False, False, 0)
     apply_btn = _button("Apply")
     box.pack_start(apply_btn, False, False, 0)
-    state: dict = {"mons": []}
+    state: dict = {"mons": [], "editors": [], "sel": -1, "drag": -1, "view": None, "paint": {}}
+
+    def _cursor(name: str) -> None:
+        window = canvas.get_window()
+        if window is None:
+            return
+        window.set_cursor(Gdk.Cursor.new_from_name(canvas.get_display(), name))
+
+    def _view() -> dict:
+        if state["drag"] >= 0 and state.get("view"):
+            return state["view"]
+        return _map_view(state["mons"], canvas.get_allocated_width(), canvas.get_allocated_height())
+
+    def _sync_pos() -> None:
+        for mon, _mode, _scale, pos_lbl in state.get("editors") or []:
+            pos_lbl.set_text(f"{int(mon.get('x') or 0)}, {int(mon.get('y') or 0)}")
+
+    def _hit(px: float, py: float) -> int:
+        view = _view()
+        if not view.get("ok"):
+            return -1
+        for index in range(len(state["mons"]) - 1, -1, -1):
+            x, y, w, h = _map_rect(state["mons"][index], view)
+            if x <= px <= x + w and y <= py <= y + h:
+                return index
+        return -1
+
+    def _draw(_widget, cr: cairo.Context) -> bool:
+        width = canvas.get_allocated_width()
+        height = canvas.get_allocated_height()
+        paint = state.get("paint") or {}
+        bg = paint.get("bg", (0.08, 0.08, 0.08))
+        fg = paint.get("fg", (0.92, 0.92, 0.9))
+        fills = paint.get("fills") or [(0.35, 0.45, 0.7)]
+        cr.set_source_rgb(*(c * 0.72 for c in bg))
+        cr.paint()
+        mons = state["mons"]
+        view = _view()
+        if not view.get("ok"):
+            return False
+        for index, mon in enumerate(mons):
+            x, y, w, h = _map_rect(mon, view)
+            fill = fills[index % len(fills)]
+            if mon.get("disabled"):
+                fill = _mix(fill, bg, 0.55)
+            _rounded(cr, x, y, w, h, 10)
+            cr.set_source_rgb(*fill)
+            cr.fill()
+            selected = index == state["sel"]
+            cr.set_source_rgb(*(fg if selected else _mix(fill, fg, 0.35)))
+            cr.set_line_width(2.5 if selected else 1.0)
+            _rounded(cr, x + 1, y + 1, max(1, w - 2), max(1, h - 2), 9)
+            cr.stroke()
+            ink = (0.08, 0.08, 0.08) if _luminance(fill) >= 0.45 else fg
+            cr.set_source_rgb(*ink)
+            name = str(mon.get("name") or "")
+            lw, lh = _logical_size(mon)
+            if h >= 64 and w >= 72:
+                name_layout = _pango_layout(cr, name, 13, True)
+                size_layout = _pango_layout(cr, f"{lw}×{lh}", 11, False)
+                nw, nh = name_layout.get_pixel_size()
+                _sw, sh = size_layout.get_pixel_size()
+                block = nh + 4 + sh
+                cr.move_to(x + (w - nw) / 2, y + (h - block) / 2)
+                PangoCairo.show_layout(cr, name_layout)
+                cr.move_to(x + (w - _sw) / 2, y + (h - block) / 2 + nh + 4)
+                PangoCairo.show_layout(cr, size_layout)
+            else:
+                name_layout = _pango_layout(cr, name, 12, True)
+                nw, nh = name_layout.get_pixel_size()
+                cr.move_to(x + (w - nw) / 2, y + (h - nh) / 2)
+                PangoCairo.show_layout(cr, name_layout)
+        return False
+
+    def _press(_widget, event) -> bool:
+        if event.button != 1:
+            return False
+        index = _hit(event.x, event.y)
+        state["sel"] = index
+        if index < 0:
+            state["drag"] = -1
+            _cursor("default")
+            canvas.queue_draw()
+            return True
+        view = _map_view(state["mons"], canvas.get_allocated_width(), canvas.get_allocated_height())
+        state["view"] = view
+        state["drag"] = index
+        x, y, _w, _h = _map_rect(state["mons"][index], view)
+        state["off"] = (event.x - x, event.y - y)
+        _cursor("grabbing")
+        canvas.queue_draw()
+        return True
+
+    def _motion(_widget, event) -> bool:
+        if state["drag"] < 0:
+            _cursor("grab" if _hit(event.x, event.y) >= 0 else "default")
+            return False
+        view = state.get("view") or {}
+        if not view.get("ok"):
+            return True
+        mon = state["mons"][state["drag"]]
+        offx, offy = state.get("off") or (0, 0)
+        left = event.x - offx
+        top = event.y - offy
+        mon["x"] = int(round(view["min_x"] + (left - view["ox"]) / view["scale"]))
+        mon["y"] = int(round(view["min_y"] + (top - view["oy"]) / view["scale"]))
+        _sync_pos()
+        canvas.queue_draw()
+        return True
+
+    def _release(_widget, event) -> bool:
+        if event.button != 1 or state["drag"] < 0:
+            return False
+        index = state["drag"]
+        _snap_monitor(state["mons"], index)
+        state["drag"] = -1
+        state["view"] = None
+        _sync_pos()
+        name = str(state["mons"][index].get("name") or "")
+        status.set_text(f"{name}  ·  {int(state['mons'][index].get('x') or 0)}, {int(state['mons'][index].get('y') or 0)}")
+        _cursor("default")
+        canvas.queue_draw()
+        return True
+
+    canvas.connect("draw", _draw)
+    canvas.connect("button-press-event", _press)
+    canvas.connect("motion-notify-event", _motion)
+    canvas.connect("button-release-event", _release)
 
     def _load() -> None:
         for child in list(rows_box.get_children()):
@@ -230,6 +440,29 @@ def displays_page() -> Gtk.Widget:
             status.set_text("Could not read monitor list")
             return
         state["mons"] = mons
+        state["sel"] = 0 if mons else -1
+        state["drag"] = -1
+        state["view"] = None
+        try:
+            import neuronix_choice_dialog as choice
+
+            chrome = choice._theme_chrome()
+            profile = choice._active_profile() or {}
+            palette = [c for c in (profile.get("palette") or []) if isinstance(c, str)]
+        except Exception:
+            chrome = {"bg": "#1c1c1c", "fg": "#eeeeee", "accent": "#8ab4f8"}
+            palette = []
+        bg = _rgb(chrome["bg"])
+        fg = _rgb(chrome["fg"])
+        fills = []
+        for hex_color in [chrome.get("accent") or "#8ab4f8", *palette]:
+            rgb = _rgb(str(hex_color))
+            if abs(_luminance(rgb) - _luminance(bg)) < 0.08:
+                continue
+            fills.append(rgb)
+        if not fills:
+            fills = [_rgb("#8ab4f8")]
+        state["paint"] = {"bg": bg, "fg": fg, "fills": fills}
         status.set_text(f"{len(mons)} display" + ("s" if len(mons) != 1 else ""))
         editors = []
         for mon in mons:
@@ -241,9 +474,11 @@ def displays_page() -> Gtk.Widget:
             desc = str(mon.get("description") or "")
             if desc:
                 card.pack_start(_note(desc), False, False, 0)
+            pos_lbl = _note(f"{int(mon.get('x') or 0)}, {int(mon.get('y') or 0)}")
+            card.pack_start(pos_lbl, False, False, 0)
             mode = Gtk.ComboBoxText()
             current = f"{mon.get('width')}x{mon.get('height')}@{float(mon.get('refreshRate') or 60):.0f}"
-            modes = [str(m) for m in (mon.get("availableModes") or [])] or [current]
+            modes = [str(item) for item in (mon.get("availableModes") or [])] or [current]
             if current not in modes:
                 modes.insert(0, current)
             for item in modes:
@@ -252,36 +487,41 @@ def displays_page() -> Gtk.Widget:
             scale = Gtk.SpinButton.new_with_range(0.5, 3.0, 0.1)
             scale.set_digits(2)
             scale.set_value(float(mon.get("scale") or 1))
-            pos = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            x_ent = Gtk.Entry()
-            y_ent = Gtk.Entry()
-            x_ent.set_text(str(int(mon.get("x") or 0)))
-            y_ent.set_text(str(int(mon.get("y") or 0)))
-            x_ent.set_width_chars(6)
-            y_ent.set_width_chars(6)
-            pos.pack_start(Gtk.Label(label="X", xalign=0.0), False, False, 0)
-            pos.pack_start(x_ent, False, False, 0)
-            pos.pack_start(Gtk.Label(label="Y", xalign=0.0), False, False, 0)
-            pos.pack_start(y_ent, False, False, 0)
+
+            def _on_mode(widget, target=mon) -> None:
+                spec = (widget.get_active_text() or "").strip()
+                if "x" in spec and "@" in spec:
+                    wh, hz = spec.split("@", 1)
+                    w_s, h_s = wh.split("x", 1)
+                    try:
+                        target["width"] = int(w_s)
+                        target["height"] = int(h_s)
+                        target["refreshRate"] = float(hz)
+                    except ValueError:
+                        return
+                    canvas.queue_draw()
+
+            def _on_scale(widget, target=mon) -> None:
+                target["scale"] = widget.get_value()
+                canvas.queue_draw()
+
+            mode.connect("changed", _on_mode)
+            scale.connect("value-changed", _on_scale)
             card.pack_start(mode, False, False, 0)
             card.pack_start(scale, False, False, 0)
-            card.pack_start(pos, False, False, 0)
             rows_box.pack_start(card, False, False, 0)
-            editors.append((mon, mode, scale, x_ent, y_ent))
+            editors.append((mon, mode, scale, pos_lbl))
         state["editors"] = editors
         rows_box.show_all()
+        canvas.queue_draw()
 
     def _apply(*_a) -> None:
         written = []
-        for mon, mode, scale, x_ent, y_ent in state.get("editors") or []:
+        for mon, mode, scale, _pos in state.get("editors") or []:
             name = str(mon.get("name") or "")
             spec = (mode.get_active_text() or "").strip()
-            try:
-                x = int(x_ent.get_text().strip() or "0")
-                y = int(y_ent.get_text().strip() or "0")
-            except ValueError:
-                status.set_text(f"{name}: position must be numbers")
-                return
+            x = int(mon.get("x") or 0)
+            y = int(mon.get("y") or 0)
             sc = f"{scale.get_value():.2g}"
             ok, out = _run(
                 ["hyprctl", "keyword", "monitor", f"{name},{spec},{x}x{y},{sc}"],
@@ -307,6 +547,8 @@ def displays_page() -> Gtk.Widget:
             write_monitors_lua(written, use_edid=False)
         except Exception:
             pass
+        _sync_pos()
+        canvas.queue_draw()
         status.set_text("Applied")
 
     apply_btn.connect("clicked", _apply)

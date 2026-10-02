@@ -278,8 +278,11 @@ def estimate_fuzzel_bar_height(layers: dict | None = None, mon_name: str = "") -
 
 
 def overview_usable_rect(mon: dict, layers: dict) -> tuple[int, int, int, int]:
-    """HDMI rect for Super overview: below Waybar, above the bottom fuzzel bar."""
+    """HDMI rect for Super overview: below Waybar, above a bottom fuzzel bar if any."""
     x, y, w, h = usable_rect(mon, layers)
+    text = _fuzzel_ini_text()
+    if not re.search(r"(?m)^anchor=bottom\s*$", text):
+        return x, y, w, h
     name = str(mon.get("name") or "")
     bar = estimate_fuzzel_bar_height(layers, name)
     bar = min(max(bar, 280), max(0, h - 220))

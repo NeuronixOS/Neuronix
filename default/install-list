@@ -177,6 +177,7 @@ x265 # H.265/HEVC video stream encoder
 ffmpeg # Tools for transcoding, streaming and playing of multimedia files
 flatpak # Application deployment framework (Flathub remote enabled at build)
 libreoffice # office productivity suite (Writer, Calc, Impress, Draw, Base, Math)
+libreoffice-gtk3 # GTK3 toolkit so LibreOffice follows the Neuronix theme and system cursor
 
 # --- installer ---
 calamares # Graphical distro installer (live ISO only; removed after install)

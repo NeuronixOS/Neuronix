@@ -12,7 +12,7 @@ from typing import Callable, Optional
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib, Pango  # noqa: E402
+from gi.repository import Gdk, Gtk, GLib, Pango  # noqa: E402
 
 sys.path.insert(0, "/usr/share/neuronix")
 sys.path.insert(0, os.path.expanduser("~/.local/share/neuronix"))
@@ -524,6 +524,107 @@ def _connect_with_password(ssid: str, password: str) -> tuple[bool, str]:
     return _nm(cmd, timeout=30)
 
 
+def _forget_wifi(ssid: str) -> tuple[bool, str]:
+    """Disconnect and delete every saved profile for this network."""
+    ok, out = _nm(["nmcli", "-t", "-f", "NAME,UUID,TYPE", "connection", "show"], timeout=8)
+    if not ok and not out:
+        return False, "Could not list saved networks"
+    uuids: list[str] = []
+    for line in out.splitlines():
+        parts = re.split(r"(?<!\\):", line)
+        if len(parts) < 3:
+            continue
+        name = _nm_unescape(parts[0])
+        uuid = parts[1].strip()
+        typ = parts[2].strip()
+        if typ == "802-11-wireless" and name == ssid and uuid:
+            uuids.append(uuid)
+    if not uuids:
+        return False, f"No saved network named {ssid}"
+    errors: list[str] = []
+    for uuid in uuids:
+        deleted, detail = _nm(["nmcli", "connection", "delete", "uuid", uuid], timeout=15)
+        if not deleted:
+            errors.append(detail)
+    if errors and len(errors) == len(uuids):
+        return False, errors[-1]
+    return True, ""
+
+
+def _ask_forget(ssid: str) -> bool:
+    """Confirm forgetting a connected network. Does not close Settings."""
+    from neuronix_choice_dialog import (  # noqa: WPS433
+        _apply_css,
+        _glass_root,
+        center_layer_window,
+        hold_layer_keyboard,
+        pack_title_with_close,
+    )
+
+    _apply_css()
+    result: dict[str, Optional[str]] = {"value": None}
+    done = {"on": False}
+    loop = GLib.MainLoop()
+    win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+    win.set_title("Forget Wi-Fi")
+    win.set_decorated(False)
+    win.set_resizable(False)
+    win.get_style_context().add_class("neuronix-choice")
+    center_layer_window(win, 440, 220)
+    release_keys = hold_layer_keyboard(win)
+
+    outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    outer.get_style_context().add_class("neuronix-root")
+    _glass_root(outer)
+    win.add(outer)
+
+    def _finish(value: Optional[str]) -> bool:
+        if done["on"]:
+            return False
+        done["on"] = True
+        result["value"] = value
+        release_keys()
+        loop.quit()
+        return False
+
+    title = Gtk.Label(label="Forget Wi-Fi", xalign=0.0)
+    title.get_style_context().add_class("neuronix-title")
+    pack_title_with_close(outer, title, lambda: _finish(None))
+
+    prompt = Gtk.Label(
+        label=f"Forget {ssid}? This disconnects and removes the saved password.",
+        xalign=0.0,
+    )
+    prompt.set_line_wrap(True)
+    prompt.set_max_width_chars(42)
+    prompt.get_style_context().add_class("neuronix-subtitle")
+    outer.pack_start(prompt, False, False, 0)
+
+    cancel = Gtk.Button(label="Cancel")
+    cancel.set_relief(Gtk.ReliefStyle.NONE)
+    cancel.set_focus_on_click(False)
+    cancel.get_style_context().add_class("neuronix-secondary")
+    forget = Gtk.Button(label="Forget")
+    forget.set_relief(Gtk.ReliefStyle.NONE)
+    forget.set_focus_on_click(False)
+    forget.get_style_context().add_class("neuronix-primary")
+    cancel.connect("clicked", lambda *_a: _finish(None))
+    forget.connect("clicked", lambda *_a: _finish("forget"))
+    outer.pack_start(_action_row(cancel, forget), False, False, 0)
+    win.connect(
+        "key-press-event",
+        lambda _w, event: _finish(None) if event.keyval == Gdk.KEY_Escape else False,
+    )
+    win.connect("destroy", lambda *_a: _finish(None))
+    win.show_all()
+    win.present()
+    loop.run()
+    if win.get_realized():
+        win.hide()
+    win.destroy()
+    return result["value"] == "forget"
+
+
 def _activate_wifi(ssid: str, security: str) -> tuple[bool, str, str]:
     """Return ok, detail, and 'password' when a secret is still required."""
     if _saved_wifi(ssid):
@@ -548,6 +649,7 @@ def _attach_wifi_list(
     token = {"n": 0}
     alive = {"ok": True}
     busy = {"on": False}
+    asking = {"on": False}
     listbox.set_activate_on_single_click(True)
     listbox.connect("destroy", lambda *_a: alive.__setitem__("ok", False))
     status.set_no_show_all(True)
@@ -580,7 +682,17 @@ def _attach_wifi_list(
             detail.get_style_context().add_class("neuronix-row-desc")
             inner.pack_start(heading, False, False, 0)
             inner.pack_start(detail, False, False, 0)
-            row.add(inner)
+            line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            line.pack_start(inner, True, True, 0)
+            if net["in_use"]:
+                forget = Gtk.Button(label="Forget")
+                forget.set_relief(Gtk.ReliefStyle.NONE)
+                forget.set_focus_on_click(False)
+                forget.set_valign(Gtk.Align.CENTER)
+                forget.get_style_context().add_class("neuronix-secondary")
+                forget.connect("clicked", lambda *_a, name=net["ssid"]: _begin_forget(name))
+                line.pack_start(forget, False, False, 0)
+            row.add(line)
             row._net = net  # type: ignore[attr-defined]
             listbox.add(row)
         listbox.show_all()
@@ -622,7 +734,7 @@ def _attach_wifi_list(
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _finish(gen: int, ssid: str, ok: bool, detail: str) -> bool:
+    def _finish(gen: int, ssid: str, ok: bool, detail: str, fail: str = "") -> bool:
         busy["on"] = False
         if not alive["ok"] or gen != token["n"]:
             return False
@@ -631,15 +743,41 @@ def _attach_wifi_list(
                 on_changed()
             start(False)
             return False
-        _set_status(_nm_error(detail, f"Could not connect to {ssid}"))
+        _set_status(_nm_error(detail, fail or f"Could not connect to {ssid}"))
         return False
 
+    def _begin_forget(ssid: str) -> None:
+        if busy["on"] or asking["on"] or not alive["ok"] or not ssid:
+            return
+        asking["on"] = True
+        try:
+            yes = _ask_forget(ssid)
+        finally:
+            asking["on"] = False
+        if not yes or busy["on"] or not alive["ok"]:
+            return
+        busy["on"] = True
+        gen = token["n"]
+        _set_status(f"Forgetting {ssid}…")
+
+        def work() -> None:
+            try:
+                ok, detail = _forget_wifi(ssid)
+                GLib.idle_add(_finish, gen, ssid, ok, detail, f"Could not forget {ssid}")
+            except Exception as exc:
+                GLib.idle_add(_finish, gen, ssid, False, str(exc), f"Could not forget {ssid}")
+
+        threading.Thread(target=work, daemon=True).start()
+
     def _pick(_lb: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
-        if busy["on"] or not alive["ok"]:
+        if busy["on"] or asking["on"] or not alive["ok"]:
             return
         net = getattr(row, "_net", None) or {}
         ssid = net.get("ssid") or ""
-        if not ssid or net.get("in_use"):
+        if not ssid:
+            return
+        if net.get("in_use"):
+            _begin_forget(ssid)
             return
         security = net.get("security") or ""
         busy["on"] = True
@@ -675,6 +813,8 @@ def _attach_wifi_list(
                                 default="",
                                 secret=True,
                             )
+                            if (holder.get("pw") or "").strip() and alive["ok"] and gen == token["n"]:
+                                _set_status(f"Connecting to {ssid}…")
                         finally:
                             done.set()
                         return False

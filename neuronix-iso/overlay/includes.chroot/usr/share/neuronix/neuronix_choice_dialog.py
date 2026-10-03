@@ -1051,6 +1051,60 @@ def _set_centered_margins(win: Gtk.Window, width: int, height: int) -> None:
     GtkLayerShell.set_margin(win, GtkLayerShell.Edge.TOP, top)
 
 
+def hold_layer_keyboard(win: Gtk.Window):
+    """Keep keystrokes on this layer until the returned function is called.
+
+    Settings takes an exclusive keyboard grab. A password dialog on top never
+    sees keys while that grab is held, and a button click hands the keyboard
+    back to Settings. Park every other layer and keep this one exclusive.
+    """
+    state: Dict[str, object] = {"on": True, "saved": []}
+
+    def _apply() -> bool:
+        if not state["on"]:
+            return False
+        saved: list = state["saved"]  # type: ignore[assignment]
+        known = {id(top) for top, _prev in saved}
+        try:
+            tops = list(Gtk.Window.list_toplevels())
+        except Exception:
+            tops = []
+        for top in tops:
+            if top is win:
+                continue
+            try:
+                if not GtkLayerShell.is_layer_window(top):
+                    continue
+                if id(top) in known:
+                    GtkLayerShell.set_keyboard_mode(top, GtkLayerShell.KeyboardMode.NONE)
+                    continue
+                prev = GtkLayerShell.get_keyboard_mode(top)
+                GtkLayerShell.set_keyboard_mode(top, GtkLayerShell.KeyboardMode.NONE)
+                saved.append((top, prev))
+            except Exception:
+                pass
+        try:
+            GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
+        except Exception:
+            pass
+        return True
+
+    def stop() -> None:
+        if not state["on"]:
+            return
+        state["on"] = False
+        for top, prev in list(state["saved"]):  # type: ignore[arg-type]
+            try:
+                GtkLayerShell.set_keyboard_mode(top, prev)
+            except Exception:
+                pass
+        state["saved"] = []
+
+    _apply()
+    GLib.timeout_add(150, _apply)
+    return stop
+
+
 def center_layer_window(win: Gtk.Window, width: int, height: int) -> None:
     """Center a gtk-layer-shell surface. Safe to call again when the window grows."""
     _enable_rgba(win)
@@ -1333,6 +1387,10 @@ def _base_panel(
     win.add(outer)
 
     def _close(*_a):
+        try:
+            win.hide()
+        except Exception:
+            pass
         Gtk.main_quit()
         return False
 
@@ -1352,7 +1410,7 @@ def _base_panel(
         "key-press-event",
         lambda _w, e: _close() if e.keyval == Gdk.KEY_Escape else False,
     )
-    win.connect("destroy", _close)
+    win._neuronix_destroy_id = win.connect("destroy", _close)  # type: ignore[attr-defined]
     return win, outer, result
 
 
@@ -1452,7 +1510,7 @@ def entry(
     default: str = "",
     secret: bool = False,
     width: int = 440,
-    height: int = 220,
+    height: int = 320,
 ) -> Optional[str]:
     """Single-line entry under the Waybar click. Returns text or None."""
     win, outer, result = _base_panel(
@@ -1477,11 +1535,19 @@ def entry(
     ok.get_style_context().add_class("neuronix-primary")
     ok.set_can_default(True)
 
-    def _ok(*_a):
-        result["value"] = ent.get_text()
+    def _leave(value: Optional[str]) -> None:
+        result["value"] = value
+        try:
+            win.hide()
+        except Exception:
+            pass
         Gtk.main_quit()
 
-    cancel.connect("clicked", lambda *_: Gtk.main_quit())
+    def _ok(*_a):
+        _leave(ent.get_text())
+
+    cancel.set_label("Close")
+    cancel.connect("clicked", lambda *_: _leave(None))
     ok.connect("clicked", _ok)
     ent.connect("activate", _ok)
     outer.pack_start(_action_row(cancel, ok), False, False, 0)
@@ -1489,8 +1555,21 @@ def entry(
     win.set_default(ok)
     win.show_all()
     win.present()
+    release_keys = hold_layer_keyboard(win)
     ent.grab_focus()
-    Gtk.main()
+    try:
+        Gtk.main()
+    finally:
+        release_keys()
+        try:
+            win.hide()
+        except Exception:
+            pass
+        try:
+            win.disconnect(win._neuronix_destroy_id)  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        win.destroy()
     return result["value"]
 
 

@@ -1476,13 +1476,7 @@ def _ask_sudo_password() -> str | None:
     win.set_resizable(False)
     win.get_style_context().add_class("neuronix-choice")
     choice.center_layer_window(win, 440, 230)
-    try:
-        gi.require_version("GtkLayerShell", "0.1")
-        from gi.repository import GtkLayerShell
-
-        GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
-    except Exception:
-        pass
+    release_keys = choice.hold_layer_keyboard(win)
 
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     outer.get_style_context().add_class("neuronix-root")
@@ -1494,6 +1488,7 @@ def _ask_sudo_password() -> str | None:
             return False
         result["done"] = True
         result["value"] = value
+        release_keys()
         loop.quit()
         return False
 
@@ -1519,9 +1514,11 @@ def _ask_sudo_password() -> str | None:
 
     cancel = Gtk.Button(label="Cancel")
     cancel.set_relief(Gtk.ReliefStyle.NONE)
+    cancel.set_focus_on_click(False)
     cancel.get_style_context().add_class("neuronix-secondary")
     upgrade = Gtk.Button(label="Upgrade")
     upgrade.set_relief(Gtk.ReliefStyle.NONE)
+    upgrade.set_focus_on_click(False)
     upgrade.get_style_context().add_class("neuronix-primary")
     upgrade.set_can_default(True)
 

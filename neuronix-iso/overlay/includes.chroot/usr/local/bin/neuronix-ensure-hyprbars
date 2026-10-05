@@ -59,7 +59,7 @@ if ! hyprpm list 2>/dev/null | grep -q 'Repository hyprland-plugins'; then
 	yes Y | hyprpm add https://github.com/hyprwm/hyprland-plugins >/dev/null 2>&1 || true
 fi
 hyprpm enable hyprbars >/dev/null 2>&1 || true
-hyprpm reload -n >/dev/null 2>&1 || true
+hyprpm reload -n 2>/dev/null || true
 if _loaded; then
 	touch "${MARKER}"
 fi

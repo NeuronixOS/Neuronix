@@ -81,4 +81,33 @@ else
 	echo "[neuronix-hypr-plugins] WARNING: hyprland-plugins clone failed (network?)" >&2
 fi
 
+# --- imgborders (PNG window frames; Neuronix-maintained 0.55.2 port) ---
+# Source is copied into the chroot by neuronix-iso/setup.sh from ../ImageBorders.
+IMGBORDERS_SRC=/usr/src/neuronix/imgborders
+IMGBORDERS_SO_LOCAL=/usr/local/lib/hyprland/plugins/libimgborders.so
+IMGBORDERS_SO="${PLUGIN_DIR}/libimgborders.so"
+if [ -f "${IMGBORDERS_SRC}/CMakeLists.txt" ]; then
+	_ib_build="${_workdir}/imgborders-build"
+	mkdir -p "${_ib_build}" /usr/local/lib/hyprland/plugins \
+		/usr/share/neuronix/imgborders
+	if cmake -S "${IMGBORDERS_SRC}" -B "${_ib_build}" \
+		-DCMAKE_BUILD_TYPE=Release \
+		&& cmake --build "${_ib_build}" -j"$(nproc 2>/dev/null || echo 2)"; then
+		_so="${_ib_build}/libimgborders.so"
+		if [ -f "${_so}" ]; then
+			install -m 0755 "${_so}" "${IMGBORDERS_SO}"
+			install -m 0755 "${_so}" "${IMGBORDERS_SO_LOCAL}"
+			echo "[neuronix-hypr-plugins] installed ${IMGBORDERS_SO_LOCAL}"
+		fi
+	else
+		echo "[neuronix-hypr-plugins] WARNING: imgborders build failed" >&2
+	fi
+	if [ -f "${IMGBORDERS_SRC}/example.png" ]; then
+		install -m 0644 "${IMGBORDERS_SRC}/example.png" \
+			/usr/share/neuronix/imgborders/example.png
+	fi
+else
+	echo "[neuronix-hypr-plugins] WARNING: no ${IMGBORDERS_SRC} (setup.sh did not stage ImageBorders)" >&2
+fi
+
 exit 0

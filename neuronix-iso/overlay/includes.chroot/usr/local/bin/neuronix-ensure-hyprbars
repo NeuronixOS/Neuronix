@@ -1,6 +1,8 @@
 #!/bin/sh
 # Ensure hyprbars (titlebar min/max/close) is loaded for this Hyprland session.
 # Prefer the ISO-built / packaged plugin (.so); fall back to hyprpm when ABI matches.
+# Image borders, if present, load first: plugin load after hyprbars reloads config
+# and hyprbars-button can segfault Hyprland 0.55.2.
 set -eu
 
 MARKER="${HOME}/.config/hypr/.neuronix-hyprbars-ok"
@@ -9,8 +11,28 @@ mkdir -p "${HOME}/.config/hypr"
 
 command -v hyprctl >/dev/null 2>&1 || exit 0
 
+_plugin_loaded() {
+	hyprctl plugin list 2>/dev/null | grep -qi "$1"
+}
+
+_load_imgborders() {
+	_plugin_loaded imgborders && return 0
+	# Loading any plugin after hyprbars re-parses hyprland.conf and
+	# hyprbars-button (onNewButton) can segfault Hyprland 0.55.2.
+	_plugin_loaded hyprbars && return 0
+	for PLUGIN_SO in \
+		"/usr/local/lib/hyprland/plugins/libimgborders.so" \
+		"${PLUGIN_DIR}/libimgborders.so" \
+		"${HOME}/.local/lib/hyprland/plugins/libimgborders.so"; do
+		[ -f "${PLUGIN_SO}" ] || continue
+		hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
+		_plugin_loaded imgborders && return 0
+	done
+	return 0
+}
+
 _loaded() {
-	hyprctl plugin list 2>/dev/null | grep -qi hyprbars
+	_plugin_loaded hyprbars
 }
 
 # Already loaded this session?
@@ -18,6 +40,8 @@ if _loaded; then
 	touch "${MARKER}"
 	exit 0
 fi
+
+_load_imgborders
 
 # ISO-built or packaged plugin — no compile, works offline on live ISO.
 # /usr/local is the Neuronix build (hyprbars-button replace-in-place for gtk-themes).

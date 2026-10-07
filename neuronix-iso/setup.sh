@@ -338,6 +338,24 @@ if [[ -x "$_hypr_settings/neuronix-install.sh" ]]; then
   DESTDIR="$BUILD_ROOT/config/includes.chroot" "$_hypr_settings/neuronix-install.sh"
 fi
 
+# ImageBorders plugin sources — compiled in hook 998 against ISO Hyprland ABI.
+_imgborders="$(cd "$REPO_ROOT/../ImageBorders" 2>/dev/null && pwd || true)"
+if [[ -n "${_imgborders}" && -f "${_imgborders}/CMakeLists.txt" ]]; then
+  _ib_src="$BUILD_ROOT/config/includes.chroot/usr/src/neuronix/imgborders"
+  mkdir -p "$_ib_src"
+  shopt -s nullglob
+  for _f in "${_imgborders}"/*.cpp "${_imgborders}"/*.hpp \
+            "${_imgborders}/CMakeLists.txt" "${_imgborders}/VERSION" \
+            "${_imgborders}/example.png"; do
+    [[ -f "$_f" ]] || continue
+    cp -a "$_f" "$_ib_src/"
+  done
+  shopt -u nullglob
+  echo "Staged ImageBorders sources → usr/src/neuronix/imgborders"
+else
+  echo "WARNING: ../ImageBorders not found — ISO will not build libimgborders.so" >&2
+fi
+
 # crontab.conf: personalize/configs/crontab wins over default/configs/crontab → /usr/share/neuronix/crontab.conf
 _crontab="$(neuronix_resolve_file "$REPO_ROOT/default/configs/crontab" "$PERSONALIZE/configs/crontab" "crontab.conf" || true)"
 if [[ -n "${_crontab:-}" ]]; then

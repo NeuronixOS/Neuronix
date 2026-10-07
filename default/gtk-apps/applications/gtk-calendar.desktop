@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Calendar
+Comment=GTK4 calendar (Google + .ics) — gtk-calendar
+Exec=gtk-calendar
+TryExec=gtk-calendar
+Icon=x-office-calendar
+Terminal=false
+Categories=Office;Calendar;Utility;
+StartupNotify=true
+StartupWMClass=org.neuronix.GtkCalendar

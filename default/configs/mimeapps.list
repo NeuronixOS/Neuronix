@@ -71,6 +71,9 @@ x-scheme-handler/https=neuronix-chrome.desktop
 text/html=neuronix-chrome.desktop
 x-scheme-handler/about=neuronix-chrome.desktop
 x-scheme-handler/unknown=neuronix-chrome.desktop
+text/calendar=gtk-calendar.desktop
+application/ics=gtk-calendar.desktop
+x-scheme-handler/webcal=gtk-calendar.desktop
 
 [Removed Associations]
 inode/directory=thunar.desktop

@@ -105,7 +105,14 @@ gir1.2-nm-1.0 # GObject introspection data for libnm
 papirus-icon-theme # Default icon theme (Papirus-Dark on dark chrome); folders recolored yellow in hook 999
 adwaita-icon-theme # Fallback icons for apps that expect Adwaita names
 libgtk-4-1 # GTK4 runtime for Neuronix gtk-apps (default/gtk-apps)
-gir1.2-gtk-4.0 # GTK4 GObject introspection (Python gtk-colors / suite apps)
+gir1.2-gtk-4.0 # GTK4 GObject introspection (Python gtk-colors / gtk-calendar / suite apps)
+python3-googleapi # gtk-calendar Google Calendar API client
+python3-google-auth # gtk-calendar Google OAuth
+python3-google-auth-httplib2 # gtk-calendar Google HTTP transport
+python3-google-auth-oauthlib # gtk-calendar Google sign-in (browser)
+python3-httplib2 # gtk-calendar Google API transport
+python3-icalendar # gtk-calendar .ics parser
+python3-dateutil # gtk-calendar recurring .ics events
 libvte-2.91-gtk4-0 # VTE GTK4 widget (gtk-term)
 libgtksourceview-5-0 # GtkSourceView 5 for gtk-edit syntax highlighting
 gir1.2-gtksource-5 # GtkSourceView 5 GObject introspection (gtk-meld / Python)

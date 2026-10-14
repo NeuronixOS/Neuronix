@@ -97,6 +97,8 @@ def _focus(address: str) -> None:
     addr = address if address.startswith("address:") else f"address:{address}"
     _dispatch("focuswindow", addr)
     _dispatch("bringactivetotop")
+    # Floating piles on the laptop need an explicit z-order bump.
+    _dispatch("alterzorder", "top")
 
 
 def _load_state(fh) -> dict:

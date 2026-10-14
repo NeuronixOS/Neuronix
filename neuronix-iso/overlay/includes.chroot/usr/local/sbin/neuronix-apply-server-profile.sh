@@ -96,8 +96,10 @@ rm -rf /usr/local/lib/neuronix/gtk-apps \
 	/usr/lib/x86_64-linux-gnu/hyprland/plugins \
 	/usr/lib/hyprland/plugins \
 	/usr/local/lib/hyprland/plugins \
-	/usr/share/neuronix/imgborders \
-	/usr/src/neuronix/imgborders 2>/dev/null || true
+	/usr/share/neuronix/hyprframes \
+	/usr/src/neuronix/hyprframes \
+	/usr/share/neuronix/hyprbars \
+	/usr/src/neuronix/hyprbars 2>/dev/null || true
 rm -f /usr/local/bin/gtk-* \
 	/usr/share/wayland-sessions/neuronix-hyprland.desktop \
 	/usr/share/neuronix/neuronix-hyprland-session*.sh \

@@ -122,9 +122,9 @@ _check "hypr-settings" "$OVERLAY/usr/local/bin/hypr-settings"
 _check "hypr-settings desktop" "$OVERLAY/usr/share/applications/hypr-settings.desktop"
 _check "hypr-settings package tree" "$BUILD_ROOT/default/hypr-settings/neuronix-install.sh"
 _check "neuronix-ensure-hyprbars" "$OVERLAY/usr/local/bin/neuronix-ensure-hyprbars"
-_check "imgborders example.png" "$OVERLAY/usr/share/neuronix/imgborders/example.png"
-_check "imgborders system conf" "$OVERLAY/usr/share/neuronix/imgborders/imgborders.conf"
-_check "imgborders user conf (default configs)" "$BUILD_ROOT/default/configs/hypr/imgborders.conf"
+_check "hyprframes example.png" "$OVERLAY/usr/share/neuronix/hyprframes/example.png"
+_check "hyprframes system conf" "$OVERLAY/usr/share/neuronix/hyprframes/hyprframes.conf"
+_check "hyprframes user conf (default configs)" "$BUILD_ROOT/default/configs/hypr/hyprframes.conf"
 _check "hyprland.conf (default configs)" "$BUILD_ROOT/default/configs/hypr/hyprland.conf"
 _check "waybar config (default configs)" "$BUILD_ROOT/default/configs/waybar/config"
 _check "neuronix-waybar-click" "$OVERLAY/usr/local/bin/neuronix-waybar-click"
@@ -438,14 +438,14 @@ if [[ -d "$_pers_hypr" ]]; then
 fi
 
 _def_hypr="$BUILD_ROOT/default/configs/hypr/hyprland.conf"
-if grep -q 'plugin = /usr/local/lib/hyprland/plugins/libimgborders.so' "$_def_hypr" 2>/dev/null \
-	&& grep -q 'imgborders.conf' "$_def_hypr" 2>/dev/null \
-	&& grep -q 'imgborders' "$ISO_ROOT/overlay/hooks/normal/998-neuronix-hyprspace.hook.chroot" 2>/dev/null \
-	&& [[ -f "$BUILD_ROOT/../ImageBorders/CMakeLists.txt" ]]; then
-	echo "  OK  ImageBorders staged for ISO (plugin= + hook 998 + sibling source)"
+if grep -q 'plugin = /usr/local/lib/hyprland/plugins/libhyprframes.so' "$_def_hypr" 2>/dev/null \
+	&& grep -q 'hyprframes.conf' "$_def_hypr" 2>/dev/null \
+	&& grep -q 'hyprframes' "$ISO_ROOT/overlay/hooks/normal/998-neuronix-hyprspace.hook.chroot" 2>/dev/null \
+	&& [[ -f "$BUILD_ROOT/../Packages/hyprframes/CMakeLists.txt" ]]; then
+	echo "  OK  hyprframes staged for ISO (plugin= + hook 998 + sibling source)"
 	_ok=$((_ok + 1))
 else
-	echo "  MISSING  ImageBorders ISO wiring (plugin=, hook 998, or ../ImageBorders)"
+	echo "  MISSING  hyprframes ISO wiring (plugin=, hook 998, or ../Packages/hyprframes)"
 	_fail=$((_fail + 1))
 fi
 if grep -q 'match:xdg_tag popup, border_size 0' "$_def_hypr" 2>/dev/null; then
@@ -515,7 +515,7 @@ _smoke_run "Layer B: gtk-image" "gtk-image --help" 2
 _smoke_run "Layer B: gtk-video" "gtk-video --help" 2
 _smoke_run "Layer B: gtk-calc" "gtk-calc --help" 2
 _smoke_run "hyprbars helper" "test -x /usr/local/bin/neuronix-ensure-hyprbars"
-_smoke_run "imgborders overlay png" "test -f /usr/share/neuronix/imgborders/example.png -o -f ${OVERLAY}/usr/share/neuronix/imgborders/example.png"
+_smoke_run "hyprframes overlay png" "test -f /usr/share/neuronix/hyprframes/example.png -o -f ${OVERLAY}/usr/share/neuronix/hyprframes/example.png"
 _smoke_run "native: fuzzel" "fuzzel --version"
 _smoke_run "hypr-settings" "test -x /usr/local/bin/hypr-settings"
 

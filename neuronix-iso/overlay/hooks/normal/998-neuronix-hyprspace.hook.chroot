@@ -67,47 +67,87 @@ trap cleanup EXIT
 
 mkdir -p "${PLUGIN_DIR}"
 
-# --- hyprbars (titlebar min/max/close) ---
-if _clone_hyprland_plugins "${_workdir}/hyprland-plugins"; then
-	cd "${_workdir}/hyprland-plugins/hyprbars"
-	if make all; then
-		# Debian package name; ensure helper looks for libhyprbars.so
-		install -m 0755 hyprbars.so "${HYPRBARS_SO}"
-		echo "[neuronix-hypr-plugins] installed ${HYPRBARS_SO}"
-	else
-		echo "[neuronix-hypr-plugins] WARNING: hyprbars build failed" >&2
+# --- hyprbars (titlebar + Neuronix gradient / bar_image) ---
+# Prefer staged Packages/hyprbars (setup.sh → /usr/src/neuronix/hyprbars).
+# Fall back to upstream hyprland-plugins tag matching the ISO Hyprland.
+HYPRBARS_SRC=/usr/src/neuronix/hyprbars
+HYPRBARS_SO_LOCAL=/usr/local/lib/hyprland/plugins/libhyprbars.so
+_hb_built=
+if [ -f "${HYPRBARS_SRC}/Makefile" ] || [ -f "${HYPRBARS_SRC}/CMakeLists.txt" ]; then
+	mkdir -p /usr/local/lib/hyprland/plugins /usr/share/neuronix/hyprbars
+	_hb_build="${_workdir}/hyprbars-build"
+	mkdir -p "${_hb_build}"
+	if [ -f "${HYPRBARS_SRC}/Makefile" ]; then
+		# Build in a copy so make's in-tree .so does not dirty the staged sources.
+		cp -a "${HYPRBARS_SRC}/." "${_hb_build}/"
+		if make -C "${_hb_build}" all; then
+			install -m 0755 "${_hb_build}/hyprbars.so" "${HYPRBARS_SO}"
+			install -m 0755 "${_hb_build}/hyprbars.so" "${HYPRBARS_SO_LOCAL}"
+			_hb_built=1
+			echo "[neuronix-hypr-plugins] installed Neuronix hyprbars → ${HYPRBARS_SO_LOCAL}"
+		fi
 	fi
-else
-	echo "[neuronix-hypr-plugins] WARNING: hyprland-plugins clone failed (network?)" >&2
+	if [ -z "${_hb_built}" ] && [ -f "${HYPRBARS_SRC}/CMakeLists.txt" ]; then
+		if cmake -S "${HYPRBARS_SRC}" -B "${_hb_build}/cmake" -DCMAKE_BUILD_TYPE=Release \
+			&& cmake --build "${_hb_build}/cmake" -j"$(nproc 2>/dev/null || echo 2)"; then
+			_so="$(find "${_hb_build}/cmake" -name 'libhyprbars.so' -o -name 'hyprbars.so' | head -1)"
+			if [ -n "${_so}" ]; then
+				install -m 0755 "${_so}" "${HYPRBARS_SO}"
+				install -m 0755 "${_so}" "${HYPRBARS_SO_LOCAL}"
+				_hb_built=1
+				echo "[neuronix-hypr-plugins] installed Neuronix hyprbars (cmake) → ${HYPRBARS_SO_LOCAL}"
+			fi
+		fi
+	fi
+	if [ -f "${HYPRBARS_SRC}/examples/tile-check.png" ]; then
+		install -m 0644 "${HYPRBARS_SRC}/examples/tile-check.png" \
+			/usr/share/neuronix/hyprbars/tile-check.png
+	fi
+	[ -n "${_hb_built}" ] || echo "[neuronix-hypr-plugins] WARNING: staged hyprbars build failed" >&2
 fi
-
-# --- imgborders (PNG window frames; Neuronix-maintained 0.55.2 port) ---
-# Source is copied into the chroot by neuronix-iso/setup.sh from ../ImageBorders.
-IMGBORDERS_SRC=/usr/src/neuronix/imgborders
-IMGBORDERS_SO_LOCAL=/usr/local/lib/hyprland/plugins/libimgborders.so
-IMGBORDERS_SO="${PLUGIN_DIR}/libimgborders.so"
-if [ -f "${IMGBORDERS_SRC}/CMakeLists.txt" ]; then
-	_ib_build="${_workdir}/imgborders-build"
-	mkdir -p "${_ib_build}" /usr/local/lib/hyprland/plugins \
-		/usr/share/neuronix/imgborders
-	if cmake -S "${IMGBORDERS_SRC}" -B "${_ib_build}" \
-		-DCMAKE_BUILD_TYPE=Release \
-		&& cmake --build "${_ib_build}" -j"$(nproc 2>/dev/null || echo 2)"; then
-		_so="${_ib_build}/libimgborders.so"
-		if [ -f "${_so}" ]; then
-			install -m 0755 "${_so}" "${IMGBORDERS_SO}"
-			install -m 0755 "${_so}" "${IMGBORDERS_SO_LOCAL}"
-			echo "[neuronix-hypr-plugins] installed ${IMGBORDERS_SO_LOCAL}"
+if [ -z "${_hb_built}" ]; then
+	if _clone_hyprland_plugins "${_workdir}/hyprland-plugins"; then
+		cd "${_workdir}/hyprland-plugins/hyprbars"
+		if make all; then
+			install -m 0755 hyprbars.so "${HYPRBARS_SO}"
+			mkdir -p /usr/local/lib/hyprland/plugins
+			install -m 0755 hyprbars.so "${HYPRBARS_SO_LOCAL}"
+			echo "[neuronix-hypr-plugins] installed upstream hyprbars → ${HYPRBARS_SO}"
+		else
+			echo "[neuronix-hypr-plugins] WARNING: hyprbars build failed" >&2
 		fi
 	else
-		echo "[neuronix-hypr-plugins] WARNING: imgborders build failed" >&2
+		echo "[neuronix-hypr-plugins] WARNING: hyprland-plugins clone failed (network?)" >&2
 	fi
-	if [ -f "${IMGBORDERS_SRC}/example.png" ]; then
-		install -m 0644 "${IMGBORDERS_SRC}/example.png" \
-			/usr/share/neuronix/imgborders/example.png
+fi
+
+# --- hyprframes (PNG window frames; Neuronix-maintained 0.55.2 port) ---
+# Source is copied into the chroot by neuronix-iso/setup.sh from Packages/hyprframes.
+HYPRFRAMES_SRC=/usr/src/neuronix/hyprframes
+HYPRFRAMES_SO_LOCAL=/usr/local/lib/hyprland/plugins/libhyprframes.so
+HYPRFRAMES_SO="${PLUGIN_DIR}/libhyprframes.so"
+if [ -f "${HYPRFRAMES_SRC}/CMakeLists.txt" ]; then
+	_ib_build="${_workdir}/hyprframes-build"
+	mkdir -p "${_ib_build}" /usr/local/lib/hyprland/plugins \
+		/usr/share/neuronix/hyprframes
+	if cmake -S "${HYPRFRAMES_SRC}" -B "${_ib_build}" \
+		-DCMAKE_BUILD_TYPE=Release \
+		&& cmake --build "${_ib_build}" -j"$(nproc 2>/dev/null || echo 2)"; then
+		_so="${_ib_build}/libhyprframes.so"
+		if [ -f "${_so}" ]; then
+			install -m 0755 "${_so}" "${HYPRFRAMES_SO}"
+			install -m 0755 "${_so}" "${HYPRFRAMES_SO_LOCAL}"
+			echo "[neuronix-hypr-plugins] installed ${HYPRFRAMES_SO_LOCAL}"
+		fi
+	else
+		echo "[neuronix-hypr-plugins] WARNING: hyprframes build failed" >&2
+	fi
+	if [ -f "${HYPRFRAMES_SRC}/example.png" ]; then
+		install -m 0644 "${HYPRFRAMES_SRC}/example.png" \
+			/usr/share/neuronix/hyprframes/example.png
 	fi
 else
-	echo "[neuronix-hypr-plugins] WARNING: no ${IMGBORDERS_SRC} (setup.sh did not stage ImageBorders)" >&2
+	echo "[neuronix-hypr-plugins] WARNING: no ${HYPRFRAMES_SRC} (setup.sh did not stage hyprframes)" >&2
 fi
 
 exit 0

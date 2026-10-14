@@ -338,22 +338,57 @@ if [[ -x "$_hypr_settings/neuronix-install.sh" ]]; then
   DESTDIR="$BUILD_ROOT/config/includes.chroot" "$_hypr_settings/neuronix-install.sh"
 fi
 
-# ImageBorders plugin sources — compiled in hook 998 against ISO Hyprland ABI.
-_imgborders="$(cd "$REPO_ROOT/../ImageBorders" 2>/dev/null && pwd || true)"
-if [[ -n "${_imgborders}" && -f "${_imgborders}/CMakeLists.txt" ]]; then
-  _ib_src="$BUILD_ROOT/config/includes.chroot/usr/src/neuronix/imgborders"
+# hyprframes plugin sources — compiled in hook 998 against ISO Hyprland ABI.
+_hyprframes="$(cd "$REPO_ROOT/../Packages/hyprframes" 2>/dev/null && pwd || true)"
+[[ -n "${_hyprframes}" ]] || _hyprframes="$(cd "$REPO_ROOT/../hyprframes" 2>/dev/null && pwd || true)"
+if [[ -n "${_hyprframes}" && -f "${_hyprframes}/CMakeLists.txt" ]]; then
+  _ib_src="$BUILD_ROOT/config/includes.chroot/usr/src/neuronix/hyprframes"
   mkdir -p "$_ib_src"
   shopt -s nullglob
-  for _f in "${_imgborders}"/*.cpp "${_imgborders}"/*.hpp \
-            "${_imgborders}/CMakeLists.txt" "${_imgborders}/VERSION" \
-            "${_imgborders}/example.png"; do
+  for _f in "${_hyprframes}"/*.cpp "${_hyprframes}"/*.hpp \
+            "${_hyprframes}/CMakeLists.txt" "${_hyprframes}/VERSION" \
+            "${_hyprframes}/example.png"; do
     [[ -f "$_f" ]] || continue
     cp -a "$_f" "$_ib_src/"
   done
   shopt -u nullglob
-  echo "Staged ImageBorders sources → usr/src/neuronix/imgborders"
+  # hyprutils-0.13 shim required for Hyprland 0.55.2 vs system 0.14
+  if [[ -d "${_hyprframes}/third_party/hyprutils-0.13" ]]; then
+    mkdir -p "$_ib_src/third_party"
+    cp -a "${_hyprframes}/third_party/hyprutils-0.13" "$_ib_src/third_party/"
+  fi
+  echo "Staged hyprframes sources → usr/src/neuronix/hyprframes"
 else
-  echo "WARNING: ../ImageBorders not found — ISO will not build libimgborders.so" >&2
+  echo "WARNING: Packages/hyprframes not found — ISO will not build libhyprframes.so" >&2
+fi
+
+# Neuronix hyprbars (gradient + bar_image) — compiled in hook 998.
+_hyprbars="$(cd "$REPO_ROOT/../Packages/hyprbars" 2>/dev/null && pwd || true)"
+if [[ -n "${_hyprbars}" && -f "${_hyprbars}/Makefile" ]]; then
+  _hb_src="$BUILD_ROOT/config/includes.chroot/usr/src/neuronix/hyprbars"
+  rm -rf "$_hb_src"
+  mkdir -p "$_hb_src"
+  shopt -s nullglob
+  for _f in "${_hyprbars}"/*.cpp "${_hyprbars}"/*.hpp \
+            "${_hyprbars}/Makefile" "${_hyprbars}/CMakeLists.txt" \
+            "${_hyprbars}/meson.build" "${_hyprbars}/README.md"; do
+    [[ -f "$_f" ]] || continue
+    cp -a "$_f" "$_hb_src/"
+  done
+  shopt -u nullglob
+  if [[ -d "${_hyprbars}/examples" ]]; then
+    cp -a "${_hyprbars}/examples" "$_hb_src/"
+  fi
+  if [[ -d "${_hyprbars}/third_party/hyprutils-0.13" ]]; then
+    mkdir -p "$_hb_src/third_party"
+    cp -a "${_hyprbars}/third_party/hyprutils-0.13" "$_hb_src/third_party/"
+  elif [[ -d "$REPO_ROOT/../Packages/hyprframes/third_party/hyprutils-0.13" ]]; then
+    mkdir -p "$_hb_src/third_party"
+    cp -a "$REPO_ROOT/../Packages/hyprframes/third_party/hyprutils-0.13" "$_hb_src/third_party/"
+  fi
+  echo "Staged Packages/hyprbars → usr/src/neuronix/hyprbars"
+else
+  echo "WARNING: Packages/hyprbars not found — ISO falls back to upstream hyprbars" >&2
 fi
 
 # crontab.conf: personalize/configs/crontab wins over default/configs/crontab → /usr/share/neuronix/crontab.conf

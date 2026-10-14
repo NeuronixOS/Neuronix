@@ -154,8 +154,9 @@ def has_hdmi(monitors: list[dict] | None = None) -> bool:
 def hdmi_monitor(monitors: list[dict] | None = None) -> dict:
     """HDMI-A-1 when present; otherwise the focused (or only) screen.
 
-    Parking and the Super zoom grid are HDMI-only. Super on a laptop skips
-    the grid and opens fuzzel over the current windows.
+    Parking and the Super zoom grid prefer HDMI-A-1; without HDMI they use the
+    focused / only screen (laptop eDP). Super in float mode shows the same
+    overview grid; Super in tile mode on a laptop opens fuzzel only.
     """
     monitors = monitors if monitors is not None else hypr_json("monitors")
     for mon in monitors:
@@ -1528,8 +1529,9 @@ def grid_hdmi(*, enter_overview: bool = False) -> None:
         overview_cancel()
         return
 
-    if enter_overview and not has_hdmi():
-        # Laptop / no HDMI: leave windows as they are and put fuzzel on top.
+    if enter_overview and not has_hdmi() and wants_tile_default():
+        # Laptop tiled: leave windows as they are and put fuzzel on top.
+        # Float mode falls through and shows the same preview grid as HDMI.
         if _fuzzel_running():
             _dismiss_fuzzel()
             return
@@ -2461,7 +2463,11 @@ def place_new_window(addr: str, hint_class: str = "", hint_title: str = "") -> N
     if is_gtk_meld(win):
         force_meld_fullscreen(addr)
         return
-    if on_laptop_panel(win) or (wants_tile_default() and not on_dp(win)):
+    # Laptop panel: only force-tile when layout-mode is tile. In float mode the
+    # built-in screen is the "main" float desk (hdmi_monitor falls back to eDP),
+    # so new windows must join the cascade — otherwise they map as a full-bleed
+    # tiled client *under* the float pile and cannot be clicked to focus.
+    if wants_tile_default() and (on_laptop_panel(win) or not on_dp(win)):
         if not _is_xdg_popup(win) and win.get("floating"):
             try:
                 tile_address(addr)
@@ -2483,7 +2489,8 @@ def place_new_window(addr: str, hint_class: str = "", hint_title: str = "") -> N
     if _apply_special_or_bottom(addr, win, focus=True):
         return
     align, row = _slot_for_new_window(addr)
-    x, y, w, h = place_float(addr, align, focus=True, row=row)
+    frac = (2, 3) if not has_hdmi() else (1, 3)
+    x, y, w, h = place_float(addr, align, focus=True, row=row, width_frac=frac)
     passes = 10 if _class_is_chromium((win.get("class") or "")) else 4
     for _ in range(passes):
         time.sleep(0.12)
@@ -2555,7 +2562,10 @@ def socket2_path() -> str:
 
 def watch() -> None:
     apply_layout_mode()
-    tile_laptop_clients()
+    # Only re-tile the built-in panel when layout-mode is tile. Float mode on a
+    # laptop without HDMI uses eDP as the main float desk — do not yank those.
+    if wants_tile_default():
+        tile_laptop_clients()
     path = socket2_path()
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(path)
@@ -2600,7 +2610,10 @@ def watch() -> None:
                                 or _is_xdg_popup(win)
                                 or is_utility_float(win)
                                 or is_gtk_meld(win)
-                                or not (on_laptop_panel(win) or (wants_tile_default() and not on_dp(win)))
+                                or not (
+                                    on_laptop_panel(win)
+                                    or (wants_tile_default() and not on_dp(win))
+                                )
                             ):
                                 return
                             if win.get("floating"):
@@ -2627,7 +2640,13 @@ def watch() -> None:
                         if is_gtk_meld(win):
                             force_meld_fullscreen(a)
                             return
-                        if on_dp(win) or on_laptop_panel(win) or wants_tile_default():
+                        # Tile-mode laptop/DP: leave alone. Float-mode laptop
+                        # must still allow special/media placement below.
+                        if wants_tile_default() and (
+                            on_dp(win) or on_laptop_panel(win)
+                        ):
+                            return
+                        if on_dp(win):
                             return
                         _apply_special_or_bottom(a, win, focus=False)
                     except Exception:
@@ -2735,7 +2754,15 @@ def main() -> None:
             f"dp-left|dp-right|watch]"
         )
     row, align = slot
-    place_float(addr, align, row=row, width_frac=(2, 3) if wide else (1, 3))
+    # Laptop float desk: number-row / numpad slots are 2/3 of the usable area.
+    # On HDMI, plain keys stay ~1/3 (with bump); Shift / wide-* stay 2/3.
+    if wide:
+        frac = (2, 3)
+    elif not has_hdmi():
+        frac = (2, 3)
+    else:
+        frac = (1, 3)
+    place_float(addr, align, row=row, width_frac=frac)
 
 
 if __name__ == "__main__":

@@ -15,18 +15,18 @@ _plugin_loaded() {
 	hyprctl plugin list 2>/dev/null | grep -qi "$1"
 }
 
-_load_imgborders() {
-	_plugin_loaded imgborders && return 0
+_load_hyprframes() {
+	_plugin_loaded hyprframes && return 0
 	# Loading any plugin after hyprbars re-parses hyprland.conf and
 	# hyprbars-button (onNewButton) can segfault Hyprland 0.55.2.
 	_plugin_loaded hyprbars && return 0
 	for PLUGIN_SO in \
-		"/usr/local/lib/hyprland/plugins/libimgborders.so" \
-		"${PLUGIN_DIR}/libimgborders.so" \
-		"${HOME}/.local/lib/hyprland/plugins/libimgborders.so"; do
+		"/usr/local/lib/hyprland/plugins/libhyprframes.so" \
+		"${PLUGIN_DIR}/libhyprframes.so" \
+		"${HOME}/.local/lib/hyprland/plugins/libhyprframes.so"; do
 		[ -f "${PLUGIN_SO}" ] || continue
 		hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
-		_plugin_loaded imgborders && return 0
+		_plugin_loaded hyprframes && return 0
 	done
 	return 0
 }
@@ -41,11 +41,12 @@ if _loaded; then
 	exit 0
 fi
 
-_load_imgborders
+_load_hyprframes
 
-# ISO-built or packaged plugin — no compile, works offline on live ISO.
-# /usr/local is the Neuronix build (hyprbars-button replace-in-place for gtk-themes).
+# Prefer user build (Packages/hyprbars → ~/.local), then ISO Neuronix build
+# (/usr/local: gradient + bar_image + hyprbars-button replace-in-place).
 for PLUGIN_SO in \
+	"${HOME}/.local/lib/hyprland/plugins/libhyprbars.so" \
 	"/usr/local/lib/hyprland/plugins/libhyprbars.so" \
 	"${PLUGIN_DIR}/libhyprbars.so" \
 	"${PLUGIN_DIR}/hyprbars.so"; do

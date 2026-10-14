@@ -168,6 +168,19 @@ if [[ -f "$_pers_waybar/config" ]]; then
 	fi
 fi
 
+# Date & Time: Waybar clock drills into calendar; Settings sidebar shows the menu.
+if grep -q 'return subtitle, items, None' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& ! grep -q 'return subtitle, items, "calendar"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -qE 'datetime\|clock\|calendar\)' "$OVERLAY/usr/local/bin/neuronix-waybar-click" 2>/dev/null \
+	&& grep -q 'neuronix-settings datetime calendar\|_hub datetime calendar' "$OVERLAY/usr/local/bin/neuronix-waybar-click" 2>/dev/null \
+	&& grep -q 'def datetime_items' "$OVERLAY/usr/local/bin/neuronix-datetime" 2>/dev/null; then
+	echo "  OK  Date & Time: sidebar menu vs Waybar calendar drill"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  Date & Time split (settings menu vs waybar calendar) in overlay"
+	_fail=$((_fail + 1))
+fi
+
 if grep -q 'application/pdf=zathura.desktop' "$BUILD_ROOT/default/configs/mimeapps.list" 2>/dev/null \
 	&& grep -q 'inode/directory=gtk-files.desktop' "$BUILD_ROOT/default/configs/mimeapps.list" 2>/dev/null \
 	&& grep -q 'video/mp4=mpv.desktop' "$BUILD_ROOT/default/configs/mimeapps.list" 2>/dev/null \

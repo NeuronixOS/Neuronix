@@ -22,6 +22,7 @@ DESKTOPS=(
 	gtk-term.desktop
 	gtk-calc.desktop
 	gtk-colors.desktop
+	gtk-calendar.desktop
 	zathura.desktop
 )
 
@@ -113,6 +114,10 @@ xdg-mime default gtk-files.desktop inode/directory 2>/dev/null || true
 xdg-mime default gtk-files.desktop inode/mount-point 2>/dev/null || true
 xdg-mime default gtk-files.desktop x-directory/normal 2>/dev/null || true
 xdg-mime default gtk-files.desktop application/x-directory 2>/dev/null || true
+
+xdg-mime default gtk-calendar.desktop text/calendar 2>/dev/null || true
+xdg-mime default gtk-calendar.desktop application/ics 2>/dev/null || true
+xdg-mime default gtk-calendar.desktop x-scheme-handler/webcal 2>/dev/null || true
 
 xdg-mime default zathura.desktop application/pdf 2>/dev/null || true
 xdg-mime default zathura.desktop application/x-pdf 2>/dev/null || true
@@ -223,6 +228,7 @@ echo "  Browser     : ${_browser:-unset}"
 echo "  Terminal    : gtk-term.desktop / gtk-term-launch.sh"
 echo "  Calculator  : gtk-calc.desktop (launcher only)"
 echo "  Colors      : gtk-colors.desktop (launcher only)"
+echo "  Calendar    : gtk-calendar.desktop (text/calendar, webcal)"
 echo ""
 echo "Verify:"
 echo "  xdg-mime query default text/plain"

@@ -11,6 +11,7 @@ wrappers and `/usr/share/applications/` desktop files.
 | `gtk-edit` | Text editor |
 | `gtk-calc` | Calculator |
 | `gtk-colors` | Color palette helper (`apps/gtk-colors/` + `bin/gtk-colors` wrapper) |
+| `gtk-calendar` | Month calendar (`apps/gtk-calendar/` + `bin/gtk-calendar` wrapper): Google sign-in and `.ics` |
 | `gtk-image` | Image viewer |
 | `gtk-video` | Video trimmer (in/out on the timeline, crop/rotate/flip, export selection) |
 | `gtk-theme-editor` | Suite color profile editor (Profile → Custom…) |

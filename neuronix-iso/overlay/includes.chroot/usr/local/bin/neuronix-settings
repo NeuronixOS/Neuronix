@@ -65,7 +65,8 @@ def main() -> int:
 
     def _clock():
         subtitle, items = clock["datetime_items"]()
-        return subtitle, items, "calendar"
+        # The clock click passes "calendar". This entry itself shows the menu.
+        return subtitle, items, None
 
     sections = [
         HubSection("wifi", "Wi-Fi", "network-wireless", page=pages.wifi_page),

@@ -3,6 +3,8 @@
 # Also includes Hyprland runtime from hook 997 (not in live section).
 fonts-cascadia-code
 fonts-noto-color-emoji
+fonts-inter
+fonts-cantarell
 lightdm
 lightdm-gtk-greeter
 desktop-base

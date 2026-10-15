@@ -31,6 +31,8 @@ rsyslog
 fontconfig
 fonts-cascadia-code
 fonts-noto-color-emoji
+fonts-inter
+fonts-cantarell
 zip
 gdisk
 dconf-cli

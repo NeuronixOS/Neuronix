@@ -1,5 +1,5 @@
-font = "monospace 12"
-use_custom_font = false
+font = "Cascadia Mono 12"
+use_custom_font = true
 columns = 80
 rows = 24
 cell_width_scale = 1.0

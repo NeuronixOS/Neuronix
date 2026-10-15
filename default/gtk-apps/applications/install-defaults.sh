@@ -23,6 +23,7 @@ DESKTOPS=(
 	gtk-calc.desktop
 	gtk-colors.desktop
 	gtk-calendar.desktop
+	gtk-emoji.desktop
 	zathura.desktop
 )
 

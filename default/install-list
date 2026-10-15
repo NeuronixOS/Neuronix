@@ -47,8 +47,10 @@ grep # GNU grep, egrep and fgrep
 debconf # Debian configuration management system
 rsyslog # reliable system and kernel logging daemon
 fontconfig # generic font configuration library - support binaries
-fonts-cascadia-code # Cascadia Code monospace (gtk-edit default editor font)
-fonts-noto-color-emoji # Color emoji for gtk-edit and other GTK apps
+fonts-cascadia-code # Cascadia Code monospace (gtk-edit / terminal stack)
+fonts-noto-color-emoji # Color emoji package (COLRv1 overlay preferred via fontconfig)
+fonts-inter # Primary UI sans for GTK / Waybar / Hyprland
+fonts-cantarell # Fallback UI sans (GNOME-friendly)
 zip # Create ZIP archives (gtk-files Compress + xarchiver)
 gdisk # GPT fdisk text-mode partitioning tool
 dconf-cli # simple configuration storage system - utilities

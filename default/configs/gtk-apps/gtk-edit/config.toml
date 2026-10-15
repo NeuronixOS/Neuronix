@@ -36,8 +36,8 @@ print_header = true
 print_wrap_mode = "word"
 print_line_numbers = 0
 print_font_body = "Cascadia Code 9"
-print_font_header = "Sans 11"
-print_font_numbers = "Sans 8"
+print_font_header = "Inter 11"
+print_font_numbers = "Inter 8"
 
 [encodings]
 auto_detected = [

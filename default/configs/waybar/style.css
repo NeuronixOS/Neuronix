@@ -12,7 +12,7 @@
 /* Capsule bar (dots-hyprland layout, Neuronix @wb_* colors). */
 
 * {
-  font-family: "Cantarell", "DejaVu Sans", sans-serif;
+  font-family: "Inter", "Cantarell", "DejaVu Sans", sans-serif;
   font-size: 12px;
   min-height: 0;
   color: @wb_fg;
@@ -107,7 +107,7 @@ window#waybar {
   margin: 6px 3px;
   border-radius: 14px;
   background: @wb_surface;
-  font-family: "FontAwesome", "Cantarell", "DejaVu Sans", sans-serif;
+  font-family: "FontAwesome", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
   font-size: 13px;
   color: @wb_fg;
 }
@@ -130,7 +130,7 @@ window#waybar {
   margin: 6px 3px;
   border-radius: 14px;
   background: @wb_surface;
-  font-family: "FontAwesome", "Cantarell", "DejaVu Sans", sans-serif;
+  font-family: "FontAwesome", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
   font-weight: 600;
   color: @wb_fg;
 }

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT="$(readlink -f "$0")"
+LIB="$(cd "$(dirname "$SCRIPT")" && pwd)"
+APP="$LIB/apps/gtk-emoji"
+THEME=""
+for cand in "$LIB/python" "$LIB/gtk-theme/python" /usr/share/neuronix/gtk-theme/python; do
+  [[ -f "$cand/gtk_theme.py" ]] && THEME="$cand" && break
+done
+export PYTHONPATH="${THEME:+$THEME:}$APP${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONUNBUFFERED=1
+cd "$APP"
+exec python3 "$APP/app.py" "$@"

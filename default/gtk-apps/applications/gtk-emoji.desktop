@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Emoji Picker
+Comment=GTK4 emoji picker — search, recent, copy to clipboard
+Exec=gtk-emoji
+TryExec=gtk-emoji
+Icon=face-smile
+Terminal=false
+Categories=Utility;GTK;
+StartupNotify=true
+StartupWMClass=org.neuronix.GtkEmoji

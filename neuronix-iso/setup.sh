@@ -14,6 +14,11 @@ IMAGES_PERSONALIZE="$PERSONALIZE/images"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/share/neuronix-personalize.sh"
 # shellcheck source=/dev/null
+source "$REPO_ROOT/share/linuxos-layout.sh"
+# Monorepo root (parent of Neuronix/) when Packages/ sits beside this checkout.
+LINUXOS_ROOT="$(neuronix_linuxos_root "$REPO_ROOT" || true)"
+LINUXOS_PACKAGES="$(neuronix_packages_dir "$REPO_ROOT" || true)"
+# shellcheck source=/dev/null
 source "$METADATA_DEFAULT/debian.env"
 if [[ -r "$PERSONALIZE/metadata/debian.env" ]]; then
   # shellcheck source=/dev/null
@@ -339,7 +344,12 @@ if [[ -x "$_hypr_settings/neuronix-install.sh" ]]; then
 fi
 
 # hyprframes plugin sources — compiled in hook 998 against ISO Hyprland ABI.
-_hyprframes="$(cd "$REPO_ROOT/../Packages/hyprframes" 2>/dev/null && pwd || true)"
+# Prefer ../Packages (see share/linuxos-layout.sh); fall back to other sibling paths.
+_hyprframes=""
+if [[ -n "${LINUXOS_PACKAGES:-}" && -f "${LINUXOS_PACKAGES}/hyprframes/CMakeLists.txt" ]]; then
+  _hyprframes="${LINUXOS_PACKAGES}/hyprframes"
+fi
+[[ -n "${_hyprframes}" ]] || _hyprframes="$(cd "$REPO_ROOT/../Packages/hyprframes" 2>/dev/null && pwd || true)"
 [[ -n "${_hyprframes}" ]] || _hyprframes="$(cd "$REPO_ROOT/../hyprframes" 2>/dev/null && pwd || true)"
 if [[ -n "${_hyprframes}" && -f "${_hyprframes}/CMakeLists.txt" ]]; then
   _ib_src="$BUILD_ROOT/config/includes.chroot/usr/src/neuronix/hyprframes"
@@ -363,7 +373,11 @@ else
 fi
 
 # Neuronix hyprbars (gradient + bar_image) — compiled in hook 998.
-_hyprbars="$(cd "$REPO_ROOT/../Packages/hyprbars" 2>/dev/null && pwd || true)"
+_hyprbars=""
+if [[ -n "${LINUXOS_PACKAGES:-}" && -f "${LINUXOS_PACKAGES}/hyprbars/Makefile" ]]; then
+  _hyprbars="${LINUXOS_PACKAGES}/hyprbars"
+fi
+[[ -n "${_hyprbars}" ]] || _hyprbars="$(cd "$REPO_ROOT/../Packages/hyprbars" 2>/dev/null && pwd || true)"
 if [[ -n "${_hyprbars}" && -f "${_hyprbars}/Makefile" ]]; then
   _hb_src="$BUILD_ROOT/config/includes.chroot/usr/src/neuronix/hyprbars"
   rm -rf "$_hb_src"
@@ -379,12 +393,13 @@ if [[ -n "${_hyprbars}" && -f "${_hyprbars}/Makefile" ]]; then
   if [[ -d "${_hyprbars}/examples" ]]; then
     cp -a "${_hyprbars}/examples" "$_hb_src/"
   fi
+  _hf_tp="${_hyprframes:+${_hyprframes}/third_party/hyprutils-0.13}"
   if [[ -d "${_hyprbars}/third_party/hyprutils-0.13" ]]; then
     mkdir -p "$_hb_src/third_party"
     cp -a "${_hyprbars}/third_party/hyprutils-0.13" "$_hb_src/third_party/"
-  elif [[ -d "$REPO_ROOT/../Packages/hyprframes/third_party/hyprutils-0.13" ]]; then
+  elif [[ -n "${_hf_tp}" && -d "${_hf_tp}" ]]; then
     mkdir -p "$_hb_src/third_party"
-    cp -a "$REPO_ROOT/../Packages/hyprframes/third_party/hyprutils-0.13" "$_hb_src/third_party/"
+    cp -a "${_hf_tp}" "$_hb_src/third_party/"
   fi
   echo "Staged Packages/hyprbars → usr/src/neuronix/hyprbars"
 else

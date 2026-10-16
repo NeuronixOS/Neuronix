@@ -26,13 +26,12 @@ Configs editing is in **hypr-settings** Appearance (not a separate gtk-configs a
 
 Self Driving (ꔮ / Ctrl+D) is built into gtk-files, gtk-term, gtk-edit, gtk-image, and gtk-video. On first use, paste a Gemini / Claude / Cursor API key in the panel (or copy `gtk-neuron/examples/credentials.toml` to `~/.config/gtk-apps/gtk-neuron/credentials.toml`).
 
-Refresh after rebuilding apps (from `LinuxOS/Packages/gtk-apps`):
+Refresh after rebuilding the suite (from the gtk-apps source checkout):
 
 ```bash
-cd /path/to/LinuxOS/Packages/gtk-apps
 ./syn-to-devices.sh
-# or:
-PROJECTS_ROOT=/path/to/LinuxOS ./syn-to-devices.sh
+# or, if auto-detect fails:
+./syn-to-devices.sh --linuxos ../..
 ```
 
 That script copies the default suite into this tree and KvNix extras into

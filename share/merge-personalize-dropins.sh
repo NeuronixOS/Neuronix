@@ -14,6 +14,7 @@
 #   gtk-apps/            → overlay onto usr/local/lib/neuronix/gtk-apps (+ bin + desktops)
 #   install/*.sh         → usr/share/neuronix/personalize-install (default then personalize)
 #   hooks/*.sh           → usr/share/neuronix/user-hooks (default then personalize)
+#   devtools/            → etc/skel/DevTools (desktop overlay; ~/DevTools on install)
 #   grub.d/neuronix-product.cfg → etc/default/grub.d/ (clobbers default/grub.d/)
 set -euo pipefail
 
@@ -1108,6 +1109,39 @@ merge_install_scripts() {
 	fi
 }
 
+# Desktop helper scripts → /etc/skel/DevTools so Calamares copies them to ~/DevTools.
+# Source is personalize/devtools when that tree contains navigate.sh, otherwise
+# $HOME/DevTools. Server overlays skip this. live-build drops .git, so the git
+# dir is also packed for 9933-neuronix-restore-git.hook.chroot.
+merge_devtools() {
+	_is_server_overlay && return 0
+	local src="" dest git_tar
+	if [[ -f "${PERSONALIZE:-}/devtools/navigate.sh" ]]; then
+		src="$(readlink -f "${PERSONALIZE}/devtools")"
+	elif [[ -f "${HOME:-}/DevTools/navigate.sh" ]]; then
+		src="${HOME}/DevTools"
+	else
+		return 0
+	fi
+	[[ -d "$src" ]] || return 0
+	dest="$INCLUDES/etc/skel/DevTools"
+	rm -rf "$dest"
+	mkdir -p "$dest"
+	tar -C "$src" \
+		--exclude='__pycache__' \
+		--exclude='*.pyc' \
+		-cf - . | tar -C "$dest" -xf -
+	find "$dest" -type d -exec chmod a+rx {} +
+	find "$dest" -type f \( -name '*.sh' -o -name '*.py' \) -exec chmod a+rX {} +
+	_info "staged DevTools → etc/skel/DevTools (from $src)"
+	if [[ -d "$src/.git" ]]; then
+		git_tar="$INCLUDES/usr/share/neuronix/skel-devtools.git.tar"
+		mkdir -p "$(dirname "$git_tar")"
+		tar -C "$src" -cf "$git_tar" .git
+		_info "  staged DevTools/.git → usr/share/neuronix/skel-devtools.git.tar"
+	fi
+}
+
 # First-login user hooks: /usr/share/neuronix/user-hooks/*.sh
 merge_user_hooks() {
 	local default_root pers_root dest
@@ -1169,4 +1203,5 @@ fi
 
 merge_browser_extensions
 merge_gtk_apps
+merge_devtools
 _info "done"

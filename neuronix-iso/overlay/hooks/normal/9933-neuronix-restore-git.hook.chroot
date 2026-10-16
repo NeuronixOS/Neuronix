@@ -14,3 +14,4 @@ _unpack_git() {
 }
 
 _unpack_git /usr/share/neuronix/skel-configs.git.tar /etc/skel/configs
+_unpack_git /usr/share/neuronix/skel-devtools.git.tar /etc/skel/DevTools

@@ -135,6 +135,7 @@ _check "gtk-video binary (default/gtk-apps)" "$BUILD_ROOT/default/gtk-apps/bin/g
 _check "gtk-emoji binary (default/gtk-apps)" "$BUILD_ROOT/default/gtk-apps/bin/gtk-emoji"
 _check "gtk-emoji app payload" "$BUILD_ROOT/default/gtk-apps/apps/gtk-emoji/emoji.json"
 _check "gtk-emoji.desktop (default/gtk-apps)" "$BUILD_ROOT/default/gtk-apps/applications/gtk-emoji.desktop"
+_check "Packages/gtk-apps source (syn-to-devices)" "$BUILD_ROOT/../Packages/gtk-apps/syn-to-devices.sh"
 _check "zathura.desktop" "$OVERLAY/usr/share/applications/zathura.desktop"
 
 if grep -q '"custom/power"' "$BUILD_ROOT/default/configs/waybar/config" 2>/dev/null \

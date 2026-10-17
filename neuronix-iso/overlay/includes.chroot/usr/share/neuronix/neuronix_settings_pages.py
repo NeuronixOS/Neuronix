@@ -61,6 +61,21 @@ _APP_CATEGORIES = (
     ("Archives", "application/zip"),
 )
 
+_CHROME_PREFS = Path.home() / ".config" / "hypr" / "neuronix-window-chrome.json"
+_PLUGIN_SO_CANDIDATES = {
+    "hyprbars": (
+        Path.home() / ".local/lib/hyprland/plugins/libhyprbars.so",
+        Path("/usr/local/lib/hyprland/plugins/libhyprbars.so"),
+        Path("/usr/lib/x86_64-linux-gnu/hyprland/plugins/libhyprbars.so"),
+        Path("/usr/lib/x86_64-linux-gnu/hyprland/plugins/hyprbars.so"),
+    ),
+    "hyprframes": (
+        Path.home() / ".local/lib/hyprland/plugins/libhyprframes.so",
+        Path("/usr/local/lib/hyprland/plugins/libhyprframes.so"),
+        Path("/usr/lib/x86_64-linux-gnu/hyprland/plugins/libhyprframes.so"),
+    ),
+}
+
 
 def _page() -> Gtk.Box:
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -84,6 +99,146 @@ def _section(text: str) -> Gtk.Label:
     lbl = Gtk.Label(label=text, xalign=0.0)
     lbl.get_style_context().add_class("neuronix-heading")
     return lbl
+
+
+def _chrome_prefs() -> dict[str, bool]:
+    data = {"hyprbars": True, "hyprframes": True}
+    try:
+        raw = json.loads(_CHROME_PREFS.read_text(encoding="utf-8"))
+    except Exception:
+        return data
+    if not isinstance(raw, dict):
+        return data
+    for key in ("hyprbars", "hyprframes"):
+        if key in raw:
+            data[key] = bool(raw[key])
+    return data
+
+
+def _save_chrome_prefs(prefs: dict[str, bool]) -> None:
+    try:
+        _CHROME_PREFS.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "hyprbars": bool(prefs.get("hyprbars", True)),
+            "hyprframes": bool(prefs.get("hyprframes", True)),
+        }
+        _CHROME_PREFS.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _plugin_so(name: str) -> str:
+    for path in _PLUGIN_SO_CANDIDATES.get(name, ()):
+        if path.is_file():
+            return str(path)
+    return ""
+
+
+def _plugin_loaded(name: str) -> bool:
+    ok, out = _run(["hyprctl", "-j", "plugin", "list"], timeout=3)
+    if not ok:
+        ok, out = _run(["hyprctl", "plugin", "list"], timeout=3)
+        return ok and name.lower() in out.lower()
+    try:
+        rows = json.loads(out or "[]")
+    except Exception:
+        return name.lower() in (out or "").lower()
+    if not isinstance(rows, list):
+        return False
+    needle = name.lower()
+    return any(str(row.get("name") or "").lower() == needle for row in rows if isinstance(row, dict))
+
+
+def _hyprbars_enabled_live() -> bool:
+    if not _plugin_loaded("hyprbars"):
+        return False
+    ok, out = _run(["hyprctl", "getoption", "plugin:hyprbars:enabled"], timeout=3)
+    if not ok:
+        return True
+    for line in (out or "").splitlines():
+        if line.strip().startswith("int:"):
+            try:
+                return int(line.split(":", 1)[1].strip()) != 0
+            except ValueError:
+                break
+    return True
+
+
+def _set_hyprbars(on: bool) -> str:
+    prefs = _chrome_prefs()
+    prefs["hyprbars"] = bool(on)
+    _save_chrome_prefs(prefs)
+    if on:
+        if not _plugin_loaded("hyprbars"):
+            so = _plugin_so("hyprbars")
+            if not so:
+                return "hyprbars plugin was not found"
+            ok, out = _run(["hyprctl", "plugin", "load", so], timeout=8)
+            if not ok and not _plugin_loaded("hyprbars"):
+                return out or "Could not load hyprbars"
+        _run(["hyprctl", "keyword", "plugin:hyprbars:enabled", "true"], timeout=4)
+        return ""
+    if _plugin_loaded("hyprbars"):
+        ok, out = _run(["hyprctl", "keyword", "plugin:hyprbars:enabled", "false"], timeout=4)
+        if not ok:
+            return out or "Could not disable hyprbars"
+    return ""
+
+
+def _set_hyprframes(on: bool) -> str:
+    prefs = _chrome_prefs()
+    prefs["hyprframes"] = bool(on)
+    _save_chrome_prefs(prefs)
+    so = _plugin_so("hyprframes")
+    if on:
+        if _plugin_loaded("hyprframes"):
+            return ""
+        if not so:
+            return "hyprframes plugin was not found"
+        ok, out = _run(["hyprctl", "plugin", "load", so], timeout=8)
+        if not ok and not _plugin_loaded("hyprframes"):
+            return out or "Could not load hyprframes"
+        return ""
+    if not _plugin_loaded("hyprframes"):
+        return ""
+    if not so:
+        # Still try unload by common paths.
+        for candidate in _PLUGIN_SO_CANDIDATES["hyprframes"]:
+            _run(["hyprctl", "plugin", "unload", str(candidate)], timeout=6)
+            if not _plugin_loaded("hyprframes"):
+                return ""
+        return "Could not unload hyprframes"
+    ok, out = _run(["hyprctl", "plugin", "unload", so], timeout=6)
+    if _plugin_loaded("hyprframes"):
+        return out or "Could not unload hyprframes"
+    return ""
+
+
+def _switch_row(label: str, active: bool, on_change) -> Gtk.Box:
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+    cap = Gtk.Label(label=label, xalign=0.0)
+    cap.set_hexpand(True)
+    sw = Gtk.Switch()
+    sw.set_valign(Gtk.Align.CENTER)
+    sw.set_active(bool(active))
+    armed = {"ok": False}
+
+    def _notify(widget: Gtk.Switch, *_a) -> None:
+        if not armed["ok"]:
+            return
+        on_change(bool(widget.get_active()))
+
+    sw.connect("notify::active", _notify)
+    row.pack_start(cap, True, True, 0)
+    row.pack_end(sw, False, False, 0)
+
+    def _arm() -> bool:
+        armed["ok"] = True
+        return False
+
+    GLib.idle_add(_arm)
+    row._neuronix_switch = sw  # type: ignore[attr-defined]
+    return row
 
 
 def _run(argv: list[str], timeout: float = 8.0) -> tuple[bool, str]:
@@ -1001,6 +1156,63 @@ def themes_page() -> Gtk.Widget:
     box.pack_start(actions, False, False, 0)
     status = _note(chosen["profile"].name)
     box.pack_start(status, False, False, 0)
+
+    # Only offer toggles for plugins that are installed (or already loaded).
+    has_bars = bool(_plugin_so("hyprbars")) or _plugin_loaded("hyprbars")
+    has_frames = bool(_plugin_so("hyprframes")) or _plugin_loaded("hyprframes")
+    if has_bars or has_frames:
+        box.pack_start(_section("Window chrome"), False, False, 0)
+        bits = []
+        if has_bars:
+            bits.append("title bars (hyprbars)")
+        if has_frames:
+            bits.append("image borders (hyprframes)")
+        box.pack_start(_note(" and ".join(bits).capitalize() + "."), False, False, 0)
+        chrome_status = _note("")
+        chrome_status.set_no_show_all(True)
+        chrome_status.hide()
+        prefs = _chrome_prefs()
+
+        def _chrome_msg(text: str) -> None:
+            if text:
+                chrome_status.set_text(text)
+                chrome_status.show()
+            else:
+                chrome_status.hide()
+
+        if has_bars:
+            bars_on = (
+                _hyprbars_enabled_live()
+                if _plugin_loaded("hyprbars")
+                else bool(prefs.get("hyprbars", True))
+            )
+
+            def _on_bars(active: bool) -> None:
+                _chrome_msg(_set_hyprbars(active))
+
+            box.pack_start(
+                _switch_row("Hyprbars (title bars)", bars_on, _on_bars),
+                False,
+                False,
+                0,
+            )
+        if has_frames:
+            frames_on = (
+                _plugin_loaded("hyprframes")
+                if _plugin_so("hyprframes") or _plugin_loaded("hyprframes")
+                else bool(prefs.get("hyprframes", True))
+            )
+
+            def _on_frames(active: bool) -> None:
+                _chrome_msg(_set_hyprframes(active))
+
+            box.pack_start(
+                _switch_row("Hyprframes (window borders)", frames_on, _on_frames),
+                False,
+                False,
+                0,
+            )
+        box.pack_start(chrome_status, False, False, 0)
 
     def _draw(widget, cr):
         return _draw_theme_preview(widget, cr, chosen["profile"])

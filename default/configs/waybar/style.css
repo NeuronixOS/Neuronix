@@ -21,15 +21,15 @@
 }
 
 window#waybar {
-  background-color: alpha(@wb_bg, 0.45);
+  background-color: transparent;
   color: @wb_fg;
-  border-radius: 21px;
 }
 
 .modules-left,
 .modules-center,
 .modules-right {
-  background-color: transparent;
+  background-color: alpha(@wb_bg, 0.75);
+  border-radius: 21px;
   margin: 0;
   padding: 0 8px;
 }
@@ -44,7 +44,7 @@ window#waybar {
   padding: 0 6px;
   margin: 6px 2px;
   color: @wb_dim;
-  background: @wb_surface;
+  background: transparent;
   border: none;
   border-radius: 12px;
   font-weight: 700;
@@ -106,7 +106,7 @@ window#waybar {
   padding: 0 8px;
   margin: 6px 3px;
   border-radius: 14px;
-  background: @wb_surface;
+  background: transparent;
   font-family: "FontAwesome", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
   font-size: 13px;
   color: @wb_fg;
@@ -129,7 +129,7 @@ window#waybar {
   padding: 0 10px;
   margin: 6px 3px;
   border-radius: 14px;
-  background: @wb_surface;
+  background: transparent;
   font-family: "FontAwesome", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
   font-weight: 600;
   color: @wb_fg;

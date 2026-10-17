@@ -75,16 +75,16 @@ def main() -> int:
         HubSection("displays", "Displays", "video-display", page=pages.displays_page),
         HubSection("sound", "Sound", "audio-volume-high", page=pages.sound_page),
         HubSection("apps", "Apps", "preferences-desktop-default-applications", page=pages.apps_page),
-        HubSection("themes", "Themes", "preferences-desktop-theme", page=pages.themes_page),
-        HubSection("updates", "Updates", "system-software-update", page=pages.updates_page),
+        HubSection("themes", "Themes", "preferences-desktop-appearance", page=pages.themes_page),
+        HubSection("updates", "Updates", "software-update-available", page=pages.updates_page),
         HubSection("configs", "Configs", "folder", page=pages.configs_page),
         HubSection("screensaver", "Screensaver", "preferences-desktop-screensaver", page=pages.screensaver_page),
         HubSection("system", "System", "preferences-system", page=pages.system_page),
         HubSection("sync", "GTK-Sync", "emblem-synchronizing", _sync),
         HubSection("datetime", "Date & Time", "x-office-calendar", _clock),
         HubSection("keyboard", "Keyboard", "input-keyboard", page=pages.keyboard_page),
-        HubSection("about", "About", "help-about", page=pages.about_page),
         HubSection("power", "Power", "system-shutdown", lambda: _plain(quick.power_items())),
+        HubSection("about", "About", "help-about", page=pages.about_page),
     ]
     section = (sys.argv[1] if len(sys.argv) > 1 else "wifi").strip().lower()
     drill = (sys.argv[2] if len(sys.argv) > 2 else "").strip().lower()

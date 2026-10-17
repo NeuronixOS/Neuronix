@@ -2,6 +2,8 @@
 # Smart Escape for Neuronix Hyprland:
 #  - fuzzel open → dismiss the launcher
 #  - slurp (screenshot region) open → cancel the selection
+#  - neuronix settings / waybar popovers open → close them (layer-shell
+#    surfaces never receive sendshortcut)
 #  - otherwise → forward Escape to the focused window (global bind would
 #    otherwise swallow Escape for every app)
 set -eu
@@ -27,6 +29,27 @@ fi
 # never reaches it. Killing slurp is the same as its own Escape cancel.
 if pgrep -x slurp >/dev/null 2>&1; then
 	pkill -x slurp >/dev/null 2>&1 || true
+	exit 0
+fi
+
+# Neuronix settings / choice popovers are gtk-layer-shell surfaces. Hyprland's
+# activewindow Escape never reaches them — close via the singleton lock PID.
+_closed=0
+for _lock in "${XDG_RUNTIME_DIR}"/neuronix-choice-*.lock; do
+	[ -f "$_lock" ] || continue
+	_pid="$(tr -cd '0-9' <"$_lock" 2>/dev/null || true)"
+	[ -n "$_pid" ] || continue
+	kill -0 "$_pid" 2>/dev/null || continue
+	# Settings hub: clear any pending section-switch so USR2 always quits.
+	case "$_lock" in
+	*neuronix-choice-neuronix-settings.lock)
+		: >"${XDG_RUNTIME_DIR}/neuronix-settings.request" 2>/dev/null || true
+		;;
+	esac
+	kill -USR2 "$_pid" 2>/dev/null || true
+	_closed=1
+done
+if [ "$_closed" -eq 1 ]; then
 	exit 0
 fi
 

@@ -268,6 +268,40 @@ else
 	_fail=$((_fail + 1))
 fi
 
+if grep -q 'neuronix-choice-' "$OVERLAY/usr/local/bin/neuronix-escape" 2>/dev/null \
+	&& grep -q 'neuronix-choice-' "$BUILD_ROOT/default/configs/bin/neuronix-escape" 2>/dev/null; then
+	echo "  OK  Escape closes neuronix settings/popovers"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  settings/popover close in neuronix-escape"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'alpha(@wb_bg, 0.5)' "$BUILD_ROOT/default/configs/waybar/style.css" 2>/dev/null; then
+	echo "  OK  waybar modules-right 50% alpha"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  waybar modules-right alpha(@wb_bg, 0.5)"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'request_hub_reopen' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null \
+	&& grep -q 'request_hub_reopen' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null; then
+	echo "  OK  themes apply reopens settings hub"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  themes hub reopen wiring"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q '_footer_ids = ("system", "about", "power")' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null; then
+	echo "  OK  settings nav footer System/About/Power"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  settings nav footer order"
+	_fail=$((_fail + 1))
+fi
+
 if grep -q 'neuronix-screenshot' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null \
 	&& grep -q 'gtk-image' "$OVERLAY/usr/local/bin/neuronix-screenshot" 2>/dev/null; then
 	echo "  OK  Print Screen → neuronix-screenshot → gtk-image"

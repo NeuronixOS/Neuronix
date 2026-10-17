@@ -28,7 +28,7 @@ window#waybar {
 .modules-left,
 .modules-center,
 .modules-right {
-  background-color: alpha(@wb_bg, 0.75);
+  background-color: alpha(@wb_bg, 0.5);
   border-radius: 21px;
   margin: 0;
   padding: 0 8px;
@@ -135,6 +135,7 @@ window#waybar {
   color: @wb_fg;
 }
 
+#custom-layout,
 #custom-gtk-sync {
   min-width: 3.2em;
 }

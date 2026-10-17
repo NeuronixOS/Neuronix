@@ -92,7 +92,32 @@ def _acquire_choice_singleton(title: str) -> bool:
     return True
 
 
-_HUB_CONTROL: Dict[str, object] = {"active": False, "section": "", "switch": None}
+_HUB_CONTROL: Dict[str, object] = {
+    "active": False,
+    "section": "",
+    "switch": None,
+    "reopen": None,
+    "win": None,
+}
+
+
+def release_hub_keyboard_briefly() -> None:
+    """Drop exclusive grab so a ComboBox popup can receive the click/selection."""
+    win = _HUB_CONTROL.get("win")
+    if win is None:
+        return
+    try:
+        GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
+    except Exception:
+        pass
+
+
+def request_hub_reopen(section: str, drill: str = "") -> None:
+    """Close the settings hub and reopen on section (e.g. after a theme apply)."""
+    _HUB_CONTROL["reopen"] = (str(section or "themes"), str(drill or ""))
+
+# Opaque fill drawn under Waybar while the settings hub is open (no Waybar reload).
+_HUB_BAR_BACKDROP: Dict[str, object] = {"win": None}
 
 
 def _settings_request_path() -> str:
@@ -208,8 +233,8 @@ box.neuronix-root {{
   font-family: Sans;
 }}
 box.neuronix-root.neuronix-hub {{
-  /* Flat top joins modules-right; no border so glass meets the capsule. */
-  border-radius: 0 0 21px 21px;
+  /* Cairo draws the rounded bottom; keep CSS radius 0 so the top stays flat. */
+  border-radius: 0;
   border: none;
   padding: 10px 12px 12px 12px;
 }}
@@ -284,6 +309,9 @@ button.neuronix-tile label.neuronix-chevron {{
   font-size: 16px;
   font-weight: 400;
   padding-left: 8px;
+}}
+image.neuronix-item-icon {{
+  color: {fg};
 }}
 button.neuronix-tile:hover label.neuronix-row-title,
 button.neuronix-tile:hover label.neuronix-chevron {{
@@ -696,6 +724,124 @@ def _rounded_rect(
     cr.close_path()
 
 
+def _waybar_geom_any() -> tuple[int, int, int, int] | None:
+    """Return the first Waybar layer (x, y, w, h), or None."""
+    try:
+        layers = _hypr_json(["hyprctl", "layers", "-j"])
+    except Exception:
+        return None
+    if not isinstance(layers, dict):
+        return None
+    for info in layers.values():
+        if not isinstance(info, dict):
+            continue
+        for level in (info.get("levels") or {}).values():
+            for surf in level:
+                if surf.get("namespace") == "waybar":
+                    return (
+                        int(surf.get("x") or 0),
+                        int(surf.get("y") or 0),
+                        int(surf.get("w") or 0),
+                        int(surf.get("h") or 0),
+                    )
+    return None
+
+
+def _hub_bar_backdrop_hide() -> None:
+    """Remove the opaque strip under Waybar."""
+    win = _HUB_BAR_BACKDROP.get("win")
+    _HUB_BAR_BACKDROP["win"] = None
+    if win is None:
+        return
+    try:
+        win.destroy()
+    except Exception:
+        pass
+
+
+def _hub_bar_backdrop_show() -> None:
+    """Opaque fill under modules-right (clock→power), aligned with the settings hub."""
+    _hub_bar_backdrop_hide()
+    pill = _hub_pill_geometry()
+    wb = _waybar_geom_any()
+    # Vertical: sit in the Waybar strip. Horizontal: same pill as the hub.
+    top = int(wb[1]) if wb is not None else 12
+    height = int(wb[3]) if wb is not None else int(pill["start_h"])
+    # Always the design modules-right width (clock→power). Do not use the
+    # hub's size_request (pill−5) — that shifts the left corner ~5px and
+    # puts a bump next to the clock.
+    width = int(pill["width"])
+    right = int(pill["right"])
+    if width < 8 or height < 8:
+        return
+
+    win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+    win.set_decorated(False)
+    win.set_resizable(False)
+    win.set_accept_focus(False)
+    win.set_can_focus(False)
+    try:
+        Gdk.set_program_class("neuronix-bar-fill")
+    except Exception:
+        pass
+    _enable_rgba(win)
+    GtkLayerShell.init_for_window(win)
+    try:
+        GtkLayerShell.set_namespace(win, "neuronix-bar-fill")
+    except Exception:
+        pass
+    # BOTTOM under Waybar icons. exclusive_zone=-1 keeps us in the bar strip
+    # (zone 0 gets pushed below Waybar's reserved area).
+    GtkLayerShell.set_layer(win, GtkLayerShell.Layer.BOTTOM)
+    GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.NONE)
+    GtkLayerShell.set_exclusive_zone(win, -1)
+    gdk = _pointer_monitor()
+    if gdk is not None:
+        try:
+            GtkLayerShell.set_monitor(win, gdk)
+        except Exception:
+            pass
+    # Same TOP+RIGHT pin as the hub so the fill sits directly above it.
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.TOP, True)
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.RIGHT, True)
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.LEFT, False)
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.BOTTOM, False)
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.TOP, max(0, top))
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.RIGHT, max(0, right))
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.LEFT, 0)
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.BOTTOM, 0)
+
+    # Overlap hub top by 3px to erase the seam; flat bottom → continuous sides.
+    draw_h = max(1, int(height) + 3)
+    fill = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+    fill.set_size_request(width, draw_h)
+    rgb = _hex_rgb(_theme_chrome()["bg"]) or (33, 33, 33)
+
+    def _draw(_widget, cr) -> bool:
+        fw = fill.get_allocated_width()
+        fh = fill.get_allocated_height()
+        if fw <= 1 or fh <= 1:
+            return False
+        cr.save()
+        # Rounded top (matches Waybar), flat bottom (joins hub as one shape).
+        _rounded_rect(cr, 0, 0, fw, fh, 21, radius_top=21, radius_bottom=0)
+        cr.set_source_rgba(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, 1.0)
+        cr.fill()
+        cr.restore()
+        return False
+
+    fill.connect("draw", _draw)
+    win.add(fill)
+    win.set_size_request(width, draw_h)
+    try:
+        win.resize(width, draw_h)
+    except Exception:
+        pass
+    _HUB_BAR_BACKDROP["win"] = win
+    _HUB_BAR_BACKDROP["width"] = width
+    win.show_all()
+
+
 def _glass_root(
     box: Gtk.Box,
     alpha: float = 0.5,
@@ -705,8 +851,7 @@ def _glass_root(
 ) -> None:
     """One glass fill for the whole dialog, including subpages.
 
-    Hub (Waybar pill) uses alpha=0.75, flat top, rounded bottom to connect
-    to the modules-right capsule.
+    Hub matches the Waybar capsule (opaque while open; flat top, rounded bottom).
     """
     fill_a = float(alpha)
     corner = max(0, int(radius))
@@ -1120,305 +1265,21 @@ def _set_centered_margins(win: Gtk.Window, width: int, height: int) -> None:
     GtkLayerShell.set_margin(win, GtkLayerShell.Edge.RIGHT, 0)
 
 
-def _waybar_config_path() -> str:
-    home = os.path.expanduser("~")
-    for path in (
-        os.path.join(home, ".config", "waybar", "config"),
-        os.path.join(home, "configs", "waybar", "config"),
-        "/etc/xdg/waybar/config",
-    ):
-        if os.path.isfile(path):
-            return path
-    return ""
-
-
-def _clock_format_and_sample() -> tuple[str, str]:
-    """Return (strftime format, current clock sample string)."""
-    from datetime import datetime
-
-    fmt = "%a %b %d  %I:%M %p"
-    try:
-        conf_path = _waybar_config_path()
-        if conf_path:
-            with open(conf_path, encoding="utf-8") as fh:
-                conf = json.load(fh)
-            raw = ((conf.get("clock") or {}).get("format") or "").strip()
-            if raw.startswith("{:") and raw.endswith("}"):
-                fmt = raw[2:-1]
-    except Exception:
-        pass
-    return fmt, datetime.now().strftime(fmt)
-
-
-def _clock_text_width() -> int:
-    """Pixel width of the Waybar clock string (Inter Bold 16)."""
-    try:
-        _fmt, sample = _clock_format_and_sample()
-        try:
-            from gi.repository import PangoCairo  # type: ignore
-
-            surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1)
-            cr = cairo.Context(surf)
-            layout = PangoCairo.create_layout(cr)
-            layout.set_font_description(Pango.FontDescription("Inter Bold 16"))
-            layout.set_text(sample, -1)
-            _ink, logical = layout.get_pixel_extents()
-            return max(40, int(logical.width))
-        except Exception:
-            return max(40, int(len(sample) * 10.5))
-    except Exception:
-        return 208
-
-
-_HUB_GEOM_CACHE: dict[str, int] | None = None
-
-
-def _measure_clock_to_power() -> tuple[int, int] | None:
-    """Screenshot Waybar; return (width, right_margin) for clock text → power icon.
-
-    Fast path: only scans the bar strip and a narrow x-range for the clock.
-    Cached for the lifetime of one hub open (cleared in show_hub).
-    """
-    global _HUB_GEOM_CACHE
-    if _HUB_GEOM_CACHE is not None:
-        return int(_HUB_GEOM_CACHE["width"]), int(_HUB_GEOM_CACHE["right"])
-
-    import shutil
-    import tempfile
-
-    if not shutil.which("grim"):
-        return None
-    try:
-        layers = _hypr_json(["hyprctl", "layers", "-j"])
-        mons = _hypr_json(["hyprctl", "monitors", "-j"])
-    except Exception:
-        return None
-
-    geom = None
-    mw = 1920
-    for mon in layers:
-        g = _waybar_geom(mon)
-        if g is None:
-            continue
-        geom = g
-        for m in mons:
-            if str(m.get("name") or "") == mon:
-                mw, _ = _hypr_monitor_logical_size(m)
-                break
-        break
-    if geom is None:
-        return None
-    bx, by, bw, bh = geom
-
-    _fmt, sample = _clock_format_and_sample()
-    try:
-        from gi.repository import GdkPixbuf, PangoCairo  # type: ignore
-    except Exception:
-        return None
-
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-        path = tmp.name
-    try:
-        proc = subprocess.run(
-            ["grim", "-g", f"{bx},{by} {bw}x{bh}", path],
-            check=False,
-            capture_output=True,
-            timeout=1.5,
-        )
-        if proc.returncode != 0:
-            return None
-        pb = GdkPixbuf.Pixbuf.new_from_file(path)
-        pw, ph = pb.get_width(), pb.get_height()
-        nch, row = pb.get_n_channels(), pb.get_rowstride()
-        pixels = pb.get_pixels()
-
-        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, 400, max(ph, 42))
-        cr = cairo.Context(surf)
-        cr.set_source_rgb(0, 0, 0)
-        cr.paint()
-        cr.set_source_rgb(1, 1, 1)
-        layout = PangoCairo.create_layout(cr)
-        layout.set_font_description(Pango.FontDescription("Inter Bold 16"))
-        layout.set_text(sample, -1)
-        PangoCairo.update_layout(cr, layout)
-        _ink, logical = layout.get_pixel_extents()
-        tw, th = int(logical.width), int(logical.height)
-        if tw < 40 or tw >= pw - 80:
-            return None
-        y0 = max(0, (ph - th) // 2)
-        cr.move_to(0, y0)
-        PangoCairo.show_layout(cr, layout)
-        buf = surf.get_data()
-        # Cairo ARGB32 stride is bytes-per-row of the *template* surface (400),
-        # not the screenshot width — using pw here made measure always fail.
-        tmpl_stride = surf.get_stride()
-
-        # Sparse template points (text ink only).
-        pts: list[tuple[int, int, float]] = []
-        for yy in range(0, th, 2):
-            for xx in range(0, tw, 2):
-                i = yy * tmpl_stride + xx * 4
-                b, g, r, a = buf[i], buf[i + 1], buf[i + 2], buf[i + 3]
-                if a > 128 and (r + g + b) > 90:
-                    pts.append((xx, yy, (r + g + b) / 3.0))
-        if len(pts) < 20:
-            return None
-
-        def scr_lum(x: int, y: int) -> float:
-            i = y * row + x * nch
-            return (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3.0
-
-        # Clock is in the left half of modules-right (trailing third of the bar).
-        x_lo = max(0, pw // 2)
-        x_hi = max(x_lo + 1, pw - tw - 40)
-        best_score = -1.0
-        best_x = x_lo
-        for x0 in range(x_lo, x_hi, 2):
-            num = den_a = den_b = 0.0
-            for xx, yy, a in pts:
-                sy = y0 + yy
-                if sy >= ph:
-                    continue
-                b = scr_lum(x0 + xx, sy)
-                num += a * b
-                den_a += a * a
-                den_b += b * b
-            if den_a < 1 or den_b < 1:
-                continue
-            score = num / ((den_a ** 0.5) * (den_b ** 0.5))
-            if score > best_score:
-                best_score = score
-                best_x = x0
-        # Refine ±2px
-        for x0 in range(max(x_lo, best_x - 2), min(x_hi, best_x + 3)):
-            num = den_a = den_b = 0.0
-            for xx, yy, a in pts:
-                sy = y0 + yy
-                if sy >= ph:
-                    continue
-                b = scr_lum(x0 + xx, sy)
-                num += a * b
-                den_a += a * a
-                den_b += b * b
-            if den_a < 1 or den_b < 1:
-                continue
-            score = num / ((den_a ** 0.5) * (den_b ** 0.5))
-            if score > best_score:
-                best_score = score
-                best_x = x0
-        if best_score < 0.55:
-            return None
-
-        # Power = last bright glyph cluster near the trailing edge.
-        bright: list[int] = []
-        for x in range(best_x + tw, pw):
-            hits = 0
-            for y in range(max(0, ph // 4), min(ph, (3 * ph) // 4)):
-                r = pixels[y * row + x * nch]
-                g = pixels[y * row + x * nch + 1]
-                b = pixels[y * row + x * nch + 2]
-                if r > 190 and g > 180 and b > 150:
-                    hits += 1
-            if hits >= 2:
-                bright.append(x)
-        if not bright:
-            return None
-        # Last contiguous run
-        s = p = bright[0]
-        last = (s, p)
-        for x in bright[1:]:
-            if x <= p + 6:
-                p = x
-            else:
-                last = (s, p)
-                s = p = x
-        last = (s, p)
-        power_right = last[1]
-        clock_left = best_x
-        width = max(280, power_right - clock_left + 1)
-        # Screen coords: strip is at bx; hub right edge at power.
-        hub_right = bx + power_right + 1
-        right_margin = max(0, mw - hub_right)
-        result = (int(width), int(right_margin))
-        _HUB_GEOM_CACHE = {"width": result[0], "right": result[1]}
-        return result
-    except Exception:
-        return None
-    finally:
-        try:
-            os.unlink(path)
-        except Exception:
-            pass
-
-
-def _modules_right_pill_width() -> int:
-    """Width from clock text through the power button."""
-    override = os.environ.get("NEURONIX_HUB_WIDTH", "").strip()
-    if override.isdigit():
-        return max(280, int(override))
-    measured = _measure_clock_to_power()
-    if measured is not None:
-        return measured[0]
-    text_w = _clock_text_width()
-    # Fallback when grim measure fails.
-    after_text = 580
-    return max(320, text_w + after_text)
-
-
 def _hub_pill_geometry() -> dict[str, int]:
-    """Hub flush under the bar, only as wide as clock text → power button."""
-    gdk = _pointer_monitor()
-    hypr = None
-    cur = freeze_click_xy()
-    if cur is not None:
-        hypr = _hypr_monitor_at_point(cur[0], cur[1])
-    if hypr is None:
-        try:
-            for mon in _hypr_json(["hyprctl", "monitors", "-j"]):
-                if mon.get("focused"):
-                    hypr = mon
-                    break
-        except Exception:
-            hypr = None
-    if hypr is not None:
-        mw, _mh = _hypr_monitor_logical_size(hypr)
-        mon_name = str(hypr.get("name") or "")
-    elif gdk is not None:
-        geo = gdk.get_geometry()
-        mw = int(geo.width)
-        mon_name = ""
-    else:
-        mw = 1920
-        mon_name = ""
+    """Fixed strip under Waybar modules-right (clock → power).
 
-    geom = _waybar_geom(mon_name) if mon_name else None
-    if geom is None:
-        try:
-            layers = _hypr_json(["hyprctl", "layers", "-j"])
-            for name in layers:
-                geom = _waybar_geom(name)
-                if geom is not None:
-                    break
-        except Exception:
-            pass
-
-    measured = _measure_clock_to_power()
-    if measured is not None:
-        pill_w, right = measured
-    else:
-        pill_w = _modules_right_pill_width()
-        right = 32
-    if geom is not None:
-        _bx, _by, bw, bh = geom
-        start_h = max(36, bh)
-        pill_w = min(pill_w, max(280, bw - 8))
-    else:
-        start_h = 42
-        pill_w = min(pill_w, max(280, mw - right - 40))
-    # Hyprland: top margin 0 = exact bottom of Waybar's exclusive zone.
-    top = 0
-
-    return {"top": top, "right": right, "width": pill_w, "start_h": start_h}
+    Width/right match the closed .modules-right capsule (padding + clock→power)
+    so the open fill doesn't shift the left corner. Override with NEURONIX_HUB_WIDTH.
+    """
+    override = os.environ.get("NEURONIX_HUB_WIDTH", "").strip()
+    # Closed pill left ≈ 1280 with margin-right 8 on 1920 → width 632.
+    width = int(override) if override.isdigit() else 632
+    return {
+        "top": 0,  # flush under Waybar exclusive zone
+        "right": 8,  # same as waybar margin-right
+        "width": max(280, width),
+        "start_h": 42,
+    }
 
 
 def _set_waybar_pill_margins(win: Gtk.Window, width: int, height: int) -> None:
@@ -1445,18 +1306,62 @@ def _set_waybar_pill_margins(win: Gtk.Window, width: int, height: int) -> None:
     GtkLayerShell.set_margin(win, GtkLayerShell.Edge.BOTTOM, 0)
 
 
+def _popup_menu_is_open(hub: Gtk.Window) -> bool:
+    """True while a ComboBox/menu popup is mapped (must not steal exclusive keys)."""
+    try:
+        tops = list(Gtk.Window.list_toplevels())
+    except Exception:
+        return False
+    for top in tops:
+        if top is hub:
+            continue
+        try:
+            if not top.get_mapped():
+                continue
+        except Exception:
+            continue
+        try:
+            if GtkLayerShell.is_layer_window(top):
+                continue
+        except Exception:
+            pass
+        try:
+            if top.get_window_type() == Gtk.WindowType.POPUP:
+                return True
+        except Exception:
+            pass
+        try:
+            hint = top.get_type_hint()
+            if hint in (
+                Gdk.WindowTypeHint.POPUP_MENU,
+                Gdk.WindowTypeHint.DROPDOWN_MENU,
+                Gdk.WindowTypeHint.COMBO,
+                Gdk.WindowTypeHint.MENU,
+            ):
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def hold_layer_keyboard(win: Gtk.Window):
     """Keep keystrokes on this layer until the returned function is called.
 
     Settings takes an exclusive keyboard grab. A password dialog on top never
     sees keys while that grab is held, and a button click hands the keyboard
     back to Settings. Park every other layer and keep this one exclusive.
+    Pause while a ComboBox/menu popup is open so theme (and other) dropdowns
+    can actually change the active row.
     """
     state: Dict[str, object] = {"on": True, "saved": []}
 
     def _apply() -> bool:
         if not state["on"]:
             return False
+        # Re-asserting EXCLUSIVE while a dropdown is open steals focus and the
+        # selection never sticks — Themes combo looked broken because of this.
+        if _popup_menu_is_open(win):
+            return True
         saved: list = state["saved"]  # type: ignore[assignment]
         known = {id(top) for top, _prev in saved}
         try:
@@ -1546,8 +1451,7 @@ def place_hub_layer_window(win: Gtk.Window, width: int, height: int) -> None:
     _set_waybar_pill_margins(win, w, h)
 
     def _again(*_a, fallback_w=w, fallback_h=h):
-        # Never widen past the measured clock→power width — content min-size
-        # must not stretch the hub past the Waybar capsule.
+        # Keep the fixed pill width; content min-size must not stretch past it.
         aw, ah = fallback_w, fallback_h
         try:
             alloc = win.get_allocation()
@@ -1644,6 +1548,80 @@ def _menu_icon(item_id: str, icon: str = "") -> str:
     }.get(item_id, "")
 
 
+# Full-color Papirus names → mono symbolic stand-ins when no *-symbolic exists.
+_ICON_SYMBOLIC_FALLBACK = {
+    "preferences-desktop-theme": "preferences-desktop-appearance-symbolic",
+    "system-software-update": "software-update-available-symbolic",
+}
+
+
+def _bw_menu_image(icon_name: str, size: int = 24) -> Gtk.Image:
+    """Load a menu icon as black-and-white (prefer symbolic, else desaturate)."""
+    img = Gtk.Image()
+    img.get_style_context().add_class("neuronix-item-icon")
+    img.set_valign(Gtk.Align.CENTER)
+    try:
+        img.set_pixel_size(size)
+    except Exception:
+        pass
+
+    base = icon_name[:-9] if icon_name.endswith("-symbolic") else icon_name
+    theme = Gtk.IconTheme.get_default()
+    symbolic = f"{base}-symbolic"
+    if base in _ICON_SYMBOLIC_FALLBACK:
+        use_name = _ICON_SYMBOLIC_FALLBACK[base]
+    elif theme.has_icon(symbolic):
+        use_name = symbolic
+    else:
+        use_name = base
+
+    info = None
+    try:
+        info = theme.lookup_icon(
+            use_name if use_name.endswith("-symbolic") else base,
+            size,
+            Gtk.IconLookupFlags.FORCE_SYMBOLIC,
+        )
+    except Exception:
+        info = None
+    if info is None:
+        try:
+            info = theme.lookup_icon(use_name, size, 0)
+        except Exception:
+            info = None
+
+    path = ""
+    try:
+        path = (info.get_filename() or "") if info is not None else ""
+    except Exception:
+        path = ""
+
+    # Symbolic SVGs recolor from CSS `color` — keep them as icon-name images.
+    if "symbolic" in path or use_name.endswith("-symbolic"):
+        try:
+            img.set_from_icon_name(use_name, Gtk.IconSize.DND)
+            return img
+        except Exception:
+            pass
+
+    # Colored theme icons → grayscale pixbuf so the nav stays monochrome.
+    try:
+        if info is not None:
+            pb = info.load_icon()
+            if pb is not None:
+                bw = pb.copy()
+                pb.saturate_and_pixelate(bw, 0.0, False)
+                img.set_from_pixbuf(bw)
+                return img
+    except Exception:
+        pass
+    try:
+        img.set_from_icon_name(base, Gtk.IconSize.DND)
+    except Exception:
+        pass
+    return img
+
+
 def _make_tile(
     item_id: str,
     label: str,
@@ -1662,14 +1640,7 @@ def _make_tile(
     row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
     icon_name = _menu_icon(item_id, icon)
     if icon_name:
-        img = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.DND)
-        try:
-            img.set_pixel_size(24)
-        except Exception:
-            pass
-        img.set_valign(Gtk.Align.CENTER)
-        img.get_style_context().add_class("neuronix-item-icon")
-        row.pack_start(img, False, False, 0)
+        row.pack_start(_bw_menu_image(icon_name, 24), False, False, 0)
     text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
     text.set_halign(Gtk.Align.START)
     text.set_valign(Gtk.Align.CENTER)
@@ -2540,11 +2511,9 @@ def attach_drill(
     back_btn["w"] = back
 
     def _on_key(_w, event):
+        # Always close settings on Escape (no drill-back-first).
         if event.keyval != Gdk.KEY_Escape:
             return False
-        if selected["open"]:
-            collapse()
-            return True
         on_quit()
         return True
 
@@ -2573,6 +2542,12 @@ def attach_page(
     scroll.get_style_context().add_class("neuronix-clear")
     scroll.set_hexpand(True)
     scroll.set_vexpand(True)
+    # Pages like Apps have wide ComboBox natural sizes — do not grow the hub.
+    try:
+        scroll.set_propagate_natural_width(False)
+        scroll.set_propagate_natural_height(False)
+    except Exception:
+        pass
     scroll.add(widget)
     parent.pack_start(scroll, True, True, 0)
 
@@ -2710,8 +2685,6 @@ def show_hub(
     actions: Sequence[HubAction] = (),
 ) -> None:
     """Settings hub: Waybar-pill glass anchored top-right under the bar."""
-    global _HUB_GEOM_CACHE
-    _HUB_GEOM_CACHE = None  # re-measure clock→power for this open
     freeze_click_xy()
     if not begin_settings_hub(initial_id, drill):
         return
@@ -2722,7 +2695,9 @@ def show_hub(
         initial_id = catalog[0].id
 
     pill = _hub_pill_geometry()
-    panel_w = int(pill["width"])
+    # GTK layer shells allocate ~5px wider than requested; ask short so the
+    # live hub width matches the bar fill (one vertical edge).
+    panel_w = max(280, int(pill["width"]) - 5)
     start_h = int(pill["start_h"])
     # Fit nav + content inside the modules-right pill width (clock→power).
     nav_w = min(168, max(120, panel_w // 3))
@@ -2745,8 +2720,8 @@ def show_hub(
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     outer.get_style_context().add_class("neuronix-root")
     outer.get_style_context().add_class("neuronix-hub")
-    # Flat top + rounded bottom so it joins modules-right as one solid shape.
-    _glass_root(outer, alpha=0.75, radius=21, radius_top=0, radius_bottom=21)
+    # Flat top meets the bar-fill; rounded bottom — one continuous rounded unit.
+    _glass_root(outer, alpha=1.0, radius=21, radius_top=0, radius_bottom=21)
     win.add(outer)
 
     body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -2786,9 +2761,110 @@ def show_hub(
 
     size = {"h": start_h, "animating": True}
     buttons: Dict[str, Gtk.Button] = {}
+    _esc_hook: Dict[str, object] = {"snooper": None, "sid": None, "release": None}
 
     def _quit() -> None:
+        _remove_escape_hook()
+        try:
+            release = _esc_hook.get("release")
+            if callable(release):
+                release()
+        except Exception:
+            pass
+        _hub_bar_backdrop_hide()
         Gtk.main_quit()
+
+    def _remove_escape_hook() -> None:
+        sid = _esc_hook.get("sid")
+        _esc_hook["sid"] = None
+        _esc_hook["snooper"] = None
+        if sid is None:
+            return
+        try:
+            from ctypes import CDLL, c_int
+
+            libgtk = CDLL("libgtk-3.so.0")
+            libgtk.gtk_key_snooper_remove.argtypes = [c_int]
+            libgtk.gtk_key_snooper_remove(int(sid))
+        except Exception:
+            try:
+                Gtk.key_snooper_remove(int(sid))
+            except Exception:
+                pass
+
+    def _install_escape_hook() -> None:
+        """Catch Escape regardless of which child has focus (layer-shell safe)."""
+        if _esc_hook.get("sid") is not None:
+            return
+        try:
+            from ctypes import (
+                CDLL,
+                CFUNCTYPE,
+                POINTER,
+                byref,
+                c_int,
+                c_uint,
+                c_void_p,
+            )
+
+            libgtk = CDLL("libgtk-3.so.0")
+            libgdk = CDLL("libgdk-3.so.0")
+            libgdk.gdk_event_get_keyval.argtypes = [c_void_p, POINTER(c_uint)]
+            libgdk.gdk_event_get_keyval.restype = c_int
+            libgtk.gtk_key_snooper_install.argtypes = [c_void_p, c_void_p]
+            libgtk.gtk_key_snooper_install.restype = c_int
+            Snoop = CFUNCTYPE(c_int, c_void_p, c_void_p, c_void_p)
+
+            @Snoop
+            def _snoop(_grab, event, _data):
+                keyval = c_uint(0)
+                if not libgdk.gdk_event_get_keyval(event, byref(keyval)):
+                    return 0
+                if int(keyval.value) in (int(Gdk.KEY_Escape), 0xFF1B):
+                    GLib.idle_add(_quit)
+                    return 1
+                return 0
+
+            sid = int(libgtk.gtk_key_snooper_install(_snoop, None))
+            _esc_hook["snooper"] = _snoop  # keep callback alive
+            _esc_hook["sid"] = sid
+        except Exception:
+            pass
+
+        # Always also wire focused widgets so Escape works even without snooper.
+        def _on_set_focus(_window, focus):
+            if focus is None or getattr(focus, "_neuronix_esc_wired", False):
+                return
+            try:
+                focus._neuronix_esc_wired = True  # type: ignore[attr-defined]
+                focus.connect("key-press-event", _on_key)
+            except Exception:
+                pass
+
+        try:
+            win.connect("set-focus", _on_set_focus)
+        except Exception:
+            pass
+
+        def _wire(widget: Gtk.Widget) -> None:
+            if getattr(widget, "_neuronix_esc_wired", False):
+                return
+            try:
+                widget._neuronix_esc_wired = True  # type: ignore[attr-defined]
+                widget.connect("key-press-event", _on_key)
+            except Exception:
+                pass
+            try:
+                if isinstance(widget, Gtk.Container):
+                    for child in widget.get_children():
+                        _wire(child)
+            except Exception:
+                pass
+
+        try:
+            _wire(win)
+        except Exception:
+            pass
 
     def _lock_size() -> None:
         panel_h = int(size["h"])
@@ -2844,10 +2920,21 @@ def show_hub(
         win._neuronix_key = state["on_key"]  # type: ignore[attr-defined]
         if not size["animating"]:
             size["h"] = final_h
-            _lock_size()
         right.show_all()
+        # Re-clamp after page swap — content natural width must not stretch the pill.
+        _lock_size()
+        GLib.idle_add(_lock_size)
 
     def _on_key(widget, event):
+        key = int(getattr(event, "keyval", 0) or 0)
+        name = ""
+        try:
+            name = str(Gdk.keyval_name(key) or "")
+        except Exception:
+            pass
+        if key in (Gdk.KEY_Escape, 0xFF1B) or name == "Escape":
+            _quit()
+            return True
         handler = getattr(win, "_neuronix_key", None)
         if callable(handler):
             return handler(widget, event)
@@ -2882,11 +2969,16 @@ def show_hub(
         _lock_size()
         return False
 
+    # Main tabs A–Z; footer: System, About, then a gap, then Power.
+    _footer_ids = ("system", "about", "power")
+    by_nav = {section.id: section for section in catalog}
     nav_sections = sorted(
-        (section for section in catalog if section.id != "about"),
+        (section for section in catalog if section.id not in _footer_ids),
         key=lambda section: section.label.casefold(),
     )
-    nav_sections.extend(section for section in catalog if section.id == "about")
+    for fid in _footer_ids:
+        if fid in by_nav:
+            nav_sections.append(by_nav[fid])
     for section in nav_sections:
         btn = _make_tile(
             section.id,
@@ -2896,7 +2988,7 @@ def show_hub(
             show_chevron=False,
             icon=section.icon,
         )
-        if section.id == "about":
+        if section.id in ("system", "power"):
             btn.set_margin_top(28)
         buttons[section.id] = btn
         nav.pack_start(btn, False, False, 0)
@@ -2916,14 +3008,91 @@ def show_hub(
             )
 
     _HUB_CONTROL["switch"] = lambda section, drill_id: _show(section, drill_id)
+    _HUB_CONTROL["win"] = win
     win.connect("key-press-event", _on_key)
     win.connect("destroy", lambda *_: _quit())
     _show(initial_id, drill)
     _lock_size()
-    win.show_all()
-    win.present()
-    GLib.idle_add(_expand_tick, 0)
-    Gtk.main()
+    _hub_bar_backdrop_show()
+    release_keys = hold_layer_keyboard(win)
+    _esc_hook["release"] = release_keys
+    _install_escape_hook()
+
+    def _restore_and_quit(*_a):
+        _quit()
+        return True
+
+    def _sync_fill_to_hub(*_a):
+        """Keep fill on the design pill; re-clamp hub if content tried to grow."""
+        design_w = int(_hub_pill_geometry()["width"])
+        try:
+            aw = int(win.get_allocated_width() or 0)
+        except Exception:
+            aw = 0
+        # GTK often allocates ~5px past size_request — that is fine. Only
+        # fight real content stretch (Apps combos, etc.).
+        if aw > design_w + 8:
+            _lock_size()
+        if int(_HUB_BAR_BACKDROP.get("width") or 0) != design_w:
+            _HUB_BAR_BACKDROP["width"] = design_w
+            _hub_bar_backdrop_show()
+        return False
+
+    try:
+        signal.signal(signal.SIGTERM, _restore_and_quit)
+        signal.signal(signal.SIGINT, _restore_and_quit)
+    except Exception:
+        pass
+    try:
+        win.set_can_focus(True)
+        win.show_all()
+        win.present()
+        try:
+            win.grab_focus()
+        except Exception:
+            pass
+        GLib.timeout_add(100, _sync_fill_to_hub)
+        GLib.idle_add(_expand_tick, 0)
+        Gtk.main()
+    finally:
+        try:
+            release_keys()
+        except Exception:
+            pass
+        _hub_bar_backdrop_hide()
+        reopen = _HUB_CONTROL.get("reopen")
+        _HUB_CONTROL["reopen"] = None
+        _HUB_CONTROL["active"] = False
+        _HUB_CONTROL["switch"] = None
+        _HUB_CONTROL["win"] = None
+        # Drop the singleton lock before a theme-reopen spawn, or the child
+        # would just signal this process (already leaving) instead of opening.
+        for fd in list(_SINGLETON_LOCKS):
+            try:
+                os.close(fd)
+            except Exception:
+                pass
+        _SINGLETON_LOCKS.clear()
+        if isinstance(reopen, tuple) and reopen:
+            section = str(reopen[0] or "themes")
+            drill = str(reopen[1] if len(reopen) > 1 else "")
+            try:
+                import neuronix_quick_settings as _quick
+
+                exe = _quick._which("neuronix-settings") or "neuronix-settings"
+                argv = [exe, section] + ([drill] if drill else [])
+                _quick._launch_detached(argv)
+            except Exception:
+                try:
+                    argv = ["neuronix-settings", section] + ([drill] if drill else [])
+                    subprocess.Popen(
+                        argv,
+                        start_new_session=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except Exception:
+                    pass
 
 
 def main_cli() -> int:

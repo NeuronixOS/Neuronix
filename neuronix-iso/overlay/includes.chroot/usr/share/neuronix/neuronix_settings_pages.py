@@ -671,23 +671,25 @@ def apps_page() -> Gtk.Widget:
         cap.set_width_chars(14)
         combo = Gtk.ComboBoxText()
         combo.set_hexpand(True)
+        # Id = desktop file; label = short title only (long "title (file)"
+        # strings were stretching the fixed-width settings hub).
         current = ""
         ok, out = _run(["xdg-mime", "query", "default", mime], timeout=3)
         if ok:
             current = out.strip()
-        active = 0
-        combo.append_text("")
-        for i, (filename, title) in enumerate(apps, start=1):
-            combo.append_text(f"{title}  ({filename})")
+        combo.append("", "")
+        active_id = ""
+        for filename, title in apps:
+            combo.append(filename, title)
             if filename == current:
-                active = i
-        combo.set_active(active)
+                active_id = filename
+        if active_id:
+            combo.set_active_id(active_id)
+        else:
+            combo.set_active(0)
 
         def _set(widget: Gtk.ComboBoxText, mime=mime) -> None:
-            text = widget.get_active_text() or ""
-            if "(" not in text:
-                return
-            filename = text.rsplit("(", 1)[-1].rstrip(")").strip()
+            filename = widget.get_active_id() or ""
             if filename:
                 _run(["xdg-mime", "default", filename, mime], timeout=4)
 
@@ -961,16 +963,21 @@ def themes_page() -> Gtk.Widget:
         names[profile.name] = names.get(profile.name, 0) + 1
     box.pack_start(_section("Theme"), False, False, 0)
     combo = Gtk.ComboBoxText()
+    combo.set_hexpand(True)
     ids: list[str] = []
     for profile in profiles:
         ids.append(profile.id)
         label = profile.name if names[profile.name] == 1 else f"{profile.name} ({profile.id})"
-        combo.append_text(label)
+        combo.append(profile.id, label)
     current = theme.load_theme_id()
-    combo.set_active(ids.index(current) if current in ids else 0)
+    if current in ids:
+        combo.set_active_id(current)
+    else:
+        combo.set_active(0)
     box.pack_start(combo, False, False, 0)
 
-    chosen = {"profile": profiles[combo.get_active()]}
+    active_i = max(0, combo.get_active())
+    chosen = {"profile": profiles[active_i]}
     area = Gtk.DrawingArea()
     area.set_size_request(-1, 360)
     area.set_hexpand(True)
@@ -999,10 +1006,11 @@ def themes_page() -> Gtk.Widget:
         return _draw_theme_preview(widget, cr, chosen["profile"])
 
     def _pick() -> object | None:
-        index = combo.get_active()
-        if index < 0:
-            return None
-        return next((item for item in profiles if item.id == ids[index]), None)
+        index = int(combo.get_active())
+        if index < 0 or index >= len(profiles):
+            active_id = combo.get_active_id() or ""
+            return next((item for item in profiles if item.id == active_id), None)
+        return profiles[index]
 
     def _changed(*_a) -> None:
         profile = _pick()
@@ -1010,23 +1018,45 @@ def themes_page() -> Gtk.Widget:
             return
         chosen["profile"] = profile
         area.queue_draw()
+        try:
+            area.queue_draw_area(0, 0, area.get_allocated_width(), area.get_allocated_height())
+        except Exception:
+            pass
         if profile.id == theme.load_theme_id():
             status.set_text(f"{profile.name} is in use")
         else:
             status.set_text(profile.name)
 
+    def _open_combo(*_a):
+        # Exclusive hub grab eats dropdown selection; release while picking.
+        try:
+            import neuronix_choice_dialog as choice
+
+            choice.release_hub_keyboard_briefly()
+        except Exception:
+            pass
+        return False
+
     def _apply(*_a) -> None:
-        profile = chosen.get("profile")
+        profile = chosen.get("profile") or _pick()
         if profile is None:
             return
         try:
             theme.select_theme(profile.id, gtk_version=3)
-            status.set_text(f"Applied {profile.name}")
         except Exception as exc:
             status.set_text(str(exc))
+            return
+        # Restart the hub on Themes so glass/CSS pick up the new chrome.
+        try:
+            import neuronix_choice_dialog as choice
+
+            choice.request_hub_reopen("themes")
+        except Exception:
+            pass
+        GLib.idle_add(Gtk.main_quit)
 
     def _edit(*_a) -> None:
-        profile = chosen.get("profile")
+        profile = chosen.get("profile") or _pick()
         if profile is None:
             return
         request = Path.home() / ".config" / "gtk-apps" / "editor-request"
@@ -1042,6 +1072,11 @@ def themes_page() -> Gtk.Widget:
 
     area.connect("draw", _draw)
     combo.connect("changed", _changed)
+    combo.connect("button-press-event", _open_combo)
+    try:
+        combo.connect("notify::popup-shown", lambda *_: _open_combo())
+    except TypeError:
+        pass
     apply_btn.connect("clicked", _apply)
     edit_btn.connect("clicked", _edit)
     return box

@@ -15,6 +15,7 @@ wrappers and `/usr/share/applications/` desktop files.
 | `gtk-emoji` | Emoji picker (`apps/gtk-emoji/` + `bin/gtk-emoji` wrapper): search, recent, clipboard |
 | `gtk-image` | Image viewer |
 | `gtk-video` | Video trimmer (in/out on the timeline, crop/rotate/flip, export selection) |
+| `gtk-player` | Audio and video player (playlist, loop track, loop playlist, A–B handles on the time bar) |
 | `gtk-theme-editor` | Suite color profile editor (Profile → Custom…) |
 | `gtk-theme/` | Shared theme data (`profiles.json`, python helpers). The Rust crate is **statically linked** into each app; this tree is still required for tooling and reference profiles. |
 | `gtk-sync/` | LAN file sync installer used by gtk-files (Setup Sync): `install.sh` / `uninstall.sh`, systemd units, and prebuilt `target/release/gtk-sync{,-client}` so setup works without cargo on the ISO. |

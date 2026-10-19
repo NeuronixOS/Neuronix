@@ -18,6 +18,7 @@ DESKTOPS=(
 	gtk-edit.desktop
 	gtk-image.desktop
 	gtk-video.desktop
+	gtk-player.desktop
 	gtk-files.desktop
 	gtk-term.desktop
 	gtk-calc.desktop
@@ -220,6 +221,7 @@ echo "Installed GTK-Apps as defaults:"
 echo "  Text editor : gtk-edit.desktop"
 echo "  Image viewer: gtk-image.desktop"
 echo "  Video player: mpv.desktop (gtk-video stays a trimmer launcher)"
+echo "  Player      : gtk-player.desktop (launcher only)"
 echo "  Music player: mpv.desktop"
 echo "  PDF viewer  : zathura.desktop"
 echo "  Archives    : xarchiver.desktop"

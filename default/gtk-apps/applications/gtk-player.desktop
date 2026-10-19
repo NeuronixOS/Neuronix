@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Player
+Comment=Neuronix GTK4 audio and video player (gtk-player)
+Exec=gtk-player %F
+TryExec=gtk-player
+Icon=video-x-generic
+Terminal=false
+MimeType=video/mp4;video/x-matroska;video/webm;video/quicktime;video/x-msvideo;video/mpeg;video/ogg;video/x-flv;video/3gpp;audio/mpeg;audio/flac;audio/x-flac;audio/ogg;audio/x-vorbis;audio/opus;audio/mp4;audio/x-m4a;audio/aac;audio/x-wav;audio/wav;
+Categories=AudioVideo;Player;Audio;Video;
+StartupNotify=true
+StartupWMClass=org.neuronix.GtkPlayer

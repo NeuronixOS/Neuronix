@@ -132,6 +132,8 @@ _check "neuronix-session-action" "$OVERLAY/usr/local/bin/neuronix-session-action
 _check "neuronix_quick_settings.py" "$OVERLAY/usr/share/neuronix/neuronix_quick_settings.py"
 _check "gtk-video.desktop" "$OVERLAY/usr/share/applications/gtk-video.desktop"
 _check "gtk-video binary (default/gtk-apps)" "$BUILD_ROOT/default/gtk-apps/bin/gtk-video"
+_check "gtk-player.desktop" "$OVERLAY/usr/share/applications/gtk-player.desktop"
+_check "gtk-player binary (default/gtk-apps)" "$BUILD_ROOT/default/gtk-apps/bin/gtk-player"
 _check "gtk-emoji binary (default/gtk-apps)" "$BUILD_ROOT/default/gtk-apps/bin/gtk-emoji"
 _check "gtk-emoji app payload" "$BUILD_ROOT/default/gtk-apps/apps/gtk-emoji/emoji.json"
 _check "gtk-emoji.desktop (default/gtk-apps)" "$BUILD_ROOT/default/gtk-apps/applications/gtk-emoji.desktop"

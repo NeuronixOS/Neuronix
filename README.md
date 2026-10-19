@@ -118,6 +118,7 @@ These daemons/apps are launched by `neuronix-hyprland-session-start.sh` (or Hypr
 | Text editor | **gtk-edit** | `Super+G` |
 | Image viewer | **gtk-image** | |
 | Video trimmer | **gtk-video** | |
+| Audio and video player | **gtk-player** | |
 | Terminal | **gtk-term** | `Super+Enter` / `Super+T` |
 | Monitor layout | **hypr-settings** Displays | `Super+,` / `hypr-settings --displays` |
 | Screenshot region | **grim** + **slurp** → clipboard + **gtk-image** (Esc cancels) | `Print` / `Super+Shift+S` |
@@ -171,7 +172,7 @@ Live browser is **firefox-esr**.
 
 ### Primary daily apps (Layer B)
 
-**gtk-term** (terminal), **gtk-files** (files), **gtk-edit** (editor), **gtk-image** (images), and **gtk-video** (trimmer) are the Hyprland daily apps (binaries from `default/gtk-apps/`). mousepad remains as an editor package fallback. Archives: **xarchiver** (+ gtk-files Extract/Compress). Power diagnostics: **powertop** via hypr-settings Battery.
+**gtk-term** (terminal), **gtk-files** (files), **gtk-edit** (editor), **gtk-image** (images), **gtk-video** (trimmer), and **gtk-player** (player) are the Hyprland daily apps (binaries from `default/gtk-apps/`). mousepad remains as an editor package fallback. Archives: **xarchiver** (+ gtk-files Extract/Compress). Power diagnostics: **powertop** via hypr-settings Battery.
 
 ### What this is *not*
 
@@ -309,7 +310,7 @@ The full install-list does **not** need per-app Hyprland rules. Compatibility is
 | **C — Category wrappers** | audacity, blender, … | Shared `neuronix-x11-app` + desktop overrides |
 | **D — Hardware / VM** | GPU-heavy apps | Document VirtualBox 3D accel; not fixable by config alone |
 
-**Daily apps (Layer B):** **gtk-term** (`Super+Return`), **gtk-files** (`Super+E`), **gtk-edit** (`Super+G`), **gtk-image**, **gtk-video**, **gtk-calc**.
+**Daily apps (Layer B):** **gtk-term** (`Super+Return`), **gtk-files** (`Super+E`), **gtk-edit** (`Super+G`), **gtk-image**, **gtk-video**, **gtk-player**, **gtk-calc**.
 
 ### Layer B session env (applied once)
 
@@ -345,7 +346,7 @@ Shared launcher: `/usr/local/bin/neuronix-x11-app` runs `GDK_BACKEND=x11` for ap
 
 | Layer | Apps |
 |-------|------|
-| **B** default | gtk-term, gtk-files, gtk-edit, gtk-calc, gtk-image, gtk-video, imv, zathura, xarchiver, powertop, gparted, synaptic, remmina, kicad, mpv, gimp, deskflow, … |
+| **B** default | gtk-term, gtk-files, gtk-edit, gtk-calc, gtk-image, gtk-video, gtk-player, imv, zathura, xarchiver, powertop, gparted, synaptic, remmina, kicad, mpv, gimp, deskflow, … |
 | **C1** x11 | audacity |
 | **C3** + **D** GPU | blender, kdenlive, openshot-qt, handbrake, vlc, smplayer |
 | **native** | waybar, fuzzel, mako-notifier, nwg-bar, kanshi, hypr-settings |
@@ -881,7 +882,7 @@ Do not add extra icons here — only this file is copied by the build scripts. `
 4. **Desktop** install (with network) → reboot → autologin lands in Hyprland; Chrome present (Cursor only if `personalize/install/cursor.sh`).
 5. **Server** install (with network) → reboot → console + SSH; live GUI purged.
 6. `uname -r` shows **6.12.x**; `apt-cache policy linux-image-amd64` prefers trixie over `trixie-backports` (pin -1).
-7. Desktop: `hyprland`, `waybar`, `fuzzel`, `mako`, `hypr-settings`, `gtk-term`, `gtk-files`, `gtk-edit`, `gtk-image`, `gtk-video`, `xarchiver`, `google-chrome-stable`, SSH.
+7. Desktop: `hyprland`, `waybar`, `fuzzel`, `mako`, `hypr-settings`, `gtk-term`, `gtk-files`, `gtk-edit`, `gtk-image`, `gtk-video`, `gtk-player`, `xarchiver`, `google-chrome-stable`, SSH.
 8. **Super+Return** opens gtk-term; **Super+E** opens gtk-files; **Super+G** opens gtk-edit; **Super+,** opens `hypr-settings`.
 9. Audacity and Blender launch from menu (XWayland wrappers).
 10. Menus: no **Help** (yelp), no Dropbox, no nwg-clipman / pavucontrol / separate Wi‑Fi·BT editors.

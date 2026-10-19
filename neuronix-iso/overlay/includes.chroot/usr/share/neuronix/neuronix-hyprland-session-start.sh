@@ -142,10 +142,28 @@ elif command -v xfce4-power-manager >/dev/null 2>&1; then
 	xfce4-power-manager --daemon &
 fi
 
-# Titlebar buttons (hyprbars) for windows without GTK CSD
+# Titlebar buttons (hyprbars) for windows without GTK CSD; also hyprtabs prefs.
 if [ -x /usr/local/bin/neuronix-ensure-hyprbars ]; then
 	/usr/local/bin/neuronix-ensure-hyprbars &
 fi
+
+# Re-apply float / tile / tabs layout once Hyprland answers (tabs needs the strip).
+(
+	_wm="${HOME}/.config/hypr/window-manager.py"
+	[ -x "${_wm}" ] || _wm=""
+	_i=0
+	while [ "${_i}" -lt 40 ]; do
+		if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
+			break
+		fi
+		_i=$((_i + 1))
+		sleep 0.25
+	done
+	sleep 1
+	if [ -n "${_wm}" ]; then
+		"${_wm}" layout-apply >/dev/null 2>&1 || true
+	fi
+) &
 
 # Match hyprbars + Waybar / shell chrome to the active GTK suite theme.
 # Delay until Hyprland answers. Soft sync only: NEURONIX_THEME_NO_HYPR_RELOAD

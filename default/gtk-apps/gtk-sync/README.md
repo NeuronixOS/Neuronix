@@ -11,7 +11,7 @@ Clients push/pull over **HTTPS (TLS)** with a shared username/password. Servers 
 ## Install
 
 ```bash
-cd gtk-sync   # from the gtk-apps source checkout
+cd gtk-sync   # from this suite's checkout root
 ./install.sh
 ```
 

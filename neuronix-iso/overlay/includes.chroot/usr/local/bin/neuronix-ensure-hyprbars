@@ -1,35 +1,48 @@
 #!/bin/sh
-# Ensure hyprbars (titlebar min/max/close) is loaded for this Hyprland session.
+# Ensure hyprbars (titlebar × □) is always loaded for this Hyprland session.
 # Prefer the ISO-built / packaged plugin (.so); fall back to hyprpm when ABI matches.
 # Image borders, if present, load first: plugin load after hyprbars reloads config
 # and hyprbars-button can segfault Hyprland 0.55.2.
 #
 # Themes → Window chrome prefs: ~/.config/hypr/neuronix-window-chrome.json
-#   {"hyprbars": true, "hyprframes": true}
+#   {"hyprbars": true, "hyprbars_images": true, "hyprframes": true, "hyprtabs": false}
+# hyprbars is always on; hyprbars_images toggles plugin:hyprbars:bar_image.
 set -eu
 
 MARKER="${HOME}/.config/hypr/.neuronix-hyprbars-ok"
 PREFS="${HOME}/.config/hypr/neuronix-window-chrome.json"
 PLUGIN_DIR="/usr/lib/x86_64-linux-gnu/hyprland/plugins"
+DEFAULT_BAR_IMAGE="${HOME}/.local/share/neuronix/hyprbars/tile-grey-round.png"
 mkdir -p "${HOME}/.config/hypr"
 
 command -v hyprctl >/dev/null 2>&1 || exit 0
 
 _pref_on() {
-	# $1 = hyprbars|hyprframes — default true when unset
+	# $1 = hyprbars|hyprbars_images|hyprframes|hyprtabs
+	# hyprbars always on; hyprframes/images default true; hyprtabs defaults false.
 	key="$1"
+	if [ "$key" = "hyprbars" ]; then
+		return 0
+	fi
 	if [ ! -f "${PREFS}" ]; then
+		[ "$key" = "hyprtabs" ] && return 1
 		return 0
 	fi
 	python3 - "$PREFS" "$key" <<'PY'
 import json, sys
 path, key = sys.argv[1], sys.argv[2]
+default_on = key != "hyprtabs"
 try:
     data = json.loads(open(path, encoding="utf-8").read())
 except Exception:
-    sys.exit(0)
-if not isinstance(data, dict) or key not in data:
-    sys.exit(0)
+    sys.exit(0 if default_on else 1)
+if not isinstance(data, dict):
+    sys.exit(0 if default_on else 1)
+# Migrate: old hyprbars=false → images off.
+if key == "hyprbars_images" and "hyprbars_images" not in data and "hyprbars" in data:
+    sys.exit(0 if data.get("hyprbars") else 1)
+if key not in data:
+    sys.exit(0 if default_on else 1)
 sys.exit(0 if data.get(key) else 1)
 PY
 }
@@ -52,8 +65,6 @@ _unload_hyprframes() {
 
 _load_hyprframes() {
 	_plugin_loaded hyprframes && return 0
-	# Prefer load before hyprbars. If bars are already up, still try — Themes
-	# toggles need this path, and current Hyprland builds tolerate it.
 	for PLUGIN_SO in \
 		"${HOME}/.local/lib/hyprland/plugins/libhyprframes.so" \
 		"/usr/local/lib/hyprland/plugins/libhyprframes.so" \
@@ -66,9 +77,54 @@ _load_hyprframes() {
 }
 
 _set_hyprbars_enabled() {
-	# $1 = true|false
 	_plugin_loaded hyprbars || return 0
-	hyprctl keyword plugin:hyprbars:enabled "$1" >/dev/null 2>&1 || true
+	hyprctl keyword plugin:hyprbars:enabled true >/dev/null 2>&1 || true
+}
+
+_apply_hyprbars_images() {
+	_plugin_loaded hyprbars || return 0
+	if _pref_on hyprbars_images; then
+		img="${DEFAULT_BAR_IMAGE}"
+		for cand in \
+			"${DEFAULT_BAR_IMAGE}" \
+			"/usr/share/neuronix/hyprbars/tile-grey-round.png" \
+			"/usr/local/share/neuronix/hyprbars/tile-grey-round.png"; do
+			[ -f "${cand}" ] || continue
+			img="${cand}"
+			break
+		done
+		hyprctl keyword plugin:hyprbars:bar_image "${img}" >/dev/null 2>&1 || true
+	else
+		hyprctl keyword plugin:hyprbars:bar_image "" >/dev/null 2>&1 || true
+	fi
+}
+
+_set_hyprtabs_enabled() {
+	# $1 = true|false
+	_plugin_loaded hyprtabs || return 0
+	hyprctl keyword plugin:hyprtabs:enabled "$1" >/dev/null 2>&1 || true
+}
+
+_load_hyprtabs() {
+	_plugin_loaded hyprtabs && return 0
+	for PLUGIN_SO in \
+		"${HOME}/.local/lib/hyprland/plugins/libhyprtabs.so" \
+		"/usr/local/lib/hyprland/plugins/libhyprtabs.so" \
+		"${PLUGIN_DIR}/libhyprtabs.so"; do
+		[ -f "${PLUGIN_SO}" ] || continue
+		hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
+		_plugin_loaded hyprtabs && return 0
+	done
+	return 0
+}
+
+_ensure_hyprtabs() {
+	if _pref_on hyprtabs; then
+		_load_hyprtabs
+		_set_hyprtabs_enabled true
+	elif _plugin_loaded hyprtabs; then
+		_set_hyprtabs_enabled false
+	fi
 }
 
 _loaded() {
@@ -82,24 +138,15 @@ else
 	_unload_hyprframes
 fi
 
-if ! _pref_on hyprbars; then
-	# Keep plugin out when possible; if already loaded (manual), just hide bars.
-	if _loaded; then
-		_set_hyprbars_enabled false
-		touch "${MARKER}"
-	fi
-	exit 0
-fi
-
-# Already loaded this session?
+# Hyprbars is always on.
 if _loaded; then
-	_set_hyprbars_enabled true
+	_set_hyprbars_enabled
+	_apply_hyprbars_images
 	touch "${MARKER}"
+	_ensure_hyprtabs
 	exit 0
 fi
 
-# Prefer user build (Packages/hyprbars → ~/.local), then ISO Neuronix build
-# (/usr/local: gradient + bar_image + hyprbars-button replace-in-place).
 for PLUGIN_SO in \
 	"${HOME}/.local/lib/hyprland/plugins/libhyprbars.so" \
 	"/usr/local/lib/hyprland/plugins/libhyprbars.so" \
@@ -108,31 +155,38 @@ for PLUGIN_SO in \
 	[ -f "${PLUGIN_SO}" ] || continue
 	hyprctl plugin load "${PLUGIN_SO}" >/dev/null 2>&1 || true
 	if _loaded; then
-		_set_hyprbars_enabled true
+		_set_hyprbars_enabled
+		_apply_hyprbars_images
 		touch "${MARKER}"
+		_ensure_hyprtabs
 		exit 0
 	fi
 done
 
-command -v hyprpm >/dev/null 2>&1 || exit 0
+command -v hyprpm >/dev/null 2>&1 || {
+	_ensure_hyprtabs
+	exit 0
+}
 
-# Enabled in hyprpm — just reload
 if hyprpm list 2>/dev/null | grep -A1 'Plugin hyprbars' | grep -q 'enabled:.*true'; then
 	hyprpm reload -n 2>/dev/null || true
 	if _loaded; then
-		_set_hyprbars_enabled true
+		_set_hyprbars_enabled
+		_apply_hyprbars_images
 		touch "${MARKER}"
+		_ensure_hyprtabs
 		exit 0
 	fi
 fi
 
-# One-shot hyprpm build when tools + network exist (first boot / ABI mismatch)
 if [ -f "${MARKER}" ]; then
 	hyprpm reload -n 2>/dev/null || true
+	_ensure_hyprtabs
 	exit 0
 fi
 
 if ! command -v cmake >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1; then
+	_ensure_hyprtabs
 	exit 0
 fi
 
@@ -143,7 +197,9 @@ fi
 hyprpm enable hyprbars >/dev/null 2>&1 || true
 hyprpm reload -n 2>/dev/null || true
 if _loaded; then
-	_set_hyprbars_enabled true
+	_set_hyprbars_enabled
+	_apply_hyprbars_images
 	touch "${MARKER}"
 fi
+_ensure_hyprtabs
 exit 0

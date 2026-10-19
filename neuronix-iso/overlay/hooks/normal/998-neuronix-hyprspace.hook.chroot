@@ -150,4 +150,26 @@ else
 	echo "[neuronix-hypr-plugins] WARNING: no ${HYPRFRAMES_SRC} (setup.sh did not stage hyprframes)" >&2
 fi
 
+# --- hyprtabs (screen-top window tabs; Neuronix) ---
+HYPRTABS_SRC=/usr/src/neuronix/hyprtabs
+HYPRTABS_SO_LOCAL=/usr/local/lib/hyprland/plugins/libhyprtabs.so
+HYPRTABS_SO="${PLUGIN_DIR}/libhyprtabs.so"
+if [ -f "${HYPRTABS_SRC}/Makefile" ]; then
+	_ht_build="${_workdir}/hyprtabs-build"
+	mkdir -p "${_ht_build}" /usr/local/lib/hyprland/plugins
+	cp -a "${HYPRTABS_SRC}/." "${_ht_build}/"
+	if make -C "${_ht_build}" -j"$(nproc 2>/dev/null || echo 2)"; then
+		_so="${_ht_build}/hyprtabs.so"
+		if [ -f "${_so}" ]; then
+			install -m 0755 "${_so}" "${HYPRTABS_SO}"
+			install -m 0755 "${_so}" "${HYPRTABS_SO_LOCAL}"
+			echo "[neuronix-hypr-plugins] installed ${HYPRTABS_SO_LOCAL}"
+		fi
+	else
+		echo "[neuronix-hypr-plugins] WARNING: hyprtabs build failed" >&2
+	fi
+else
+	echo "[neuronix-hypr-plugins] WARNING: no ${HYPRTABS_SRC} (setup.sh did not stage hyprtabs)" >&2
+fi
+
 exit 0

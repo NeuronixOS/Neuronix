@@ -15,13 +15,12 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
 _PROFILES_PATH = Path(__file__).resolve().parent.parent / "profiles.json"
-_DEFAULT_ID = "gruvbox-dark"
+_DEFAULT_ID = "neuronix"
 
 
 def _profiles_json_path() -> Path:
@@ -714,6 +713,7 @@ def sourceview_scheme_candidates(profile_id: str) -> list[str]:
         "night-owl": ["night-owl", "Adwaita-dark", "classic"],
         "palenight": ["palenight", "Adwaita-dark", "classic"],
         "material-darker": ["material-darker", "Adwaita-dark", "classic"],
+        "neuronix": ["material-darker", "Adwaita-dark", "classic"],
         "cobalt2": ["cobalt", "Adwaita-dark", "classic"],
         "zenburn": ["zenburn", "oblivion", "Adwaita-dark", "classic"],
         "tomorrow-night": ["tomorrow-night", "Adwaita-dark", "classic"],
@@ -2644,99 +2644,12 @@ def _sync_hypr_window_geometry(border_size: int, rounding: int) -> None:
 # ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
-# gtk-neurond autostart (suite-wide)
-# ---------------------------------------------------------------------------
-
-
-def _neuron_socket_path() -> Path:
-    runtime = os.environ.get("XDG_RUNTIME_DIR", "").strip()
-    if runtime:
-        return Path(runtime) / "gtk-neuron.sock"
-    cache = Path.home() / ".cache" / "gtk-apps"
-    return cache / "gtk-neuron.sock"
-
-
-def _neuron_socket_connectable() -> bool:
-    sock = _neuron_socket_path()
-    if not sock.exists():
-        return False
-    try:
-        import socket
-
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        try:
-            s.settimeout(0.2)
-            s.connect(str(sock))
-            return True
-        finally:
-            s.close()
-    except OSError:
-        return False
-
-
-def _find_neurond_binary() -> Optional[Path]:
-    env = os.environ.get("GTK_NEUROND", "").strip()
-    if env and Path(env).is_file():
-        return Path(env)
-
-    candidates = [
-        _SUITE_ROOT / "gtk-neuron" / "target" / "release" / "gtk-neurond",
-        _SUITE_ROOT / "gtk-neuron" / "target" / "debug" / "gtk-neurond",
-        Path("/usr/local/lib/neuronix/gtk-apps/gtk-neuron/gtk-neurond"),
-        Path("/usr/local/bin/gtk-neurond"),
-    ]
-    which = shutil.which("gtk-neurond")
-    if which:
-        candidates.append(Path(which))
-
-    for c in candidates:
-        if c.is_file() and os.access(c, os.X_OK):
-            return c
-    return None
-
-
-def ensure_neuron_daemon() -> None:
-    """Start gtk-neurond if it is not already listening (best-effort)."""
-    if _neuron_socket_connectable():
-        return
-    sock = _neuron_socket_path()
-    try:
-        if sock.exists():
-            sock.unlink()
-    except OSError:
-        pass
-    exe = _find_neurond_binary()
-    if exe is None:
-        return
-    try:
-        sock.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.Popen(
-            [str(exe), "--daemon"],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-    except OSError:
-        return
-    for _ in range(40):
-        time.sleep(0.05)
-        if _neuron_socket_connectable():
-            return
-
-
-# ---------------------------------------------------------------------------
-
-
 def apply_chrome(profile: Optional[Profile] = None) -> None:
     import gi
 
     gi.require_version("Gtk", "4.0")
     gi.require_version("Gdk", "4.0")
     from gi.repository import Gdk, Gtk
-
-    ensure_neuron_daemon()
 
     profile = profile or load_profile()
     hide_csd = hyprbars_active()
@@ -3162,8 +3075,6 @@ def apply_chrome_gtk3(profile: Optional[Profile] = None) -> None:
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
     from gi.repository import Gdk, Gtk
-
-    ensure_neuron_daemon()
 
     profile = profile or load_profile()
     settings = Gtk.Settings.get_default()

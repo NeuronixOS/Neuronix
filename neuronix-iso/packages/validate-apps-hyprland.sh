@@ -246,6 +246,38 @@ else
 	_fail=$((_fail + 1))
 fi
 
+if grep -q 'def sync_hyprtabs' "$BUILD_ROOT/default/gtk-apps/gtk-theme/python/gtk_theme.py" 2>/dev/null \
+	&& grep -q 'sync_hyprtabs' "$BUILD_ROOT/default/gtk-apps/gtk-theme/python/__init__.py" 2>/dev/null \
+	&& grep -q 'tab_active_color' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null \
+	&& grep -q 'def pin_tabs_after_click' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null \
+	&& grep -q 'def is_tabs_dialog' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null \
+	&& grep -q 'def is_tabs_overlay' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null \
+	&& grep -q 'wants_tabs() or (not has_hdmi() and wants_tile_default())' "$BUILD_ROOT/default/configs/hypr/window-manager.py" 2>/dev/null; then
+	echo "  OK  hyprtabs GTK colors + tabs WM (pin/dialog vs app/Super=fuzzel)"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  sync_hyprtabs, hyprland tab colors, or tabs WM helpers"
+	_fail=$((_fail + 1))
+fi
+
+# Packages/hyprtabs is compiled in hook 998 — ensure source has cursor z-order + overlays.
+_ht_pkg=""
+[[ -n "${LINUXOS_PACKAGES:-}" && -f "${LINUXOS_PACKAGES}/hyprtabs/main.cpp" ]] && _ht_pkg="${LINUXOS_PACKAGES}/hyprtabs"
+[[ -z "$_ht_pkg" && -f "$BUILD_ROOT/../Packages/hyprtabs/main.cpp" ]] && _ht_pkg="$(cd "$BUILD_ROOT/../Packages/hyprtabs" && pwd)"
+if [[ -n "$_ht_pkg" ]] \
+	&& grep -q 'RENDER_POST_WINDOWS' "$_ht_pkg/main.cpp" 2>/dev/null \
+	&& grep -q 'windowIsOverlay' "$_ht_pkg/tabsBar.cpp" 2>/dev/null \
+	&& grep -q 'tab-select' "$_ht_pkg/tabsBar.cpp" 2>/dev/null \
+	&& grep -q 'focusLockOnActiveDesktop' "$_ht_pkg/tabsBar.cpp" 2>/dev/null \
+	&& grep -q 'titleLooksLikeDialog' "$_ht_pkg/tabsBar.cpp" 2>/dev/null \
+	&& grep -q 'windowIsCompactFloat' "$_ht_pkg/tabsBar.cpp" 2>/dev/null; then
+	echo "  OK  Packages/hyprtabs (POST_WINDOWS, overlays, tab-select, ws-safe hover, dialog titles)"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  Packages/hyprtabs render/overlay/tab-select/ws-safe hover/dialog-title updates"
+	_fail=$((_fail + 1))
+fi
+
 if [[ -x "$BUILD_ROOT/default/gtk-apps/bin/gtk-theme-editor" ]] \
 	&& grep -q '↗' "$BUILD_ROOT/default/hypr-settings/main.py" 2>/dev/null; then
 	echo "  OK  gtk-theme-editor binary + Settings Themes ↗"
@@ -497,6 +529,15 @@ if grep -q 'plugin = /usr/local/lib/hyprland/plugins/libhyprframes.so' "$_def_hy
 	_ok=$((_ok + 1))
 else
 	echo "  MISSING  hyprframes ISO wiring (plugin=, hook 998, or ../Packages/hyprframes)"
+	_fail=$((_fail + 1))
+fi
+if grep -q 'hyprtabs' "$_def_hypr" 2>/dev/null \
+	&& grep -q 'hyprtabs' "$ISO_ROOT/overlay/hooks/normal/998-neuronix-hyprspace.hook.chroot" 2>/dev/null \
+	&& [[ -f "$BUILD_ROOT/../Packages/hyprtabs/Makefile" ]]; then
+	echo "  OK  hyprtabs staged for ISO (hyprland.conf + hook 998 + sibling source)"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  hyprtabs ISO wiring (hyprland.conf, hook 998, or ../Packages/hyprtabs)"
 	_fail=$((_fail + 1))
 fi
 if grep -q 'match:xdg_tag popup, border_size 0' "$_def_hypr" 2>/dev/null; then

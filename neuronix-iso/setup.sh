@@ -319,21 +319,9 @@ if [[ -d "$_gtk_apps/bin" ]]; then
     echo "Staged gtk-sync installer next to gtk-files"
   fi
 
-  # gtk-neuron — Self Driving daemon + Cursor worker
-  # Apps look for /usr/local/lib/neuronix/gtk-apps/gtk-neuron/gtk-neurond
-  # and /usr/local/bin/gtk-neurond (from bin/ staging above).
-  if [[ -d "$_gtk_apps/gtk-neuron" && -x "$_gtk_apps/gtk-neuron/gtk-neurond" ]]; then
-    rm -rf "$_gtk_lib/gtk-neuron"
-    cp -a "$_gtk_apps/gtk-neuron" "$_gtk_lib/gtk-neuron"
-    chmod 0755 "$_gtk_lib/gtk-neuron/gtk-neurond"
-    [[ -f "$_gtk_lib/gtk-neuron/python/cursor_worker.py" ]] && \
-      chmod 0755 "$_gtk_lib/gtk-neuron/python/cursor_worker.py"
-    echo "Staged gtk-neuron (Self Driving daemon + Cursor worker)"
-  fi
-
   # Stock gtk-apps theme.toml lives in default/configs/gtk-apps/ (→ ~/configs via merge).
   # Do not write ~/.config/gtk-apps here; merge-personalize-dropins creates the symlink.
-  echo "Staged default/gtk-apps (suite + gtk-theme-editor + gtk-theme data + gtk-sync + gtk-neuron + MIME defaults) into includes.chroot"
+  echo "Staged default/gtk-apps (suite + gtk-theme-editor + gtk-theme data + gtk-sync + MIME defaults) into includes.chroot"
 fi
 
 # hypr-settings — system settings GUI (Wi‑Fi / BT / Displays / Sound / …)
@@ -404,6 +392,40 @@ if [[ -n "${_hyprbars}" && -f "${_hyprbars}/Makefile" ]]; then
   echo "Staged Packages/hyprbars → usr/src/neuronix/hyprbars"
 else
   echo "WARNING: Packages/hyprbars not found — ISO falls back to upstream hyprbars" >&2
+fi
+
+# Neuronix hyprtabs (bottom-of-screen window tabs) — compiled in hook 998.
+_hyprtabs=""
+if [[ -n "${LINUXOS_PACKAGES:-}" && -f "${LINUXOS_PACKAGES}/hyprtabs/Makefile" ]]; then
+  _hyprtabs="${LINUXOS_PACKAGES}/hyprtabs"
+fi
+[[ -n "${_hyprtabs}" ]] || _hyprtabs="$(cd "$REPO_ROOT/../Packages/hyprtabs" 2>/dev/null && pwd || true)"
+if [[ -n "${_hyprtabs}" && -f "${_hyprtabs}/Makefile" ]]; then
+  _ht_src="$BUILD_ROOT/config/includes.chroot/usr/src/neuronix/hyprtabs"
+  rm -rf "$_ht_src"
+  mkdir -p "$_ht_src"
+  shopt -s nullglob
+  for _f in "${_hyprtabs}"/*.cpp "${_hyprtabs}"/*.hpp \
+            "${_hyprtabs}/Makefile" "${_hyprtabs}/VERSION" \
+            "${_hyprtabs}/README.md"; do
+    [[ -f "$_f" ]] || continue
+    cp -a "$_f" "$_ht_src/"
+  done
+  shopt -u nullglob
+  _hf_tp="${_hyprframes:+${_hyprframes}/third_party/hyprutils-0.13}"
+  if [[ -d "${_hyprtabs}/third_party/hyprutils-0.13" ]]; then
+    mkdir -p "$_ht_src/third_party"
+    cp -a "${_hyprtabs}/third_party/hyprutils-0.13" "$_ht_src/third_party/"
+  elif [[ -n "${_hf_tp}" && -d "${_hf_tp}" ]]; then
+    mkdir -p "$_ht_src/third_party"
+    cp -a "${_hf_tp}" "$_ht_src/third_party/"
+  elif [[ -d "${_hyprbars}/third_party/hyprutils-0.13" ]]; then
+    mkdir -p "$_ht_src/third_party"
+    cp -a "${_hyprbars}/third_party/hyprutils-0.13" "$_ht_src/third_party/"
+  fi
+  echo "Staged Packages/hyprtabs → usr/src/neuronix/hyprtabs"
+else
+  echo "WARNING: Packages/hyprtabs not found — ISO will not build libhyprtabs.so" >&2
 fi
 
 # crontab.conf: personalize/configs/crontab wins over default/configs/crontab → /usr/share/neuronix/crontab.conf

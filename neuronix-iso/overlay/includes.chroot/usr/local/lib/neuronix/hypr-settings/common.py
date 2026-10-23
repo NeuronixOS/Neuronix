@@ -127,7 +127,7 @@ class _LightRowDelegate(QStyledItemDelegate):
     """Draw list rows in the suite cream, matching QLabel#pageTitle."""
 
     def paint(self, painter, option, index):
-        bg, fg = QColor("#4b4841"), QColor("#ebdbb2")
+        bg, fg = QColor("#282828"), QColor("#ebdbb2")
         accent, on_accent = QColor("#ffbe6f"), QColor("#1d2021")
         hover = QColor("#3c3a36")
         try:
@@ -135,18 +135,18 @@ class _LightRowDelegate(QStyledItemDelegate):
 
             c = suite_colors()
             if c:
-                bg = QColor(c["BG_RAISED"])
+                bg = QColor(c["BG"])
                 fg = QColor(c["TEXT_BRIGHT"])
                 accent = QColor(c["ACCENT"])
                 on_accent = QColor(c["ACCENT_TEXT"])
                 hover = QColor(c["BG_HOVER"])
         except Exception:
             pass
+        bg.setAlpha(255)
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         fill = accent if selected else (hover if hovered else bg)
+        painter.save()
         painter.fillRect(option.rect, fill)
         painter.setPen(on_accent if selected else fg)
         text = index.data(Qt.ItemDataRole.DisplayRole) or ""
@@ -165,21 +165,23 @@ class NavList(QListWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setAutoFillBackground(True)
-        self.viewport().setAutoFillBackground(True)
+        self.viewport().setAutoFillBackground(False)
         self.setItemDelegate(_LightRowDelegate(self))
         self._apply_item_chrome()
 
     def _item_colors(self) -> tuple[QColor, QColor]:
-        bg, fg = QColor("#4b4841"), QColor("#ebdbb2")
+        bg, fg = QColor("#282828"), QColor("#ebdbb2")
         try:
             from suite_theme import suite_colors
 
             c = suite_colors()
             if c:
-                bg = QColor(c["BG_RAISED"])
+                bg = QColor(c["BG"])
                 fg = QColor(c["TEXT_BRIGHT"])
         except Exception:
             pass
+        bg.setAlpha(255)
+        fg.setAlpha(255)
         return bg, fg
 
     def _apply_item_chrome(self) -> None:
@@ -194,9 +196,24 @@ class NavList(QListWidget):
         pal.setColor(QPalette.ColorRole.ButtonText, fg)
         pal.setColor(QPalette.ColorRole.HighlightedText, QColor("#1d2021"))
         self.setPalette(pal)
-        self.viewport().setPalette(pal)
-        self.viewport().setAutoFillBackground(True)
-        self.viewport().setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
+        vp = self.viewport()
+        vp.setPalette(pal)
+        # Do not auto-fill the viewport: that paints *after* rows and punches a
+        # transparent hole through the Wayland surface.
+        vp.setAutoFillBackground(False)
+        self.setAutoFillBackground(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setStyleSheet(
+            f"QListWidget {{ background-color: {bg.name()}; border: none; outline: none; }}"
+        )
+
+    def paintEvent(self, ev):
+        vp = self.viewport()
+        painter = QPainter(vp)
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+        painter.fillRect(vp.rect(), self._item_colors()[0])
+        painter.end()
+        super().paintEvent(ev)
 
     def addItem(self, item):  # noqa: N802 — Qt API
         if isinstance(item, str):

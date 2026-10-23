@@ -328,11 +328,104 @@ else
 	_fail=$((_fail + 1))
 fi
 
-if grep -q '_footer_ids = ("system", "about", "power")' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null; then
-	echo "  OK  settings nav footer System/About/Power"
+if grep -q 'neuronix-nav-group' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null \
+	&& grep -q 'group="Apps"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -q 'group="Appearance"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -q 'page=pages.flatpak_page' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -q 'def flatpak_page' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'def _finish_job' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'def _to_remove' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'Log  ▸' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'neuronix-page-body' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null \
+	&& grep -q 'HubSection("system"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -q 'HubSection("about"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -q 'HubSection("power"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null; then
+	echo "  OK  settings grouped nav, Flatpak, software log/uninstall, done dialog"
 	_ok=$((_ok + 1))
 else
-	echo "  MISSING  settings nav footer order"
+	echo "  MISSING  settings grouped nav / Flatpak / software finish UI in overlay"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'def weather_page' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'neuronix-hour-strip' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'def _weather_glyph' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'HubSection("weather"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -qE 'weather \| forecast' "$OVERLAY/usr/local/bin/neuronix-waybar-click" 2>/dev/null \
+	&& grep -q '"custom/weather"' "$BUILD_ROOT/default/configs/waybar/config" 2>/dev/null \
+	&& grep -q '#custom-weather' "$BUILD_ROOT/default/configs/waybar/style.css" 2>/dev/null \
+	&& grep -q 'Symbols Nerd Font' "$BUILD_ROOT/default/configs/waybar/style.css" 2>/dev/null \
+	&& [[ -x "$BUILD_ROOT/default/configs/waybar/weather.sh" ]] \
+	&& grep -q 'def _glyph' "$BUILD_ROOT/default/configs/waybar/weather.sh" 2>/dev/null; then
+	echo "  OK  Weather tab, hourly Nerd Font strip, Waybar module"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  Weather settings page / Waybar weather module"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'def software_page' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'def _apt_search' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'HubSection("software"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -q 'system-software-install' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null; then
+	echo "  OK  Software tab (apt search + sudo install)"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  Software settings page in overlay"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'match:namespace neuronix-settings, blur off' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null \
+	&& grep -q 'alpha=0.86' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null \
+	&& grep -q 'set_namespace(win, "neuronix-settings")' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null; then
+	echo "  OK  Settings window dark glass, no Hyprland blur"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  Settings translucent panel / blur off layerrule"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'from weather_tab import WeatherTab' "$BUILD_ROOT/default/hypr-settings/main.py" 2>/dev/null \
+	&& [[ -f "$BUILD_ROOT/default/hypr-settings/weather_tab.py" ]] \
+	&& grep -q 'from weather_tab import WeatherTab' "$OVERLAY/usr/local/lib/neuronix/hypr-settings/main.py" 2>/dev/null \
+	&& [[ -f "$OVERLAY/usr/local/lib/neuronix/hypr-settings/weather_tab.py" ]]; then
+	echo "  OK  Qt hypr-settings Weather tab staged for ISO"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  weather_tab.py in default/hypr-settings or overlay"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'HubSection("weather"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -q 'def weather_page' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'neuronix-hour-strip' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'API key' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -qE 'weather \| forecast' "$OVERLAY/usr/local/bin/neuronix-waybar-click" 2>/dev/null \
+	&& grep -q '"custom/weather"' "$BUILD_ROOT/default/configs/waybar/config" 2>/dev/null \
+	&& grep -q 'Symbols Nerd Font' "$BUILD_ROOT/default/configs/waybar/style.css" 2>/dev/null \
+	&& [[ -x "$BUILD_ROOT/default/configs/waybar/weather.sh" ]] \
+	&& grep -q 'def plugins_page' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'HubSection("plugins"' "$OVERLAY/usr/local/bin/neuronix-settings" 2>/dev/null \
+	&& grep -q '_installed_plugins' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& ! grep -q 'Window chrome' "$OVERLAY/usr/share/neuronix/neuronix_settings_pages.py" 2>/dev/null \
+	&& grep -q 'from weather_tab import WeatherTab' "$OVERLAY/usr/local/lib/neuronix/hypr-settings/main.py" 2>/dev/null \
+	&& [[ -f "$OVERLAY/usr/local/lib/neuronix/hypr-settings/weather_tab.py" ]]; then
+	echo "  OK  weather hourly forecast, Waybar weather, Plugins tab"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  weather / plugins ISO overlay (settings page, Waybar, hypr-settings)"
+	_fail=$((_fail + 1))
+fi
+
+if grep -q 'def place_layer_at' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null \
+	&& grep -q 'if size.get("placed") == placed' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null \
+	&& grep -q 'GtkLayerShell.set_namespace(win, "neuronix-settings")' "$OVERLAY/usr/share/neuronix/neuronix_choice_dialog.py" 2>/dev/null \
+	&& grep -q 'animation slide top' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null \
+	&& grep -q 'neuronix-settings, blur off' "$BUILD_ROOT/default/configs/hypr/hyprland.conf" 2>/dev/null; then
+	echo "  OK  settings panel slides from the top once, no re-animate on nav"
+	_ok=$((_ok + 1))
+else
+	echo "  MISSING  settings slide-from-top / one-shot layer place"
 	_fail=$((_fail + 1))
 fi
 

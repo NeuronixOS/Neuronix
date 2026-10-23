@@ -125,12 +125,13 @@ window#waybar {
 
 #custom-layout,
 #custom-gtk-sync,
+#custom-weather,
 #battery {
   padding: 0 10px;
   margin: 6px 3px;
   border-radius: 14px;
   background: transparent;
-  font-family: "FontAwesome", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
+  font-family: "Symbols Nerd Font", "FontAwesome", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
   font-weight: 600;
   color: @wb_fg;
 }
@@ -164,6 +165,10 @@ window#waybar {
 #custom-gtk-sync.missing,
 #custom-gtk-sync.warning {
   color: @wb_dim;
+}
+
+tooltip {
+  font-family: "Symbols Nerd Font", "FontAwesome", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
 }
 
 #battery.charging,

@@ -24,6 +24,7 @@ from system_tab import SystemTab
 from gtk_sync_tab import GtkSyncTab
 from datetime_tab import DateTimeTab
 from keyboard_tab import KeyboardTab
+from weather_tab import WeatherTab
 from screensaver_tab import ScreensaverTab
 from about_tab import AboutTab
 
@@ -724,6 +725,7 @@ _PAGES = [
     ("GTK-Sync",    "folder-sync",                              GtkSyncTab),
     ("Date & Time", "preferences-system-time",                  DateTimeTab),
     ("Keyboard",    "input-keyboard",                           KeyboardTab),
+    ("Weather",     "weather-few-clouds",                       WeatherTab),
 ]
 
 # CLI flags → _PAGES index (Themes launches gtk-theme-editor; Configs is the file editor).
@@ -742,6 +744,7 @@ _TAB_FLAGS = [
     ({"--gtk-sync", "--gtksync"},         11),
     ({"--datetime", "--date-time"},       12),
     ({"--keyboard"},                      13),
+    ({"--weather"},                       14),
 ]
 
 

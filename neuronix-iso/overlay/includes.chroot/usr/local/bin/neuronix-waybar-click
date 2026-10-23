@@ -83,6 +83,9 @@ case "${1:-}" in
 	datetime | clock | calendar)
 		_settings datetime calendar
 		;;
+	weather | forecast)
+		_settings weather
+		;;
 	sync | gtk-sync | gtksync)
 		_settings sync
 		;;

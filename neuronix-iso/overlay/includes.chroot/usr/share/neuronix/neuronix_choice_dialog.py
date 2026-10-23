@@ -225,10 +225,10 @@ window.neuronix-choice {{
   color: {fg};
 }}
 box.neuronix-root {{
-  background-color: transparent;
+  background-color: {tile};
   background-image: none;
-  border: 3px solid {border};
-  border-radius: 8px;
+  border: 1px solid {border};
+  border-radius: 16px;
   padding: 14px 16px;
   font-family: Sans;
 }}
@@ -622,7 +622,9 @@ scale.neuronix-scale highlight {{
   border-radius: 999px;
 }}
 scale.neuronix-scale slider {{
-  background-color: {fg};
+  background-color: {accent};
+  background-image: none;
+  border: none;
   border-radius: 999px;
   min-width: 18px;
   min-height: 18px;
@@ -633,6 +635,259 @@ label.neuronix-pct {{
   font-size: 14px;
   font-weight: 500;
   min-width: 40px;
+}}
+
+window.neuronix-settings {{
+  background-color: transparent;
+  color: #ffffff;
+  border-radius: 16px;
+}}
+window.neuronix-settings label,
+window.neuronix-settings button,
+window.neuronix-settings entry {{
+  font-family: Inter, Cantarell, sans-serif;
+}}
+window.neuronix-settings box.neuronix-root.neuronix-hub {{
+  padding: 0;
+  border: none;
+  background-color: #1e1e1e;
+  border-radius: 16px;
+}}
+window.neuronix-settings box.neuronix-sidebar {{
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 16px;
+}}
+window.neuronix-settings box.neuronix-sidehead {{
+  border-top-left-radius: 16px;
+}}
+window.neuronix-settings box.neuronix-headerbar {{
+  border-top-right-radius: 16px;
+}}
+window.neuronix-settings box.neuronix-content {{
+  border-bottom-right-radius: 16px;
+}}
+window.neuronix-settings box.neuronix-sep {{
+  background-color: rgba(255, 255, 255, 0.08);
+  min-width: 1px;
+}}
+window.neuronix-settings box.neuronix-sidehead {{
+  min-height: 47px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 4px;
+}}
+window.neuronix-settings label.neuronix-sidebar-title {{
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+}}
+window.neuronix-settings button.neuronix-iconbtn {{
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 999px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  color: #ffffff;
+}}
+window.neuronix-settings button.neuronix-iconbtn:hover {{
+  background-color: rgba(255, 255, 255, 0.08);
+}}
+window.neuronix-settings entry.neuronix-search {{
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+  min-height: 34px;
+  padding: 0 4px;
+}}
+window.neuronix-settings label.neuronix-nav-group {{
+  color: #a8a8a8;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 14px;
+  margin-bottom: 2px;
+  margin-left: 18px;
+  margin-right: 8px;
+}}
+window.neuronix-settings label.neuronix-nav-group-first {{
+  margin-top: 8px;
+}}
+window.neuronix-settings button.neuronix-nav {{
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin: 1px 8px;
+  min-height: 0;
+}}
+window.neuronix-settings button.neuronix-nav:hover {{
+  background-color: rgba(255, 255, 255, 0.06);
+}}
+window.neuronix-settings button.neuronix-nav.selected,
+window.neuronix-settings button.neuronix-nav.selected:hover {{
+  background-color: rgba(255, 255, 255, 0.12);
+}}
+window.neuronix-settings button.neuronix-nav label.neuronix-row-title {{
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+}}
+window.neuronix-settings button.neuronix-nav.selected label.neuronix-row-title {{
+  font-weight: 700;
+}}
+window.neuronix-settings box.neuronix-headerbar {{
+  min-height: 47px;
+  padding: 0 12px 0 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: transparent;
+}}
+window.neuronix-settings box.neuronix-headerbar label.neuronix-title {{
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}}
+window.neuronix-settings button.neuronix-xclose {{
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 999px;
+  min-width: 34px;
+  min-height: 34px;
+  font-size: 18px;
+  color: #ffffff;
+}}
+window.neuronix-settings button.neuronix-xclose:hover {{
+  background-color: rgba(255, 255, 255, 0.08);
+}}
+window.neuronix-settings label.neuronix-heading {{
+  color: #b0b0b0;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  margin-left: 22px;
+  margin-right: 18px;
+}}
+window.neuronix-settings box.neuronix-card {{
+  background-color: #2d2d2d;
+  border-radius: 12px;
+  padding: 8px 16px;
+  margin-top: 6px;
+  margin-bottom: 8px;
+  margin-left: 12px;
+  margin-right: 14px;
+}}
+window.neuronix-settings box.neuronix-card label.neuronix-subtitle,
+window.neuronix-settings box.neuronix-card label.neuronix-row-desc {{
+  color: #b0b0b0;
+  font-size: 12px;
+}}
+window.neuronix-settings scrolledwindow.neuronix-list-frame,
+window.neuronix-settings scrolledwindow.neuronix-well,
+window.neuronix-settings scrolledwindow.neuronix-scroll {{
+  border: none;
+  background-color: transparent;
+  padding: 4px 0;
+}}
+window.neuronix-settings row.neuronix-list-row {{
+  min-height: 36px;
+  border-radius: 8px;
+  padding: 6px 8px;
+}}
+window.neuronix-settings row.neuronix-list-row:hover,
+window.neuronix-settings row.neuronix-list-row:selected {{
+  background-color: rgba(255, 255, 255, 0.08);
+}}
+window.neuronix-settings button.neuronix-secondary,
+window.neuronix-settings button.neuronix-primary {{
+  background-color: #3a3a3a;
+  background-image: none;
+  color: #ffffff;
+  border: none;
+  border-radius: 9px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}}
+window.neuronix-settings button.neuronix-secondary:hover,
+window.neuronix-settings button.neuronix-primary:hover {{
+  background-color: #4a4a4a;
+}}
+window.neuronix-settings entry {{
+  background-color: #3a3a3a;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-height: 28px;
+  font-size: 14px;
+}}
+window.neuronix-settings entry.neuronix-search {{
+  background-color: transparent;
+  min-height: 34px;
+  font-size: 15px;
+  padding: 0 4px;
+}}
+window.neuronix-settings switch {{
+  background-color: #5e5e5e;
+  background-image: none;
+  border: none;
+  border-radius: 999px;
+  min-width: 46px;
+  min-height: 26px;
+  box-shadow: none;
+}}
+window.neuronix-settings switch:checked {{
+  background-color: {accent};
+}}
+window.neuronix-settings switch slider {{
+  background-color: {fg};
+  border: none;
+  border-radius: 999px;
+  min-width: 20px;
+  min-height: 20px;
+  margin: 3px;
+  box-shadow: none;
+}}
+window.neuronix-settings scale trough,
+window.neuronix-settings scale > trough {{
+  background-color: {border};
+  background-image: none;
+  border: none;
+  border-radius: 999px;
+  min-height: 6px;
+}}
+window.neuronix-settings scale highlight,
+window.neuronix-settings scale > trough > highlight {{
+  background-color: {accent};
+  background-image: none;
+  border: none;
+  border-radius: 999px;
+}}
+window.neuronix-settings scale slider,
+window.neuronix-settings scale > trough > slider,
+window.neuronix-settings scale > trough > slider:hover {{
+  background-color: {accent};
+  background-image: none;
+  border: none;
+  border-radius: 999px;
+  min-width: 18px;
+  min-height: 18px;
+}}
+window.neuronix-settings box.neuronix-pref-row {{
+  min-height: 44px;
+}}
+window.neuronix-settings combobox button,
+window.neuronix-settings combobox button.combo {{
+  background-color: #3a3a3a;
+  border: none;
+  border-radius: 8px;
+  padding: 4px 10px;
+  color: #ffffff;
 }}
 """
 
@@ -759,6 +1014,7 @@ def _hub_bar_backdrop_hide() -> None:
         pass
 
 
+
 def _hub_bar_backdrop_show() -> None:
     """Opaque fill under modules-right (clock→power), aligned with the settings hub."""
     _hub_bar_backdrop_hide()
@@ -844,15 +1100,13 @@ def _hub_bar_backdrop_show() -> None:
 
 def _glass_root(
     box: Gtk.Box,
-    alpha: float = 0.5,
-    radius: int = 8,
+    alpha: float = 1.0,
+    radius: int = 16,
     radius_top: int | None = None,
     radius_bottom: int | None = None,
+    color: str | None = None,
 ) -> None:
-    """One glass fill for the whole dialog, including subpages.
-
-    Hub matches the Waybar capsule (opaque while open; flat top, rounded bottom).
-    """
+    """Opaque rounded fill for dialogs. Nested Settings dialogs stay solid."""
     fill_a = float(alpha)
     corner = max(0, int(radius))
     top_r = corner if radius_top is None else max(0, int(radius_top))
@@ -865,7 +1119,7 @@ def _glass_root(
             return False
         cr.save()
         _rounded_rect(cr, 0, 0, width, height, corner, radius_top=top_r, radius_bottom=bot_r)
-        rgb = _hex_rgb(_theme_chrome()["bg"]) or (46, 52, 64)
+        rgb = _hex_rgb(color or _theme_chrome()["bg"]) or (30, 30, 30)
         cr.set_source_rgba(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, fill_a)
         cr.fill()
         cr.restore()
@@ -1167,8 +1421,9 @@ def _ensure_layer(win: Gtk.Window) -> None:
         already = bool(GtkLayerShell.is_layer_window(win))
     except Exception:
         already = False
-    if not already:
-        GtkLayerShell.init_for_window(win)
+    if already:
+        return
+    GtkLayerShell.init_for_window(win)
     try:
         GtkLayerShell.set_namespace(win, "neuronix-popover")
     except Exception:
@@ -1344,16 +1599,45 @@ def _popup_menu_is_open(hub: Gtk.Window) -> bool:
     return False
 
 
+# Newest dialog owns the keyboard. Older holders (the Settings hub) yield so a
+# password entry is not fighting the hub for EXCLUSIVE every 150ms — that fight
+# flashes the cursor and drops every keystroke.
+_KEYBOARD_HOLDERS: list = []
+
+
+def _layer_keyboard_mode(win: Gtk.Window):
+    try:
+        return GtkLayerShell.get_keyboard_mode(win)
+    except Exception:
+        return None
+
+
+def _set_layer_keyboard_mode(win: Gtk.Window, mode) -> None:
+    """Apply a mode only when it changed. Re-setting EXCLUSIVE refocuses the window."""
+    if _layer_keyboard_mode(win) == mode:
+        return
+    try:
+        GtkLayerShell.set_keyboard_mode(win, mode)
+    except Exception:
+        pass
+
+
 def hold_layer_keyboard(win: Gtk.Window):
     """Keep keystrokes on this layer until the returned function is called.
 
     Settings takes an exclusive keyboard grab. A password dialog on top never
     sees keys while that grab is held, and a button click hands the keyboard
     back to Settings. Park every other layer and keep this one exclusive.
+    The newest holder wins; older holders drop to NONE until it closes.
     Pause while a ComboBox/menu popup is open so theme (and other) dropdowns
     can actually change the active row.
     """
-    state: Dict[str, object] = {"on": True, "saved": []}
+    state: Dict[str, object] = {"on": True, "saved": [], "win": win}
+    _KEYBOARD_HOLDERS.append(state)
+
+    def _owns_keyboard() -> bool:
+        live = [holder for holder in _KEYBOARD_HOLDERS if holder.get("on")]
+        return bool(live) and live[-1] is state
 
     def _apply() -> bool:
         if not state["on"]:
@@ -1361,6 +1645,9 @@ def hold_layer_keyboard(win: Gtk.Window):
         # Re-asserting EXCLUSIVE while a dropdown is open steals focus and the
         # selection never sticks — Themes combo looked broken because of this.
         if _popup_menu_is_open(win):
+            return True
+        if not _owns_keyboard():
+            _set_layer_keyboard_mode(win, GtkLayerShell.KeyboardMode.NONE)
             return True
         saved: list = state["saved"]  # type: ignore[assignment]
         known = {id(top) for top, _prev in saved}
@@ -1375,26 +1662,28 @@ def hold_layer_keyboard(win: Gtk.Window):
                 if not GtkLayerShell.is_layer_window(top):
                     continue
                 if id(top) in known:
-                    GtkLayerShell.set_keyboard_mode(top, GtkLayerShell.KeyboardMode.NONE)
+                    _set_layer_keyboard_mode(top, GtkLayerShell.KeyboardMode.NONE)
                     continue
-                prev = GtkLayerShell.get_keyboard_mode(top)
-                GtkLayerShell.set_keyboard_mode(top, GtkLayerShell.KeyboardMode.NONE)
+                prev = _layer_keyboard_mode(top)
+                _set_layer_keyboard_mode(top, GtkLayerShell.KeyboardMode.NONE)
                 saved.append((top, prev))
             except Exception:
                 pass
-        try:
-            GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
-        except Exception:
-            pass
+        _set_layer_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
         return True
 
     def stop() -> None:
         if not state["on"]:
             return
         state["on"] = False
+        try:
+            _KEYBOARD_HOLDERS.remove(state)
+        except ValueError:
+            pass
         for top, prev in list(state["saved"]):  # type: ignore[arg-type]
             try:
-                GtkLayerShell.set_keyboard_mode(top, prev)
+                if prev is not None:
+                    GtkLayerShell.set_keyboard_mode(top, prev)
             except Exception:
                 pass
         state["saved"] = []
@@ -1436,6 +1725,33 @@ def center_layer_window(win: Gtk.Window, width: int, height: int) -> None:
             win.connect("map", lambda *_: GLib.idle_add(_again))
         except Exception:
             pass
+
+
+
+def place_layer_at(win: Gtk.Window, width: int, height: int, left: int, top: int) -> None:
+    """Pin a layer-shell window at LEFT/TOP. Top may be negative to start off-screen."""
+    _enable_rgba(win)
+    _ensure_layer(win)
+    w, h = max(1, int(width)), max(1, int(height))
+    try:
+        win.set_size_request(w, h)
+        win.resize(w, h)
+    except Exception:
+        pass
+    gdk = _pointer_monitor()
+    if gdk is not None:
+        try:
+            GtkLayerShell.set_monitor(win, gdk)
+        except Exception:
+            pass
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.LEFT, True)
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.TOP, True)
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.RIGHT, False)
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.BOTTOM, False)
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.LEFT, max(0, int(left)))
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.TOP, int(top))
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.RIGHT, 0)
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.BOTTOM, 0)
 
 
 def place_hub_layer_window(win: Gtk.Window, width: int, height: int) -> None:
@@ -1508,6 +1824,7 @@ def pack_back_button(parent: Gtk.Box, on_back) -> Gtk.Button:
 def pack_title_with_close(parent: Gtk.Box, title_widget: Gtk.Widget, on_close) -> Gtk.Box:
     """Title on the left, × close on the top-right."""
     row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    row.get_style_context().add_class("neuronix-headerbar")
     title_widget.set_hexpand(True)
     try:
         title_widget.set_ellipsize(Pango.EllipsizeMode.END)
@@ -1630,9 +1947,13 @@ def _make_tile(
     *,
     show_chevron: bool = True,
     icon: str = "",
+    nav: bool = False,
+    icon_px: int = 24,
 ) -> Gtk.Button:
     btn = Gtk.Button()
     btn.get_style_context().add_class("neuronix-tile")
+    if nav:
+        btn.get_style_context().add_class("neuronix-nav")
     btn.set_relief(Gtk.ReliefStyle.NONE)
     btn.set_hexpand(True)
     btn.set_halign(Gtk.Align.FILL)
@@ -1640,7 +1961,7 @@ def _make_tile(
     row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
     icon_name = _menu_icon(item_id, icon)
     if icon_name:
-        row.pack_start(_bw_menu_image(icon_name, 24), False, False, 0)
+        row.pack_start(_bw_menu_image(icon_name, icon_px), False, False, 0)
     text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
     text.set_halign(Gtk.Align.START)
     text.set_valign(Gtk.Align.CENTER)
@@ -1709,7 +2030,7 @@ def choose(
 
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     outer.get_style_context().add_class("neuronix-root")
-    _glass_root(outer)
+    _glass_root(outer, alpha=1.0, radius=16, color="#1e1e1e")
     outer.set_hexpand(True)
     outer.set_vexpand(True)
     win.add(outer)
@@ -1785,7 +2106,7 @@ def _base_panel(
 
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     outer.get_style_context().add_class("neuronix-root")
-    _glass_root(outer)
+    _glass_root(outer, alpha=1.0, radius=16, color="#1e1e1e")
     outer.set_hexpand(True)
     outer.set_vexpand(True)
     win.add(outer)
@@ -2378,12 +2699,21 @@ def attach_drill(
     title_lbl.get_style_context().add_class("neuronix-title")
     pack_title_with_close(parent, title_lbl, on_quit)
 
+    body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    body.set_hexpand(True)
+    body.set_vexpand(True)
+    body.get_style_context().add_class("neuronix-page-body")
+    body.set_margin_top(12)
+    body.set_margin_bottom(22)
+    body.set_margin_start(18)
+    body.set_margin_end(22)
+
     if subtitle:
         sub = Gtk.Label(label=subtitle, xalign=0.0)
         sub.set_line_wrap(True)
         sub.set_max_width_chars(42)
         sub.get_style_context().add_class("neuronix-subtitle")
-        parent.pack_start(sub, False, False, 0)
+        body.pack_start(sub, False, False, 0)
 
     stack = Gtk.Stack()
     stack.set_hexpand(True)
@@ -2392,7 +2722,8 @@ def attach_drill(
         stack.set_transition_type(Gtk.StackTransitionType.NONE)
     except Exception:
         pass
-    parent.pack_start(stack, True, True, 0)
+    body.pack_start(stack, True, True, 0)
+    parent.pack_start(body, True, True, 0)
 
     main_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
     main_page.set_hexpand(True)
@@ -2540,8 +2871,13 @@ def attach_page(
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
     scroll.get_style_context().add_class("neuronix-clear")
+    scroll.get_style_context().add_class("neuronix-page-body")
     scroll.set_hexpand(True)
     scroll.set_vexpand(True)
+    scroll.set_margin_top(10)
+    scroll.set_margin_bottom(20)
+    scroll.set_margin_start(12)
+    scroll.set_margin_end(16)
     # Pages like Apps have wide ComboBox natural sizes — do not grow the hub.
     try:
         scroll.set_propagate_natural_width(False)
@@ -2570,6 +2906,7 @@ class HubSection:
         icon: str,
         build: Optional[Callable[[], Tuple[str, Sequence[DrillItem], Optional[str]]]] = None,
         page: Optional[Callable[[], Gtk.Widget]] = None,
+        group: str = "",
     ) -> None:
         if build is None and page is None:
             raise ValueError(f"section {section_id} needs a menu or a page")
@@ -2578,6 +2915,7 @@ class HubSection:
         self.icon = icon
         self.build = build
         self.page = page
+        self.group = group
 
 
 class HubAction:
@@ -2634,7 +2972,7 @@ def show_drilldown(
 
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
     outer.get_style_context().add_class("neuronix-root")
-    _glass_root(outer)
+    _glass_root(outer, alpha=1.0, radius=16, color="#1e1e1e")
     win.add(outer)
 
     def _quit() -> None:
@@ -2684,7 +3022,7 @@ def show_hub(
     drill: str = "",
     actions: Sequence[HubAction] = (),
 ) -> None:
-    """Settings hub: Waybar-pill glass anchored top-right under the bar."""
+    """Settings hub: centered window styled like GNOME Settings."""
     freeze_click_xy()
     if not begin_settings_hub(initial_id, drill):
         return
@@ -2694,23 +3032,21 @@ def show_hub(
     if initial_id not in by_id and catalog:
         initial_id = catalog[0].id
 
-    pill = _hub_pill_geometry()
-    # GTK layer shells allocate ~5px wider than requested; ask short so the
-    # live hub width matches the bar fill (one vertical edge).
-    panel_w = max(280, int(pill["width"]) - 5)
-    start_h = int(pill["start_h"])
-    # Fit nav + content inside the modules-right pill width (clock→power).
-    nav_w = min(168, max(120, panel_w // 3))
-    content_w = max(160, panel_w - nav_w - 36)
     mon = _pointer_monitor()
-    mon_h = int(mon.get_geometry().height) if mon is not None else 1080
-    final_h = min(720, max(480, int(mon_h * 0.62)))
+    mon_geo = mon.get_geometry() if mon is not None else None
+    mon_w = int(mon_geo.width) if mon_geo is not None else 1920
+    mon_h = int(mon_geo.height) if mon_geo is not None else 1080
+    panel_w = min(1080, max(860, mon_w - 80))
+    final_h = min(740, max(580, mon_h - 80))
+    nav_w = 260
+    content_w = max(480, panel_w - nav_w - 1)
 
     win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
     win.set_title("Settings")
     win.set_decorated(False)
     win.set_resizable(False)
     win.get_style_context().add_class("neuronix-choice")
+    win.get_style_context().add_class("neuronix-settings")
     GLib.set_prgname("neuronix-choice")
     try:
         Gdk.set_program_class("neuronix-choice")
@@ -2720,29 +3056,47 @@ def show_hub(
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     outer.get_style_context().add_class("neuronix-root")
     outer.get_style_context().add_class("neuronix-hub")
-    # Flat top meets the bar-fill; rounded bottom — one continuous rounded unit.
-    _glass_root(outer, alpha=1.0, radius=21, radius_top=0, radius_bottom=21)
+    _glass_root(outer, alpha=1.0, radius=16, color="#1e1e1e")
     win.add(outer)
 
-    body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
     body.set_hexpand(True)
     body.set_vexpand(True)
-    try:
-        body.set_opacity(0.0)
-    except Exception:
-        pass
     outer.pack_start(body, True, True, 0)
 
-    nav_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    nav_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     nav_col.set_size_request(nav_w, -1)
     nav_col.set_vexpand(True)
+    nav_col.get_style_context().add_class("neuronix-sidebar")
     body.pack_start(nav_col, False, False, 0)
+
+    head = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+    head.get_style_context().add_class("neuronix-sidehead")
+    head.set_margin_start(6)
+    head.set_margin_end(6)
+    search_btn = Gtk.Button()
+    search_btn.set_relief(Gtk.ReliefStyle.NONE)
+    search_btn.set_tooltip_text("Search")
+    search_btn.get_style_context().add_class("neuronix-iconbtn")
+    search_btn.add(Gtk.Image.new_from_icon_name("system-search-symbolic", Gtk.IconSize.BUTTON))
+    side_title = Gtk.Label(label="Settings", xalign=0.0)
+    side_title.set_hexpand(True)
+    side_title.get_style_context().add_class("neuronix-sidebar-title")
+    search = Gtk.SearchEntry()
+    search.set_hexpand(True)
+    search.set_placeholder_text("Search")
+    search.get_style_context().add_class("neuronix-search")
+    search.set_no_show_all(True)
+    head.pack_start(search_btn, False, False, 0)
+    head.pack_start(side_title, True, True, 0)
+    head.pack_start(search, True, True, 0)
+    nav_col.pack_start(head, False, False, 0)
 
     nav_scroll = Gtk.ScrolledWindow()
     nav_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
     nav_scroll.set_vexpand(True)
     nav_scroll.get_style_context().add_class("neuronix-clear")
-    nav = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    nav = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
     nav.set_size_request(nav_w, -1)
     nav_scroll.add(nav)
     nav_col.pack_start(nav_scroll, True, True, 0)
@@ -2753,17 +3107,31 @@ def show_hub(
     sep.get_style_context().add_class("neuronix-sep")
     body.pack_start(sep, False, False, 0)
 
-    right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     right.set_size_request(content_w, -1)
     right.set_hexpand(True)
     right.set_vexpand(True)
+    right.get_style_context().add_class("neuronix-content")
     body.pack_start(right, True, True, 0)
 
-    size = {"h": start_h, "animating": True}
+    rest_left = max(0, (mon_w - panel_w) // 2)
+    rest_top = max(0, (mon_h - final_h) // 2)
+    size = {
+        "h": final_h,
+        "left": rest_left,
+        "top": rest_top,
+        "rest_top": rest_top,
+        "animating": False,
+        "closing": False,
+        "done": False,
+    }
     buttons: Dict[str, Gtk.Button] = {}
     _esc_hook: Dict[str, object] = {"snooper": None, "sid": None, "release": None}
 
-    def _quit() -> None:
+    def _finish_quit() -> None:
+        if size.get("done"):
+            return
+        size["done"] = True
         _remove_escape_hook()
         try:
             release = _esc_hook.get("release")
@@ -2866,10 +3234,22 @@ def show_hub(
         except Exception:
             pass
 
+    def _refresh_rest() -> None:
+        _gdk, _hypr, mw, mh, reserved = _resolve_layer_monitor(win)
+        if mw > 0:
+            size["left"] = max(0, (mw - panel_w) // 2)
+            size["rest_top"] = max(0, (mh - final_h) // 2 - reserved)
+
     def _lock_size() -> None:
         panel_h = int(size["h"])
-        place_hub_layer_window(win, panel_w, panel_h)
+        left = int(size["left"])
+        top = int(size["top"])
+        placed = (panel_w, panel_h, left, top)
+        if size.get("placed") == placed:
+            return
+        place_layer_at(win, panel_w, panel_h, left, top)
         try:
+            GtkLayerShell.set_namespace(win, "neuronix-settings")
             GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
         except Exception:
             pass
@@ -2886,6 +3266,7 @@ def show_hub(
             )
         except Exception:
             pass
+        size["placed"] = placed
 
     def _show(section_id: str, drill_id: str) -> None:
         section = by_id.get(section_id)
@@ -2921,9 +3302,8 @@ def show_hub(
         if not size["animating"]:
             size["h"] = final_h
         right.show_all()
-        # Re-clamp after page swap — content natural width must not stretch the pill.
-        _lock_size()
-        GLib.idle_add(_lock_size)
+        if size.get("placed") is None:
+            _lock_size()
 
     def _on_key(widget, event):
         key = int(getattr(event, "keyval", 0) or 0)
@@ -2940,58 +3320,75 @@ def show_hub(
             return handler(widget, event)
         return False
 
-    def _expand_tick(step: int = 0) -> bool:
-        # Snappy expand — reads as the Waybar pill stretching down.
-        duration_ms = 70
-        frame_ms = 8
-        steps = max(1, duration_ms // frame_ms)
-        t = min(1.0, float(step) / float(steps))
-        eased = 1.0 - (1.0 - t) ** 3
-        size["h"] = int(start_h + (final_h - start_h) * eased)
-        _lock_size()
-        try:
-            # Content appears quickly once the pill has some height.
-            if t < 0.25:
-                body.set_opacity(0.0)
-            else:
-                body.set_opacity(min(1.0, (t - 0.25) / 0.45))
-        except Exception:
-            pass
-        if step < steps:
-            GLib.timeout_add(frame_ms, _expand_tick, step + 1)
+    def _quit() -> None:
+        _finish_quit()
+
+    grouped: dict[str, list] = {}
+    for section in catalog:
+        grouped.setdefault(getattr(section, "group", "") or "", []).append(section)
+    group_heads: list[tuple] = []
+    first_group = True
+    for group_name, group_secs in grouped.items():
+        heading = None
+        if group_name:
+            heading = Gtk.Label(label=group_name, xalign=0.0)
+            heading.get_style_context().add_class("neuronix-nav-group")
+            if first_group:
+                heading.get_style_context().add_class("neuronix-nav-group-first")
+            nav.pack_start(heading, False, False, 0)
+        first_btn = True
+        ids: list[str] = []
+        for section in group_secs:
+            btn = _make_tile(
+                section.id,
+                section.label,
+                "",
+                lambda i, sid=section.id: _show(sid, ""),
+                show_chevron=False,
+                icon=section.icon,
+                nav=True,
+                icon_px=16,
+            )
+            if not group_name and not first_group and first_btn:
+                btn.set_margin_top(16)
+            buttons[section.id] = btn
+            nav.pack_start(btn, False, False, 0)
+            ids.append(section.id)
+            first_btn = False
+        group_heads.append((heading, ids))
+        first_group = False
+
+    def _filter_nav(*_a) -> None:
+        query = search.get_text().strip().casefold()
+        for heading, ids in group_heads:
+            any_vis = False
+            for sid in ids:
+                btn = buttons.get(sid)
+                if btn is None:
+                    continue
+                section = by_id.get(sid)
+                label = section.label.casefold() if section is not None else ""
+                visible = (not query) or (query in label)
+                btn.set_visible(visible)
+                any_vis = any_vis or visible
+            if heading is not None:
+                heading.set_visible(any_vis or not query)
+
+    def _open_search(*_a) -> None:
+        side_title.hide()
+        search.show()
+        search.grab_focus()
+
+    def _close_search(*_a):
+        if search.get_text().strip():
             return False
-        size["h"] = final_h
-        size["animating"] = False
-        try:
-            body.set_opacity(1.0)
-        except Exception:
-            pass
-        _lock_size()
+        search.hide()
+        side_title.show()
         return False
 
-    # Main tabs A–Z; footer: System, About, then a gap, then Power.
-    _footer_ids = ("system", "about", "power")
-    by_nav = {section.id: section for section in catalog}
-    nav_sections = sorted(
-        (section for section in catalog if section.id not in _footer_ids),
-        key=lambda section: section.label.casefold(),
-    )
-    for fid in _footer_ids:
-        if fid in by_nav:
-            nav_sections.append(by_nav[fid])
-    for section in nav_sections:
-        btn = _make_tile(
-            section.id,
-            section.label,
-            "",
-            lambda i, sid=section.id: _show(sid, ""),
-            show_chevron=False,
-            icon=section.icon,
-        )
-        if section.id in ("system", "power"):
-            btn.set_margin_top(28)
-        buttons[section.id] = btn
-        nav.pack_start(btn, False, False, 0)
+    search_btn.connect("clicked", _open_search)
+    search.connect("search-changed", _filter_nav)
+    search.connect("focus-out-event", _close_search)
 
     if actions:
         for action in actions:
@@ -3010,16 +3407,18 @@ def show_hub(
     _HUB_CONTROL["switch"] = lambda section, drill_id: _show(section, drill_id)
     _HUB_CONTROL["win"] = win
     win.connect("key-press-event", _on_key)
-    win.connect("destroy", lambda *_: _quit())
+    win.connect("destroy", lambda *_: _finish_quit())
     _show(initial_id, drill)
+    _refresh_rest()
+    size["top"] = int(size["rest_top"])
     _lock_size()
-    _hub_bar_backdrop_show()
+    _hub_bar_backdrop_hide()
     release_keys = hold_layer_keyboard(win)
     _esc_hook["release"] = release_keys
     _install_escape_hook()
 
     def _restore_and_quit(*_a):
-        _quit()
+        _finish_quit()
         return True
 
     def _sync_fill_to_hub(*_a):
@@ -3051,8 +3450,6 @@ def show_hub(
             win.grab_focus()
         except Exception:
             pass
-        GLib.timeout_add(100, _sync_fill_to_hub)
-        GLib.idle_add(_expand_tick, 0)
         Gtk.main()
     finally:
         try:

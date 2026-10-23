@@ -83,13 +83,45 @@ _PLUGIN_SO_CANDIDATES = {
 }
 
 
+class _SettingsPage(Gtk.Box):
+    """Vertical page whose sections land in GNOME-style cards."""
+
+    def __init__(self) -> None:
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.set_margin_top(6)
+        self.set_margin_bottom(10)
+        self.set_margin_start(4)
+        self.set_margin_end(6)
+        self._card: Gtk.Box | None = None
+
+    def _open_card(self) -> Gtk.Box:
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.get_style_context().add_class("neuronix-card")
+        Gtk.Box.pack_start(self, card, False, False, 0)
+        self._card = card
+        return card
+
+    def pack_start(self, child, expand=True, fill=True, padding=0):
+        try:
+            heading = bool(child.get_style_context().has_class("neuronix-heading"))
+        except Exception:
+            heading = False
+        if heading:
+            self._card = None
+            return Gtk.Box.pack_start(self, child, False, False, 0)
+        if self._card is None:
+            self._open_card()
+        if expand and self._card is not None:
+            self._card.set_vexpand(True)
+            self.set_child_packing(self._card, True, True, 0, Gtk.PackType.START)
+        return Gtk.Box.pack_start(self._card, child, expand, fill, padding)
+
+    def pack_end(self, child, expand=True, fill=True, padding=0):
+        return Gtk.Box.pack_end(self, child, expand, fill, padding)
+
+
 def _page() -> Gtk.Box:
-    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-    box.set_margin_top(4)
-    box.set_margin_bottom(8)
-    box.set_margin_start(2)
-    box.set_margin_end(8)
-    return box
+    return _SettingsPage()
 
 
 def _note(text: str) -> Gtk.Label:
@@ -359,8 +391,148 @@ def _set_hyprtabs(on: bool) -> str:
     return ""
 
 
+_PLUGIN_DIRS = (
+    Path.home() / ".local/lib/hyprland/plugins",
+    Path("/usr/local/lib/hyprland/plugins"),
+    Path("/usr/lib/x86_64-linux-gnu/hyprland/plugins"),
+)
+_PLUGIN_COPY = {
+    "hyprbars": ("Hyprbars", "Title bars on windows"),
+    "hyprframes": ("Hyprframes", "Image borders around windows"),
+    "hyprtabs": ("Hyprtabs", "Tabs along the top of windows"),
+    "hyprspace": ("Hyprspace", "Workspace overview"),
+}
+
+
+def _plugin_key(path: Path) -> str:
+    stem = path.stem
+    if stem.lower().startswith("lib"):
+        stem = stem[3:]
+    return stem.lower()
+
+
+def _installed_plugins() -> list[dict[str, str]]:
+    """Every plugin .so on disk, one row each. Empty when nothing is installed."""
+    found: dict[str, dict[str, str]] = {}
+    for directory in _PLUGIN_DIRS:
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("*.so")):
+            key = _plugin_key(path)
+            if not key or key in found:
+                continue
+            title, desc = _PLUGIN_COPY.get(key, ("", ""))
+            if not title:
+                raw = path.stem[3:] if path.stem.lower().startswith("lib") else path.stem
+                title = raw[:1].upper() + raw[1:]
+                desc = path.name
+            found[key] = {"id": key, "path": str(path), "title": title, "desc": desc}
+    return [found[key] for key in sorted(found, key=lambda item: found[item]["title"].casefold())]
+
+
+def _plugin_enabled(plugin_id: str) -> bool:
+    prefs = _chrome_prefs()
+    if plugin_id == "hyprbars":
+        if _plugin_loaded("hyprbars"):
+            return _hyprbars_enabled_live()
+        return bool(prefs.get("hyprbars", True))
+    if plugin_id == "hyprtabs":
+        if _plugin_loaded("hyprtabs"):
+            return _hyprtabs_enabled_live()
+        return bool(prefs.get("hyprtabs", False))
+    if plugin_id == "hyprframes":
+        return _plugin_loaded("hyprframes")
+    return _plugin_loaded(plugin_id)
+
+
+def _set_plugin(plugin_id: str, path: str, on: bool) -> str:
+    if plugin_id == "hyprbars":
+        return _set_hyprbars(on)
+    if plugin_id == "hyprframes":
+        return _set_hyprframes(on)
+    if plugin_id == "hyprtabs":
+        return _set_hyprtabs(on)
+    if on:
+        if _plugin_loaded(plugin_id):
+            return ""
+        if not path:
+            return f"{plugin_id} plugin was not found"
+        ok, out = _run(["hyprctl", "plugin", "load", path], timeout=8)
+        if not ok and not _plugin_loaded(plugin_id):
+            return out or f"Could not enable {plugin_id}"
+        return ""
+    if not _plugin_loaded(plugin_id):
+        return ""
+    if not path:
+        return f"Could not disable {plugin_id}"
+    ok, out = _run(["hyprctl", "plugin", "unload", path], timeout=6)
+    if _plugin_loaded(plugin_id):
+        return out or f"Could not disable {plugin_id}"
+    return ""
+
+
+def plugins_page() -> Gtk.Widget:
+    """Installed Hyprland plugins, each with its own on/off switch."""
+    box = _page()
+    box.pack_start(_section("Installed"), False, False, 0)
+    plugins = _installed_plugins()
+    if not plugins:
+        box.pack_start(_note("No plugins are installed."), False, False, 0)
+        return box
+    status = _note("")
+    status.set_no_show_all(True)
+    status.hide()
+
+    def _msg(text: str) -> None:
+        if text:
+            status.set_text(text)
+            status.show()
+        else:
+            status.hide()
+
+    for plugin in plugins:
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        text.set_hexpand(True)
+        title = Gtk.Label(label=plugin["title"], xalign=0.0)
+        title.get_style_context().add_class("neuronix-row-title")
+        desc = Gtk.Label(label=plugin["desc"], xalign=0.0)
+        desc.get_style_context().add_class("neuronix-subtitle")
+        text.pack_start(title, False, False, 0)
+        text.pack_start(desc, False, False, 0)
+        sw = Gtk.Switch()
+        sw.set_valign(Gtk.Align.CENTER)
+        sw.set_active(_plugin_enabled(plugin["id"]))
+        armed = {"ok": False}
+
+        def _notify(widget: Gtk.Switch, *_a, item=plugin, gate=armed) -> None:
+            if not gate["ok"]:
+                return
+            err = _set_plugin(item["id"], item["path"], bool(widget.get_active()))
+            if not err:
+                _msg("")
+                return
+            _msg(err)
+            gate["ok"] = False
+            widget.set_active(not widget.get_active())
+            gate["ok"] = True
+
+        sw.connect("notify::active", _notify)
+
+        def _arm(gate=armed) -> bool:
+            gate["ok"] = True
+            return False
+
+        GLib.idle_add(_arm)
+        row.pack_start(text, True, True, 0)
+        row.pack_end(sw, False, False, 0)
+        box.pack_start(row, False, False, 0)
+    box.pack_start(status, False, False, 0)
+    return box
+
 def _switch_row(label: str, active: bool, on_change) -> Gtk.Box:
-    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    row.get_style_context().add_class("neuronix-pref-row")
     cap = Gtk.Label(label=label, xalign=0.0)
     cap.set_hexpand(True)
     sw = Gtk.Switch()
@@ -1302,66 +1474,6 @@ def themes_page() -> Gtk.Widget:
     status = _note(chosen["profile"].name)
     box.pack_start(status, False, False, 0)
 
-    # Only offer toggles for plugins that are installed (or already loaded).
-    # Hyprtabs is controlled by the Waybar layout cycle (cascade / grid / tabs), not here.
-    has_bars = bool(_plugin_so("hyprbars")) or _plugin_loaded("hyprbars")
-    has_frames = bool(_plugin_so("hyprframes")) or _plugin_loaded("hyprframes")
-    if has_bars or has_frames:
-        box.pack_start(_section("Window chrome"), False, False, 0)
-        bits = []
-        if has_bars:
-            bits.append("title bars always on (hyprbars)")
-        if has_frames:
-            bits.append("image borders (hyprframes)")
-        box.pack_start(_note(" and ".join(bits).capitalize() + "."), False, False, 0)
-        chrome_status = _note("")
-        chrome_status.set_no_show_all(True)
-        chrome_status.hide()
-        prefs = _chrome_prefs()
-
-        def _chrome_msg(text: str) -> None:
-            if text:
-                chrome_status.set_text(text)
-                chrome_status.show()
-            else:
-                chrome_status.hide()
-
-        if has_bars:
-            # Bars stay loaded; this switch only toggles the tiled bar_image.
-            _ensure_hyprbars_on()
-            images_on = (
-                _hyprbars_images_live()
-                if _plugin_loaded("hyprbars")
-                else bool(prefs.get("hyprbars_images", True))
-            )
-
-            def _on_bar_images(active: bool) -> None:
-                _chrome_msg(_set_hyprbars_images(active))
-
-            box.pack_start(
-                _switch_row("Hyprbar images (else GTK theme colors)", images_on, _on_bar_images),
-                False,
-                False,
-                0,
-            )
-        if has_frames:
-            frames_on = (
-                _plugin_loaded("hyprframes")
-                if _plugin_so("hyprframes") or _plugin_loaded("hyprframes")
-                else bool(prefs.get("hyprframes", True))
-            )
-
-            def _on_frames(active: bool) -> None:
-                _chrome_msg(_set_hyprframes(active))
-
-            box.pack_start(
-                _switch_row("Hyprframes (window borders)", frames_on, _on_frames),
-                False,
-                False,
-                0,
-            )
-        box.pack_start(chrome_status, False, False, 0)
-
     def _draw(widget, cr):
         return _draw_theme_preview(widget, cr, chosen["profile"])
 
@@ -1755,6 +1867,520 @@ def keyboard_page() -> Gtk.Widget:
     return box
 
 
+_WEATHER_PREFS = Path.home() / ".config" / "neuronix" / "weather.json"
+_WEATHER_API = "https://api.weatherapi.com/v1/forecast.json"
+_WEATHER_SIGNUP = "https://www.weatherapi.com/signup.aspx"
+
+
+class _WeatherError(Exception):
+    pass
+
+
+def _weather_read() -> dict:
+    if not _WEATHER_PREFS.is_file():
+        return {"location": "", "api_key": ""}
+    try:
+        data = json.loads(_WEATHER_PREFS.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"location": "", "api_key": ""}
+    if not isinstance(data, dict):
+        return {"location": "", "api_key": ""}
+    return {
+        "location": str(data.get("location") or "").strip(),
+        "api_key": str(data.get("api_key") or "").strip(),
+    }
+
+
+def _weather_write(location: str, api_key: str) -> None:
+    _WEATHER_PREFS.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps({"location": location, "api_key": api_key}, indent=2) + "\n"
+    tmp = _WEATHER_PREFS.with_suffix(".json.tmp")
+    tmp.write_text(payload, encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    tmp.replace(_WEATHER_PREFS)
+    os.chmod(_WEATHER_PREFS, 0o600)
+
+
+def _weather_error_message(body: str) -> str:
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return ""
+    if isinstance(data, dict) and isinstance(data.get("error"), dict):
+        return str(data["error"].get("message") or "").strip()
+    return ""
+
+
+def _weather_fetch(location: str, api_key: str) -> dict:
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    query = urllib.parse.urlencode(
+        {"key": api_key, "q": location, "days": "3", "aqi": "no", "alerts": "no"}
+    )
+    req = urllib.request.Request(
+        f"{_WEATHER_API}?{query}",
+        headers={"User-Agent": "neuronix-settings"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            detail = ""
+        message = _weather_error_message(detail)
+        if exc.code in (401, 403):
+            raise _WeatherError(message or "API key was rejected.") from exc
+        raise _WeatherError(message or f"Weather request failed ({exc.code}).") from exc
+    except urllib.error.URLError as exc:
+        raise _WeatherError("Could not reach weatherapi.com.") from exc
+    except TimeoutError as exc:
+        raise _WeatherError("Weather request timed out.") from exc
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise _WeatherError("Could not read the weather response.") from exc
+    if isinstance(data, dict) and isinstance(data.get("error"), dict):
+        raise _WeatherError(str(data["error"].get("message") or "Weather request failed."))
+    if not isinstance(data, dict):
+        raise _WeatherError("Could not read the weather response.")
+    return data
+
+
+def _weather_temp(value) -> str:
+    try:
+        return f"{float(value):.0f}°"
+    except (TypeError, ValueError):
+        return "—"
+
+
+
+def _weather_glyph(code, is_day: bool = True) -> str:
+    """Symbols Nerd Font weather icon for a WeatherAPI condition code."""
+    try:
+        code = int(code)
+    except (TypeError, ValueError):
+        code = 0
+    icons = {
+        1000: ("", ""),
+        1003: ("", ""),
+        1006: ("", ""),
+        1009: ("", ""),
+        1030: ("", ""),
+        1063: ("", ""),
+        1066: ("", ""),
+        1069: ("", ""),
+        1072: ("", ""),
+        1087: ("", ""),
+        1114: ("", ""),
+        1117: ("", ""),
+        1135: ("", ""),
+        1147: ("", ""),
+        1150: ("", ""),
+        1153: ("", ""),
+        1168: ("", ""),
+        1171: ("", ""),
+        1180: ("", ""),
+        1183: ("", ""),
+        1186: ("", ""),
+        1189: ("", ""),
+        1192: ("", ""),
+        1195: ("", ""),
+        1198: ("", ""),
+        1201: ("", ""),
+        1204: ("", ""),
+        1207: ("", ""),
+        1210: ("", ""),
+        1213: ("", ""),
+        1216: ("", ""),
+        1219: ("", ""),
+        1222: ("", ""),
+        1225: ("", ""),
+        1237: ("", ""),
+        1240: ("", ""),
+        1243: ("", ""),
+        1246: ("", ""),
+        1249: ("", ""),
+        1252: ("", ""),
+        1255: ("", ""),
+        1258: ("", ""),
+        1261: ("", ""),
+        1264: ("", ""),
+        1273: ("", ""),
+        1276: ("", ""),
+        1279: ("", ""),
+        1282: ("", ""),
+    }
+    pair = icons.get(code, ("", ""))
+    return pair[0] if is_day else pair[1]
+
+
+def _weather_icon_font(lbl) -> None:
+    try:
+        lbl.override_font(Pango.FontDescription("Symbols Nerd Font 14"))
+    except Exception:
+        pass
+
+
+def weather_page() -> Gtk.Widget:
+    box = _page()
+    box.set_vexpand(True)
+    if not getattr(weather_page, "_css", False):
+        provider = Gtk.CssProvider()
+        provider.load_from_data(
+            b"box.neuronix-hour-strip {"
+            b" border-radius: 18px;"
+            b" padding: 10px 8px;"
+            b" background-color: rgba(0, 0, 0, 0.28);"
+            b"}"
+            b"box.neuronix-hour-strip label { background: none; }"
+            b"box.neuronix-weather-page { margin: 8px 8px 12px 8px; padding: 0; }"
+            b"box.neuronix-weather-page box.neuronix-card {"
+            b" padding: 10px 16px;"
+            b" margin-top: 0;"
+            b" margin-bottom: 0;"
+            b"}"
+            b"box.neuronix-weather-page label.neuronix-heading {"
+            b" margin-top: 10px;"
+            b" margin-bottom: 4px;"
+            b"}"
+        )
+        screen = Gdk.Screen.get_default()
+        if screen is not None:
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
+            weather_page._css = True
+
+    box.get_style_context().add_class("neuronix-weather-page")
+    box.set_margin_top(0)
+    box.set_margin_bottom(4)
+    place = Gtk.Label(label="—", xalign=0.0)
+    place.get_style_context().add_class("neuronix-heading")
+    box.pack_start(place, False, False, 0)
+
+    current = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    current.set_valign(Gtk.Align.CENTER)
+    current.set_hexpand(True)
+    now_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    now_row.set_hexpand(True)
+    left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+    cond_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    cond_icon = Gtk.Label(label="")
+    _weather_icon_font(cond_icon)
+    cond_text = Gtk.Label(label="", xalign=0.0)
+    cond_text.get_style_context().add_class("neuronix-row-title")
+    cond_row.pack_start(cond_icon, False, False, 0)
+    cond_row.pack_start(cond_text, False, False, 0)
+    feels = _note("")
+    day_range = _note("")
+    left.pack_start(cond_row, False, False, 0)
+    left.pack_start(feels, False, False, 0)
+    left.pack_start(day_range, False, False, 0)
+    big = Gtk.Label(label="—")
+    big.set_halign(Gtk.Align.END)
+    big.set_valign(Gtk.Align.CENTER)
+    try:
+        big.override_font(Pango.FontDescription("DejaVu Sans 32"))
+    except Exception:
+        pass
+    now_row.pack_start(left, True, True, 0)
+    now_row.pack_start(big, False, False, 0)
+    current.pack_start(now_row, False, False, 0)
+
+    strip = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+    strip.set_homogeneous(True)
+    strip.set_hexpand(True)
+    strip.get_style_context().add_class("neuronix-hour-strip")
+    hours = []
+    for _i in range(6):
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        temp = Gtk.Label(label="—")
+        temp.set_halign(Gtk.Align.CENTER)
+        icon = Gtk.Label(label="")
+        icon.set_halign(Gtk.Align.CENTER)
+        _weather_icon_font(icon)
+        when = Gtk.Label(label="")
+        when.set_halign(Gtk.Align.CENTER)
+        when.get_style_context().add_class("neuronix-subtitle")
+        col.pack_start(temp, False, False, 0)
+        col.pack_start(icon, False, False, 0)
+        col.pack_start(when, False, False, 0)
+        strip.pack_start(col, True, True, 0)
+        hours.append((temp, icon, when))
+    current.pack_start(strip, False, False, 0)
+    msg = _note("")
+    current.pack_start(msg, False, False, 0)
+    box.pack_start(current, False, False, 0)
+
+    box.pack_start(_section("Upcoming"), False, False, 0)
+    days_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+    days_col.set_valign(Gtk.Align.CENTER)
+    days_col.set_hexpand(True)
+    days = []
+    for _i in range(2):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.set_hexpand(True)
+        row.get_style_context().add_class("neuronix-pref-row")
+        name = Gtk.Label(label="—", xalign=0.0)
+        name.set_width_chars(4)
+        icon = Gtk.Label(label="")
+        _weather_icon_font(icon)
+        cond = Gtk.Label(label="", xalign=0.0)
+        cond.set_hexpand(True)
+        cond.get_style_context().add_class("neuronix-subtitle")
+        hi = Gtk.Label(label="", xalign=1.0)
+        lo = Gtk.Label(label="", xalign=1.0)
+        lo.get_style_context().add_class("neuronix-subtitle")
+        row.pack_start(name, False, False, 0)
+        row.pack_start(icon, False, False, 0)
+        row.pack_start(cond, True, True, 0)
+        row.pack_start(hi, False, False, 0)
+        row.pack_start(lo, False, False, 0)
+        days_col.pack_start(row, False, False, 0)
+        days.append((name, icon, cond, hi, lo))
+    box.pack_start(days_col, False, False, 0)
+
+    drawer_btn = _button("API key  ▸")
+    box.pack_end(drawer_btn, False, False, 0)
+    reveal = Gtk.Revealer()
+    reveal.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+    reveal.set_reveal_child(False)
+    form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    form.set_margin_top(8)
+    intro = _note("Current conditions and forecast from WeatherAPI.com.")
+    link = Gtk.LinkButton.new_with_label(_WEATHER_SIGNUP, "Get a free key at weatherapi.com")
+    link.set_halign(Gtk.Align.START)
+    intro.set_no_show_all(True)
+    link.set_no_show_all(True)
+    location = Gtk.Entry()
+    location.set_placeholder_text("City, ZIP, or lat,lon")
+    key = Gtk.Entry()
+    key.set_placeholder_text("WeatherAPI.com key")
+    key.set_visibility(False)
+    show = Gtk.CheckButton(label="Show key")
+
+    def _toggle_key(btn) -> None:
+        key.set_visibility(bool(btn.get_active()))
+
+    show.connect("toggled", _toggle_key)
+
+    def _sync_help(*_a) -> None:
+        show_help = not bool(key.get_text().strip())
+        intro.set_visible(show_help)
+        link.set_visible(show_help)
+
+    key.connect("changed", _sync_help)
+    actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    save = _button("Save")
+    refresh = _button("Refresh")
+    actions.pack_start(save, False, False, 0)
+    actions.pack_start(refresh, False, False, 0)
+    form.pack_start(intro, False, False, 0)
+    form.pack_start(link, False, False, 0)
+    form.pack_start(location, False, False, 0)
+    form.pack_start(key, False, False, 0)
+    form.pack_start(show, False, False, 0)
+    form.pack_start(actions, False, False, 0)
+    reveal.add(form)
+    box.pack_end(reveal, False, False, 0)
+
+    def _set_drawer(open_: bool) -> None:
+        reveal.set_reveal_child(open_)
+        drawer_btn.set_label("API key  ▾" if open_ else "API key  ▸")
+
+    drawer_btn.connect("clicked", lambda *_a: _set_drawer(not reveal.get_reveal_child()))
+
+    state = {"gen": 0}
+
+    def _clear() -> None:
+        place.set_text("—")
+        cond_icon.set_text("")
+        cond_text.set_text("")
+        feels.set_text("")
+        day_range.set_text("")
+        big.set_text("—")
+        for temp, icon, when in hours:
+            temp.set_text("—")
+            icon.set_text("")
+            when.set_text("")
+        for name, icon, cond, hi, lo in days:
+            name.set_text("—")
+            icon.set_text("")
+            cond.set_text("")
+            hi.set_text("")
+            lo.set_text("")
+
+    def _hour_label(parsed, is_now: bool) -> str:
+        if is_now:
+            return "Now"
+        hour = parsed.hour % 12 or 12
+        return f"{hour} {'AM' if parsed.hour < 12 else 'PM'}"
+
+    def _upcoming_hours(data: dict):
+        from datetime import datetime
+
+        now = datetime.now().replace(minute=0, second=0, microsecond=0)
+        found = []
+        block = data.get("forecast") if isinstance(data.get("forecast"), dict) else {}
+        for day in block.get("forecastday") or []:
+            if not isinstance(day, dict):
+                continue
+            for hour in day.get("hour") or []:
+                if not isinstance(hour, dict):
+                    continue
+                raw = str(hour.get("time") or "")
+                try:
+                    parsed = datetime.strptime(raw, "%Y-%m-%d %H:%M")
+                except ValueError:
+                    continue
+                if parsed < now:
+                    continue
+                found.append((parsed, hour))
+                if len(found) >= len(hours):
+                    return found
+        return found
+
+    def _apply_data(data: dict) -> None:
+        from datetime import datetime
+
+        loc = data.get("location") if isinstance(data.get("location"), dict) else {}
+        parts = [str(loc.get("name") or "").strip(), str(loc.get("region") or "").strip()]
+        parts = [part for part in parts if part]
+        place.set_text(", ".join(parts) or "Weather")
+        cur = data.get("current") if isinstance(data.get("current"), dict) else {}
+        cond = cur.get("condition") if isinstance(cur.get("condition"), dict) else {}
+        raw_day = cur.get("is_day")
+        is_day = True if raw_day is None else bool(int(raw_day))
+        cond_icon.set_text(_weather_glyph(cond.get("code"), is_day))
+        cond_text.set_text(str(cond.get("text") or "Unknown").strip())
+        feels.set_text(f"Feels like {_weather_temp(cur.get('feelslike_f'))}")
+        big.set_text(_weather_temp(cur.get("temp_f")))
+        block = data.get("forecast") if isinstance(data.get("forecast"), dict) else {}
+        forecast_days = block.get("forecastday") if isinstance(block.get("forecastday"), list) else []
+        today_block = forecast_days[0] if forecast_days and isinstance(forecast_days[0], dict) else {}
+        info = today_block.get("day") if isinstance(today_block.get("day"), dict) else {}
+        day_range.set_text(
+            f"{_weather_temp(info.get('maxtemp_f'))}  ·  {_weather_temp(info.get('mintemp_f'))}"
+        )
+        now = datetime.now().replace(minute=0, second=0, microsecond=0)
+        slots = _upcoming_hours(data)
+        for index, (temp, icon, when) in enumerate(hours):
+            if index >= len(slots):
+                temp.set_text("")
+                icon.set_text("")
+                when.set_text("")
+                continue
+            parsed, hour = slots[index]
+            hour_cond = hour.get("condition") if isinstance(hour.get("condition"), dict) else {}
+            hour_day = hour.get("is_day")
+            hour_is_day = True if hour_day is None else bool(int(hour_day))
+            temp.set_text(_weather_temp(hour.get("temp_f")))
+            icon.set_text(_weather_glyph(hour_cond.get("code"), hour_is_day))
+            when.set_text(_hour_label(parsed, parsed == now))
+        from datetime import date
+
+        today = date.today()
+        upcoming = []
+        for day in forecast_days:
+            if not isinstance(day, dict):
+                continue
+            raw = str(day.get("date") or "").strip()
+            try:
+                parsed_day = datetime.strptime(raw, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if parsed_day <= today:
+                continue
+            info = day.get("day") if isinstance(day.get("day"), dict) else {}
+            day_cond = info.get("condition") if isinstance(info.get("condition"), dict) else {}
+            upcoming.append((parsed_day, info, day_cond))
+        for index, (name, icon, cond, hi, lo) in enumerate(days):
+            if index >= len(upcoming):
+                name.set_text("")
+                icon.set_text("")
+                cond.set_text("")
+                hi.set_text("")
+                lo.set_text("")
+                continue
+            parsed_day, info, day_cond = upcoming[index]
+            name.set_text(parsed_day.strftime("%a"))
+            icon.set_text(_weather_glyph(day_cond.get("code"), True))
+            cond.set_text(str(day_cond.get("text") or "").strip() or "—")
+            hi.set_text(_weather_temp(info.get("maxtemp_f")))
+            lo.set_text(_weather_temp(info.get("mintemp_f")))
+
+    def _refresh(*_a) -> None:
+        loc = location.get_text().strip()
+        api_key = key.get_text().strip()
+        state["gen"] += 1
+        gen = state["gen"]
+        if not api_key:
+            _clear()
+            msg.set_text("Add a WeatherAPI.com key, then save.")
+            _set_drawer(True)
+            return
+        if not loc:
+            _clear()
+            msg.set_text("Enter a city, ZIP, or lat,lon.")
+            _set_drawer(True)
+            return
+        msg.set_text("Loading weather…")
+
+        def _work() -> None:
+            try:
+                data = _weather_fetch(loc, api_key)
+                err = ""
+            except _WeatherError as exc:
+                data = None
+                err = str(exc)
+            except Exception:
+                data = None
+                err = "Could not read the weather response."
+
+            def _done() -> bool:
+                if state["gen"] != gen:
+                    return False
+                if err or not isinstance(data, dict):
+                    _clear()
+                    msg.set_text(err or "Could not read the weather response.")
+                    return False
+                _apply_data(data)
+                msg.set_text("")
+                return False
+
+            GLib.idle_add(_done)
+
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _save(*_a) -> None:
+        loc = location.get_text().strip()
+        api_key = key.get_text().strip()
+        try:
+            _weather_write(loc, api_key)
+        except OSError as exc:
+            msg.set_text(f"Could not save weather settings: {exc}")
+            return
+        msg.set_text("Saved.")
+        if api_key:
+            _set_drawer(False)
+        _refresh()
+
+    save.connect("clicked", _save)
+    refresh.connect("clicked", _refresh)
+    prefs = _weather_read()
+    location.set_text(prefs["location"])
+    key.set_text(prefs["api_key"])
+    _sync_help()
+    _set_drawer(not bool(prefs["api_key"]))
+
+    GLib.idle_add(_refresh)
+    return box
+
 _UPDATE = {
     "running": False,
     "status": "Installs available package upgrades.",
@@ -1783,7 +2409,7 @@ def _update_emit(kind: str, text: str) -> None:
     GLib.idle_add(_do)
 
 
-def _run_apt(password: str, argv: list[str]) -> int:
+def _run_apt(password: str, argv: list[str], on_line=None) -> int:
     cmd = ["sudo", "-k", "-S", "-p", "", "--"]
     stdbuf = "/usr/bin/stdbuf"
     if os.path.isfile(stdbuf):
@@ -1804,7 +2430,11 @@ def _run_apt(password: str, argv: list[str]) -> int:
             bufsize=1,
         )
     except OSError as exc:
-        _update_emit("log", str(exc) + "\n")
+        err = str(exc) + "\n"
+        if on_line is not None:
+            on_line(err)
+        else:
+            _update_emit("log", err)
         return 127
     assert proc.stdin is not None and proc.stdout is not None
     try:
@@ -1813,8 +2443,11 @@ def _run_apt(password: str, argv: list[str]) -> int:
     except BrokenPipeError:
         pass
     for line in proc.stdout:
-        _UPDATE["log"] += line
-        _update_emit("log", line)
+        if on_line is not None:
+            on_line(line)
+        else:
+            _UPDATE["log"] += line
+            _update_emit("log", line)
     return proc.wait()
 
 
@@ -1849,16 +2482,122 @@ def _update_worker(password: str) -> None:
         _update_emit("log", "\n")
     _UPDATE["running"] = False
     if ok:
-        _UPDATE["status"] = "Upgrade finished."
-        _update_emit("status", _UPDATE["status"])
-        _update_emit("idle", "ok")
+        _finish_job(
+            _UPDATE,
+            _update_emit,
+            title="Upgrade finished",
+            body="All available updates were installed.",
+            ok=True,
+        )
     else:
-        _UPDATE["status"] = "Update failed. Check the output below."
-        _update_emit("status", _UPDATE["status"])
-        _update_emit("idle", "fail")
+        _finish_job(
+            _UPDATE,
+            _update_emit,
+            title="Upgrade failed",
+            body="Check the log for details.",
+            ok=False,
+        )
 
 
-def _ask_sudo_password() -> str | None:
+def _desktop_notify(title: str, body: str, *, ok: bool = True) -> None:
+    icon = "dialog-information" if ok else "dialog-error"
+    try:
+        subprocess.Popen(
+            ["notify-send", "-a", "Settings", "-i", icon, title, body],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError:
+        pass
+
+
+def _job_done_dialog(title: str, body: str) -> None:
+    """Solid Done/Failed dialog. Nested loop so Settings stays open."""
+    import neuronix_choice_dialog as choice
+
+    choice._apply_css()
+    result = {"done": False}
+    loop = GLib.MainLoop()
+    win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+    win.set_title(title)
+    win.set_decorated(False)
+    win.set_resizable(False)
+    win.get_style_context().add_class("neuronix-choice")
+    win.get_style_context().add_class("neuronix-settings")
+    choice.center_layer_window(win, 440, 220)
+    release_keys = choice.hold_layer_keyboard(win)
+
+    outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    outer.get_style_context().add_class("neuronix-root")
+    choice._glass_root(outer, alpha=1.0, radius=16, color="#1e1e1e")
+    win.add(outer)
+
+    def _finish(*_a):
+        if result["done"]:
+            return False
+        result["done"] = True
+        release_keys()
+        loop.quit()
+        return False
+
+    head = Gtk.Label(label=title, xalign=0.0)
+    head.get_style_context().add_class("neuronix-title")
+    choice.pack_title_with_close(outer, head, _finish)
+
+    prompt = Gtk.Label(label=body, xalign=0.0)
+    prompt.set_line_wrap(True)
+    prompt.set_max_width_chars(42)
+    prompt.get_style_context().add_class("neuronix-subtitle")
+    outer.pack_start(prompt, False, False, 0)
+
+    ok = Gtk.Button(label="OK")
+    ok.set_relief(Gtk.ReliefStyle.NONE)
+    ok.set_can_default(True)
+    ok.get_style_context().add_class("neuronix-primary")
+    ok.connect("clicked", _finish)
+    outer.pack_start(choice._action_row(ok), False, False, 0)
+    win.set_default(ok)
+    win.connect(
+        "key-press-event",
+        lambda _w, event: _finish() if event.keyval in (Gdk.KEY_Escape, Gdk.KEY_Return) else False,
+    )
+    win.connect("destroy", _finish)
+    win.show_all()
+    win.present()
+    ok.grab_focus()
+    loop.run()
+    if win.get_realized():
+        win.hide()
+    win.destroy()
+
+
+def _names_line(verb: str, names: list[str]) -> str:
+    if not names:
+        return f"{verb} nothing."
+    if len(names) == 1:
+        return f"{verb} {names[0]}."
+    if len(names) <= 5:
+        return f"{verb} {', '.join(names)}."
+    return f"{verb} {len(names)} items ({', '.join(names[:5])}…)."
+
+
+def _finish_job(store: dict, emit, *, title: str, body: str, ok: bool) -> None:
+    """Status, log banner, notification, and a Done dialog when apt/flatpak finishes."""
+    banner = f"\n=== {title} ===\n"
+    store["log"] = str(store.get("log") or "") + banner
+    store["status"] = title if title.endswith(".") else f"{title}."
+    emit("log", banner)
+    emit("status", store["status"])
+    emit("idle", "ok" if ok else "fail")
+    _desktop_notify(title, body, ok=ok)
+    GLib.idle_add(lambda t=title, b=body: (_job_done_dialog(t, b), False)[1])
+
+
+def _ask_sudo_password(
+    prompt_text: str = "Enter your sudo password to upgrade.",
+    confirm: str = "Upgrade",
+) -> str | None:
     """Modal password dialog. Uses its own loop so closing it leaves Settings open."""
     import neuronix_choice_dialog as choice
 
@@ -1870,12 +2609,13 @@ def _ask_sudo_password() -> str | None:
     win.set_decorated(False)
     win.set_resizable(False)
     win.get_style_context().add_class("neuronix-choice")
+    win.get_style_context().add_class("neuronix-settings")
     choice.center_layer_window(win, 440, 230)
     release_keys = choice.hold_layer_keyboard(win)
 
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     outer.get_style_context().add_class("neuronix-root")
-    choice._glass_root(outer)
+    choice._glass_root(outer, alpha=1.0, radius=16, color="#1e1e1e")
     win.add(outer)
 
     def _finish(value: str | None):
@@ -1891,7 +2631,7 @@ def _ask_sudo_password() -> str | None:
     title.get_style_context().add_class("neuronix-title")
     choice.pack_title_with_close(outer, title, lambda: _finish(None))
 
-    prompt = Gtk.Label(label="Enter your sudo password to upgrade.", xalign=0.0)
+    prompt = Gtk.Label(label=prompt_text, xalign=0.0)
     prompt.set_line_wrap(True)
     prompt.set_max_width_chars(42)
     prompt.get_style_context().add_class("neuronix-subtitle")
@@ -1911,7 +2651,7 @@ def _ask_sudo_password() -> str | None:
     cancel.set_relief(Gtk.ReliefStyle.NONE)
     cancel.set_focus_on_click(False)
     cancel.get_style_context().add_class("neuronix-secondary")
-    upgrade = Gtk.Button(label="Upgrade")
+    upgrade = Gtk.Button(label=confirm)
     upgrade.set_relief(Gtk.ReliefStyle.NONE)
     upgrade.set_focus_on_click(False)
     upgrade.get_style_context().add_class("neuronix-primary")
@@ -1999,6 +2739,1223 @@ def updates_page() -> Gtk.Widget:
         threading.Thread(target=_update_worker, args=(password,), daemon=True).start()
 
     button.connect("clicked", _start)
+    return box
+
+
+_SOFTWARE = {
+    "running": False,
+    "status": "Search Debian packages with apt, then install the ones you pick.",
+    "log": "",
+    "sink": None,
+    "done_install": [],
+    "done_remove": [],
+}
+
+
+def _software_emit(kind: str, text: str) -> None:
+    sink = _SOFTWARE.get("sink")
+
+    def _do(current=sink) -> bool:
+        if _SOFTWARE.get("sink") is not current or current is None:
+            return False
+        if kind == "log":
+            buf = current["buf"]
+            buf.insert(buf.get_end_iter(), text)
+            current["view"].scroll_to_iter(buf.get_end_iter(), 0.0, False, 0.0, 1.0)
+        elif kind == "status":
+            current["status"].set_text(text)
+        elif kind == "idle":
+            current["install"].set_sensitive(True)
+            current["search_btn"].set_sensitive(True)
+            sync = current.get("sync_rows")
+            if callable(sync):
+                sync()
+        elif kind == "busy":
+            current["install"].set_sensitive(False)
+            current["search_btn"].set_sensitive(False)
+        return False
+
+    GLib.idle_add(_do)
+
+
+def _apt_search_terms(query: str) -> list[str]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for raw in (query or "").split():
+        token = raw.strip().strip("\"\'")
+        if not token or token.startswith("-") or len(token) > 40:
+            continue
+        key = token.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        terms.append(token)
+        if len(terms) >= 6:
+            break
+    return terms
+
+
+def _apt_parse_search(output: str, limit: int) -> list[dict]:
+    import re
+
+    items: list[dict] = []
+    pending: dict | None = None
+    name_re = re.compile(r"^([A-Za-z0-9][A-Za-z0-9.+-]*)/\S+")
+
+    def flush() -> None:
+        nonlocal pending
+        if pending is not None:
+            items.append(pending)
+        pending = None
+
+    for raw in (output or "").splitlines():
+        line = raw.rstrip()
+        if not line or line.startswith("Sorting") or line.startswith("Full Text"):
+            continue
+        if line.startswith("  "):
+            if pending is not None:
+                extra = line.strip()
+                if extra:
+                    pending["desc"] = extra if not pending["desc"] else pending["desc"]
+            continue
+        flush()
+        match = name_re.match(line)
+        if not match:
+            continue
+        flags = ""
+        if "[" in line and line.endswith("]"):
+            flags = line.rsplit("[", 1)[1][:-1]
+        bits = line.split()
+        version = bits[1] if len(bits) > 1 else ""
+        pending = {
+            "name": match.group(1),
+            "version": version,
+            "desc": "",
+            "installed": "installed" in flags.lower(),
+        }
+        if len(items) >= limit:
+            pending = None
+            break
+    flush()
+    return items[:limit]
+
+
+def _apt_search_one(term: str, limit: int) -> list[dict]:
+    import re
+
+    env = os.environ.copy()
+    env["LANG"] = "C"
+    env["LC_ALL"] = "C"
+    env["NO_COLOR"] = "1"
+    pattern = re.escape(term)
+    try:
+        proc = subprocess.run(
+            ["apt", "search", "-o", "APT::Color=never", "--", pattern],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=20,
+            env=env,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(str(exc)) from exc
+    return _apt_parse_search(proc.stdout or "", limit)
+
+
+def _apt_search(query: str, limit: int = 80) -> list[dict]:
+    query = (query or "").strip()
+    if not query or len(query) > 120:
+        return []
+    terms = _apt_search_terms(query)
+    if not terms:
+        return []
+    merged: dict[str, dict] = {}
+    per = max(40, limit)
+    for term in terms:
+        for item in _apt_search_one(term, per):
+            name = str(item.get("name") or "")
+            if not name:
+                continue
+            prev = merged.get(name)
+            if prev is None:
+                merged[name] = item
+            elif item.get("installed"):
+                prev["installed"] = True
+            if item.get("desc") and not (prev or item).get("desc"):
+                merged[name]["desc"] = item.get("desc")
+    keys = [term.casefold() for term in terms]
+    nterms = len(keys)
+
+    def score(item: dict) -> tuple:
+        name = str(item.get("name") or "").casefold()
+        blob = f"{name} {item.get('desc') or ''}".casefold()
+        hits = sum(1 for key in keys if key in blob)
+        name_hits = sum(1 for key in keys if key in name)
+        return (hits == nterms, name_hits == nterms, hits, name_hits)
+
+    ranked = sorted(merged.values(), key=score, reverse=True)
+    return ranked[:limit]
+
+def _valid_pkg(name: str) -> bool:
+    import re
+
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+-]*", name or ""))
+
+
+def _software_apply(password: str, install: list[str], remove: list[str]) -> None:
+    def _line(text: str) -> None:
+        _SOFTWARE["log"] += text
+        _software_emit("log", text)
+
+    ok_install: list[str] = []
+    ok_remove: list[str] = []
+    if install:
+        shown = "sudo apt install -y " + " ".join(install)
+        header = f"$ {shown}\n"
+        _SOFTWARE["log"] += header
+        _software_emit("log", header)
+        argv = [
+            "apt",
+            "install",
+            "-y",
+            "-o",
+            "Dpkg::Options::=--force-confdef",
+            "-o",
+            "Dpkg::Options::=--force-confold",
+            "--",
+            *install,
+        ]
+        if _run_apt(password, argv, on_line=_line) == 0:
+            ok_install = list(install)
+    if remove:
+        shown = "sudo apt remove -y " + " ".join(remove)
+        header = f"$ {shown}\n"
+        _SOFTWARE["log"] += header
+        _software_emit("log", header)
+        argv = ["apt", "remove", "-y", "--", *remove]
+        if _run_apt(password, argv, on_line=_line) == 0:
+            ok_remove = list(remove)
+
+    _SOFTWARE["running"] = False
+    _SOFTWARE["done_install"] = ok_install
+    _SOFTWARE["done_remove"] = ok_remove
+    failed = (bool(install) and not ok_install) or (bool(remove) and not ok_remove)
+    if not failed:
+        if install and remove:
+            title = "Finished"
+            body = _names_line("Installed", ok_install) + " " + _names_line("Uninstalled", ok_remove)
+        elif remove:
+            title = "Uninstall finished"
+            body = _names_line("Uninstalled", ok_remove)
+        else:
+            title = "Install finished"
+            body = _names_line("Installed", ok_install)
+    else:
+        title = "Some packages failed"
+        body = "Check the log for details."
+    _finish_job(_SOFTWARE, _software_emit, title=title, body=body, ok=not failed)
+
+
+def software_page() -> Gtk.Widget:
+    box = _page()
+    box.pack_start(
+        _note("Tick packages to install. Untick an installed package to uninstall it."),
+        False,
+        False,
+        0,
+    )
+    query = Gtk.Entry()
+    query.set_placeholder_text("steam installer")
+    query.get_style_context().add_class("neuronix-entry")
+    search_btn = _button("Search")
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    query.set_hexpand(True)
+    row.pack_start(query, True, True, 0)
+    row.pack_start(search_btn, False, False, 0)
+    box.pack_start(row, False, False, 0)
+
+    box.pack_start(_section("Packages"), False, False, 0)
+    lst = Gtk.ListBox()
+    lst.set_selection_mode(Gtk.SelectionMode.NONE)
+    lst.set_activate_on_single_click(True)
+    lst.get_style_context().add_class("neuronix-list")
+    scroll = Gtk.ScrolledWindow()
+    scroll.get_style_context().add_class("neuronix-list-frame")
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.set_vexpand(True)
+    scroll.set_size_request(-1, 220)
+    scroll.add(lst)
+    box.pack_start(scroll, True, True, 0)
+
+    picked = Gtk.Label(label="No packages selected.", xalign=0.0)
+    picked.get_style_context().add_class("neuronix-subtitle")
+    install = _button("Install selected")
+    actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    actions.pack_start(install, False, False, 0)
+    actions.pack_start(picked, True, True, 0)
+    status = _note(_SOFTWARE["status"])
+    foot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    foot.pack_start(actions, False, False, 0)
+    foot.pack_start(status, False, False, 0)
+    card = getattr(box, "_card", None)
+    if card is not None:
+        Gtk.Box.pack_end(card, foot, False, False, 0)
+    else:
+        box.pack_start(foot, False, False, 0)
+
+    buf = Gtk.TextBuffer()
+    if _SOFTWARE["log"]:
+        buf.set_text(_SOFTWARE["log"])
+    view = Gtk.TextView.new_with_buffer(buf)
+    view.set_editable(False)
+    view.set_monospace(True)
+    view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+    view.get_style_context().add_class("neuronix-text")
+    log_scroll = Gtk.ScrolledWindow()
+    log_scroll.get_style_context().add_class("neuronix-well")
+    log_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    log_scroll.set_size_request(-1, 140)
+    log_scroll.add(view)
+    log_btn = _button("Log  ▸")
+    log_reveal = Gtk.Revealer()
+    log_reveal.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+    log_reveal.set_reveal_child(False)
+    log_reveal.add(log_scroll)
+    box.pack_end(log_btn, False, False, 0)
+    box.pack_end(log_reveal, False, False, 0)
+
+    def _set_log(open_: bool) -> None:
+        log_reveal.set_reveal_child(open_)
+        log_btn.set_label("Log  ▾" if open_ else "Log  ▸")
+
+    log_btn.connect("clicked", lambda *_a: _set_log(not log_reveal.get_reveal_child()))
+
+    state = {"gen": 0, "rows": [], "ignore_toggle": False}
+    sink = {
+        "buf": buf,
+        "view": view,
+        "status": status,
+        "install": install,
+        "search_btn": search_btn,
+        "open_log": lambda: _set_log(True),
+    }
+    _SOFTWARE["sink"] = sink
+    if _SOFTWARE["running"]:
+        install.set_sensitive(False)
+        search_btn.set_sensitive(False)
+        _set_log(True)
+
+    def _drop(*_a) -> None:
+        if _SOFTWARE.get("sink") is sink:
+            _SOFTWARE["sink"] = None
+
+    box.connect("destroy", _drop)
+
+    def _to_install() -> list[str]:
+        names = []
+        for row in state["rows"]:
+            check = getattr(row, "_check", None)
+            name = str(getattr(row, "_pkg", "") or "")
+            if check is None or getattr(row, "_installed", False):
+                continue
+            if check.get_active() and _valid_pkg(name):
+                names.append(name)
+        return names
+
+    def _to_remove() -> list[str]:
+        names = []
+        for row in state["rows"]:
+            check = getattr(row, "_check", None)
+            name = str(getattr(row, "_pkg", "") or "")
+            if check is None or not getattr(row, "_installed", False):
+                continue
+            if (not check.get_active()) and _valid_pkg(name):
+                names.append(name)
+        return names
+
+    def _refresh_picked(*_a) -> None:
+        if state.get("ignore_toggle"):
+            return
+        ins = _to_install()
+        rem = _to_remove()
+        if not ins and not rem:
+            picked.set_text("No packages selected.")
+            install.set_label("Install selected")
+        elif ins and rem:
+            picked.set_text(f"Install {len(ins)}, uninstall {len(rem)}")
+            install.set_label("Apply selected")
+        elif rem:
+            if len(rem) == 1:
+                picked.set_text("Uninstall " + rem[0])
+            else:
+                picked.set_text(
+                    f"{len(rem)} packages: " + ", ".join(rem[:8]) + ("…" if len(rem) > 8 else "")
+                )
+            install.set_label("Uninstall selected")
+        elif len(ins) == 1:
+            picked.set_text(ins[0])
+            install.set_label("Install selected")
+        else:
+            picked.set_text(
+                f"{len(ins)} packages: " + ", ".join(ins[:8]) + ("…" if len(ins) > 8 else "")
+            )
+            install.set_label("Install selected")
+
+    def _clear_rows() -> None:
+        for child in list(lst.get_children()):
+            lst.remove(child)
+            child.destroy()
+        state["rows"] = []
+        _refresh_picked()
+
+    def _add_row(item: dict) -> None:
+        row = Gtk.ListBoxRow()
+        row.get_style_context().add_class("neuronix-list-row")
+        inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        check = Gtk.CheckButton()
+        check.set_valign(Gtk.Align.CENTER)
+        installed = bool(item.get("installed"))
+        check.set_active(installed)
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        title = Gtk.Label(label=str(item.get("name") or ""), xalign=0.0)
+        title.set_ellipsize(Pango.EllipsizeMode.END)
+        title.get_style_context().add_class("neuronix-row-title")
+        base_desc = str(item.get("desc") or "").strip()
+        version = str(item.get("version") or "").strip()
+        if installed:
+            extra = "Installed" + (f"  ·  {base_desc}" if base_desc else "")
+        elif version:
+            extra = f"{version}" + (f"  ·  {base_desc}" if base_desc else "")
+        else:
+            extra = base_desc
+        desc = Gtk.Label(label=extra, xalign=0.0)
+        desc.set_ellipsize(Pango.EllipsizeMode.END)
+        desc.get_style_context().add_class("neuronix-row-desc")
+        text.pack_start(title, False, False, 0)
+        text.pack_start(desc, False, False, 0)
+        inner.pack_start(check, False, False, 0)
+        inner.pack_start(text, True, True, 0)
+        row.add(inner)
+        row._pkg = str(item.get("name") or "")  # type: ignore[attr-defined]
+        row._check = check  # type: ignore[attr-defined]
+        row._installed = installed  # type: ignore[attr-defined]
+        row._base_desc = base_desc  # type: ignore[attr-defined]
+        row._version = version  # type: ignore[attr-defined]
+        row._desc = desc  # type: ignore[attr-defined]
+        check.connect("toggled", _refresh_picked)
+        lst.add(row)
+        state["rows"].append(row)
+
+    def _fill(items: list[dict], err: str) -> None:
+        _clear_rows()
+        if err:
+            status.set_text(err)
+            return
+        if not items:
+            status.set_text("No packages matched.")
+            return
+        for item in items:
+            _add_row(item)
+        lst.show_all()
+        status.set_text(f"{len(items)} package{'s' if len(items) != 1 else ''}.")
+        _refresh_picked()
+
+    def _search(*_a) -> None:
+        if _SOFTWARE["running"]:
+            return
+        needle = query.get_text().strip()
+        if not needle:
+            status.set_text("Type a package name, then search.")
+            return
+        state["gen"] += 1
+        gen = state["gen"]
+        status.set_text("Searching…")
+        search_btn.set_sensitive(False)
+
+        def _work() -> None:
+            try:
+                items = _apt_search(needle)
+                err = ""
+            except Exception as exc:
+                items = []
+                err = str(exc) or "Search failed."
+
+            def _done() -> bool:
+                if state["gen"] != gen:
+                    return False
+                search_btn.set_sensitive(True)
+                _fill(items, err)
+                return False
+
+            GLib.idle_add(_done)
+
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _set_row_installed(row, installed: bool) -> None:
+        row._installed = installed  # type: ignore[attr-defined]
+        check = getattr(row, "_check", None)
+        desc = getattr(row, "_desc", None)
+        base = str(getattr(row, "_base_desc", "") or "")
+        version = str(getattr(row, "_version", "") or "")
+        state["ignore_toggle"] = True
+        if check is not None:
+            check.set_active(installed)
+        state["ignore_toggle"] = False
+        if installed:
+            extra = "Installed" + (f"  ·  {base}" if base else "")
+        elif version:
+            extra = f"{version}" + (f"  ·  {base}" if base else "")
+        else:
+            extra = base
+        if desc is not None:
+            desc.set_text(extra)
+
+    def _sync_rows() -> None:
+        done_install = set(_SOFTWARE.get("done_install") or [])
+        done_remove = set(_SOFTWARE.get("done_remove") or [])
+        if not done_install and not done_remove:
+            _refresh_picked()
+            return
+        for row in state["rows"]:
+            name = str(getattr(row, "_pkg", "") or "")
+            if name in done_install:
+                _set_row_installed(row, True)
+            elif name in done_remove:
+                _set_row_installed(row, False)
+        _SOFTWARE["done_install"] = []
+        _SOFTWARE["done_remove"] = []
+        _refresh_picked()
+
+    sink["sync_rows"] = _sync_rows
+
+    def _toggle(_lb, row) -> None:
+        if _SOFTWARE["running"]:
+            return
+        check = getattr(row, "_check", None)
+        if check is not None:
+            check.set_active(not check.get_active())
+
+    def _install(*_a) -> None:
+        if _SOFTWARE["running"]:
+            return
+        names = _to_install()
+        remove = _to_remove()
+        if not names and not remove:
+            status.set_text("Tick packages to install, or untick installed ones to uninstall.")
+            return
+        if names and remove:
+            prompt = (
+                f"Enter your sudo password to install {len(names)} and "
+                f"uninstall {len(remove)} package{'s' if (len(names) + len(remove)) != 1 else ''}."
+            )
+            confirm = "Apply"
+            busy = "Applying…"
+        elif remove:
+            prompt = (
+                f"Enter your sudo password to uninstall {len(remove)} "
+                f"package{'s' if len(remove) != 1 else ''}."
+            )
+            confirm = "Uninstall"
+            busy = "Uninstalling…"
+        else:
+            prompt = (
+                f"Enter your sudo password to install {len(names)} "
+                f"package{'s' if len(names) != 1 else ''}."
+            )
+            confirm = "Install"
+            busy = "Installing…"
+        password = _ask_sudo_password(prompt, confirm)
+        if not password:
+            return
+        _SOFTWARE["running"] = True
+        _SOFTWARE["log"] = ""
+        _SOFTWARE["status"] = busy
+        _SOFTWARE["done_install"] = []
+        _SOFTWARE["done_remove"] = []
+        buf.set_text("")
+        status.set_text(_SOFTWARE["status"])
+        search_btn.set_sensitive(False)
+        install.set_sensitive(False)
+        _set_log(True)
+        threading.Thread(
+            target=_software_apply, args=(password, names, remove), daemon=True
+        ).start()
+
+    lst.connect("row-activated", _toggle)
+    search_btn.connect("clicked", _search)
+    query.connect("activate", _search)
+    install.connect("clicked", _install)
+    return box
+
+
+
+def _run_logged(argv: list[str], on_line=None, password: str | None = None) -> int:
+    """Stream a command's output. Uses sudo -S when password is set."""
+    if password:
+        return _run_apt(password, argv, on_line=on_line)
+    cmd = list(argv)
+    stdbuf = "/usr/bin/stdbuf"
+    if os.path.isfile(stdbuf):
+        cmd = [stdbuf, "-oL", "-eL", *cmd]
+    env = os.environ.copy()
+    env["LANG"] = "C"
+    env["LC_ALL"] = "C"
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            bufsize=1,
+        )
+    except OSError as exc:
+        err = str(exc) + "\n"
+        if on_line is not None:
+            on_line(err)
+        return 127
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        if on_line is not None:
+            on_line(line)
+    return proc.wait()
+
+
+def _flatpak_bin() -> str:
+    for cand in ("/usr/bin/flatpak", "/usr/local/bin/flatpak"):
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return "flatpak"
+
+
+def _valid_flatpak_id(name: str) -> bool:
+    import re
+
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{2,200}", name or "")) and "." in (name or "")
+
+
+_FLATPAK = {
+    "running": False,
+    "status": "Search Flathub, tick apps to install, untick installed ones to uninstall.",
+    "log": "",
+    "sink": None,
+    "done_install": [],
+    "done_remove": [],
+}
+
+
+def _flatpak_emit(kind: str, text: str) -> None:
+    sink = _FLATPAK.get("sink")
+
+    def _do(current=sink) -> bool:
+        if _FLATPAK.get("sink") is not current or current is None:
+            return False
+        if kind == "log":
+            buf = current["buf"]
+            buf.insert(buf.get_end_iter(), text)
+            current["view"].scroll_to_iter(buf.get_end_iter(), 0.0, False, 0.0, 1.0)
+        elif kind == "status":
+            current["status"].set_text(text)
+        elif kind == "idle":
+            current["install"].set_sensitive(True)
+            current["search_btn"].set_sensitive(True)
+            sync = current.get("sync_rows")
+            if callable(sync):
+                sync()
+        elif kind == "busy":
+            current["install"].set_sensitive(False)
+            current["search_btn"].set_sensitive(False)
+        return False
+
+    GLib.idle_add(_do)
+
+
+def _flatpak_parse_rows(output: str, *, kind: str) -> list[dict]:
+    items: list[dict] = []
+    seen: set[str] = set()
+    for raw in (output or "").splitlines():
+        line = raw.rstrip()
+        if not line or line.startswith("No matches") or line.startswith("Looking for"):
+            continue
+        parts = line.split("\t")
+        appid = (parts[0] if parts else "").strip()
+        if not _valid_flatpak_id(appid) or appid in seen:
+            continue
+        seen.add(appid)
+        name = parts[1].strip() if len(parts) > 1 else appid
+        version = parts[2].strip() if len(parts) > 2 else ""
+        if kind == "list":
+            origin = parts[3].strip() if len(parts) > 3 else "flathub"
+            installation = (parts[4].strip() if len(parts) > 4 else "system").casefold()
+            desc = parts[5].strip() if len(parts) > 5 else ""
+            installed = True
+        else:
+            desc = parts[3].strip() if len(parts) > 3 else ""
+            origin = parts[4].strip() if len(parts) > 4 else "flathub"
+            installation = ""
+            installed = False
+        origin = (origin.split(",")[0].strip() or "flathub")
+        if installation not in ("user", "system"):
+            installation = "system" if kind == "list" else ""
+        items.append(
+            {
+                "id": appid,
+                "name": name or appid,
+                "version": version,
+                "desc": desc,
+                "origin": origin,
+                "installation": installation,
+                "installed": installed,
+            }
+        )
+    return items
+
+
+def _flatpak_installed_map() -> dict[str, dict]:
+    env = os.environ.copy()
+    env["LANG"] = "C"
+    env["LC_ALL"] = "C"
+    try:
+        proc = subprocess.run(
+            [
+                _flatpak_bin(),
+                "list",
+                "--app",
+                "--columns=application,name,version,origin,installation,description",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=20,
+            env=env,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    items = _flatpak_parse_rows(proc.stdout or "", kind="list")
+    return {str(item["id"]): item for item in items}
+
+
+def _flatpak_search_one(term: str, limit: int) -> list[dict]:
+    env = os.environ.copy()
+    env["LANG"] = "C"
+    env["LC_ALL"] = "C"
+    try:
+        proc = subprocess.run(
+            [
+                _flatpak_bin(),
+                "search",
+                "--columns=application,name,version,description,remotes",
+                term,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=25,
+            env=env,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(str(exc)) from exc
+    return _flatpak_parse_rows(proc.stdout or "", kind="search")[:limit]
+
+
+def _flatpak_search(query: str, limit: int = 80) -> list[dict]:
+    installed = _flatpak_installed_map()
+    query = (query or "").strip()
+    if not query:
+        return sorted(installed.values(), key=lambda item: str(item.get("name") or "").casefold())
+    terms = _apt_search_terms(query)
+    if not terms:
+        return []
+    merged: dict[str, dict] = {}
+    per = max(40, limit)
+    for term in terms:
+        for item in _flatpak_search_one(term, per):
+            appid = str(item.get("id") or "")
+            if not appid:
+                continue
+            have = installed.get(appid)
+            if have is not None:
+                item["installed"] = True
+                item["installation"] = have.get("installation") or item.get("installation")
+                item["origin"] = have.get("origin") or item.get("origin")
+            prev = merged.get(appid)
+            if prev is None:
+                merged[appid] = item
+            elif item.get("installed"):
+                prev["installed"] = True
+    keys = [term.casefold() for term in terms]
+    nterms = len(keys)
+
+    def score(item: dict) -> tuple:
+        import re
+
+        appid = str(item.get("id") or "").casefold()
+        name = str(item.get("name") or "").casefold()
+        blob = f"{appid} {name} {item.get('desc') or ''}".casefold()
+
+        def word(hay: str, key: str) -> bool:
+            return bool(re.search(rf"(^|[^a-z0-9]){re.escape(key)}([^a-z0-9]|$)", hay))
+
+        exact_name = any(key == name for key in keys)
+        exact_id = any(key == appid or appid.endswith("." + key) for key in keys)
+        name_words = sum(1 for key in keys if word(name, key))
+        id_words = sum(1 for key in keys if word(appid.replace(".", " "), key) or key in appid)
+        hits = sum(1 for key in keys if key in blob)
+        return (exact_name, exact_id, name_words == nterms, name_words, id_words, hits)
+
+    ranked = sorted(merged.values(), key=score, reverse=True)
+    return ranked[:limit]
+
+
+def _flatpak_apply(
+    password: str | None,
+    install: list[str],
+    remove: list[str],
+    origins: dict[str, str],
+    installs_where: dict[str, str],
+) -> None:
+    def _line(text: str) -> None:
+        _FLATPAK["log"] += text
+        _flatpak_emit("log", text)
+
+    bin_ = _flatpak_bin()
+    ok_install: list[str] = []
+    ok_remove: list[str] = []
+    if install:
+        from collections import defaultdict
+
+        groups: dict[str, list[str]] = defaultdict(list)
+        for appid in install:
+            origin = origins.get(appid) or "flathub"
+            groups[origin].append(appid)
+        _line("$ flatpak remote-add --if-not-exists flathub …\n")
+        _run_logged(
+            [
+                bin_,
+                "remote-add",
+                "--if-not-exists",
+                "flathub",
+                "https://dl.flathub.org/repo/flathub.flatpakrepo",
+            ],
+            on_line=_line,
+            password=password,
+        )
+        for origin, names in groups.items():
+            shown = "sudo flatpak install -y --noninteractive --system " + origin + " " + " ".join(names)
+            header = f"$ {shown}\n"
+            _FLATPAK["log"] += header
+            _flatpak_emit("log", header)
+            argv = [
+                bin_,
+                "install",
+                "-y",
+                "--noninteractive",
+                "--system",
+                origin,
+                *names,
+            ]
+            if _run_logged(argv, on_line=_line, password=password) == 0:
+                ok_install.extend(names)
+    if remove:
+        from collections import defaultdict
+
+        groups = defaultdict(list)
+        for appid in remove:
+            where = (installs_where.get(appid) or "system").casefold()
+            groups["user" if where == "user" else "system"].append(appid)
+        for where, names in groups.items():
+            flag = "--user" if where == "user" else "--system"
+            need_pass = password if where == "system" else None
+            shown = (
+                ("sudo " if need_pass else "")
+                + "flatpak uninstall -y --noninteractive "
+                + flag
+                + " "
+                + " ".join(names)
+            )
+            header = f"$ {shown}\n"
+            _FLATPAK["log"] += header
+            _flatpak_emit("log", header)
+            argv = [bin_, "uninstall", "-y", "--noninteractive", flag, *names]
+            if _run_logged(argv, on_line=_line, password=need_pass) == 0:
+                ok_remove.extend(names)
+
+    _FLATPAK["running"] = False
+    _FLATPAK["done_install"] = ok_install
+    _FLATPAK["done_remove"] = ok_remove
+    failed = (bool(install) and set(ok_install) != set(install)) or (
+        bool(remove) and set(ok_remove) != set(remove)
+    )
+    if not failed:
+        if install and remove:
+            title = "Finished"
+            body = _names_line("Installed", ok_install) + " " + _names_line("Uninstalled", ok_remove)
+        elif remove:
+            title = "Uninstall finished"
+            body = _names_line("Uninstalled", ok_remove)
+        else:
+            title = "Install finished"
+            body = _names_line("Installed", ok_install)
+    else:
+        title = "Some Flatpaks failed"
+        body = "Check the log for details."
+    _finish_job(_FLATPAK, _flatpak_emit, title=title, body=body, ok=not failed)
+
+
+def flatpak_page() -> Gtk.Widget:
+    box = _page()
+    box.pack_start(
+        _note("Search Flathub. Tick apps to install, untick installed apps to uninstall."),
+        False,
+        False,
+        0,
+    )
+    query = Gtk.Entry()
+    query.set_placeholder_text("steam")
+    query.get_style_context().add_class("neuronix-entry")
+    search_btn = _button("Search")
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    query.set_hexpand(True)
+    row.pack_start(query, True, True, 0)
+    row.pack_start(search_btn, False, False, 0)
+    box.pack_start(row, False, False, 0)
+
+    box.pack_start(_section("Flatpaks"), False, False, 0)
+    lst = Gtk.ListBox()
+    lst.set_selection_mode(Gtk.SelectionMode.NONE)
+    lst.set_activate_on_single_click(True)
+    lst.get_style_context().add_class("neuronix-list")
+    scroll = Gtk.ScrolledWindow()
+    scroll.get_style_context().add_class("neuronix-list-frame")
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.set_vexpand(True)
+    scroll.set_size_request(-1, 220)
+    scroll.add(lst)
+    box.pack_start(scroll, True, True, 0)
+
+    picked = Gtk.Label(label="No apps selected.", xalign=0.0)
+    picked.get_style_context().add_class("neuronix-subtitle")
+    install = _button("Install selected")
+    actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    actions.pack_start(install, False, False, 0)
+    actions.pack_start(picked, True, True, 0)
+    status = _note(_FLATPAK["status"])
+    foot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    foot.pack_start(actions, False, False, 0)
+    foot.pack_start(status, False, False, 0)
+    card = getattr(box, "_card", None)
+    if card is not None:
+        Gtk.Box.pack_end(card, foot, False, False, 0)
+    else:
+        box.pack_start(foot, False, False, 0)
+
+    buf = Gtk.TextBuffer()
+    if _FLATPAK["log"]:
+        buf.set_text(_FLATPAK["log"])
+    view = Gtk.TextView.new_with_buffer(buf)
+    view.set_editable(False)
+    view.set_monospace(True)
+    view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+    view.get_style_context().add_class("neuronix-text")
+    log_scroll = Gtk.ScrolledWindow()
+    log_scroll.get_style_context().add_class("neuronix-well")
+    log_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    log_scroll.set_size_request(-1, 140)
+    log_scroll.add(view)
+    log_btn = _button("Log  ▸")
+    log_reveal = Gtk.Revealer()
+    log_reveal.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+    log_reveal.set_reveal_child(False)
+    log_reveal.add(log_scroll)
+    box.pack_end(log_btn, False, False, 0)
+    box.pack_end(log_reveal, False, False, 0)
+
+    def _set_log(open_: bool) -> None:
+        log_reveal.set_reveal_child(open_)
+        log_btn.set_label("Log  ▾" if open_ else "Log  ▸")
+
+    log_btn.connect("clicked", lambda *_a: _set_log(not log_reveal.get_reveal_child()))
+
+    state = {"gen": 0, "rows": [], "ignore_toggle": False}
+    sink = {
+        "buf": buf,
+        "view": view,
+        "status": status,
+        "install": install,
+        "search_btn": search_btn,
+        "open_log": lambda: _set_log(True),
+    }
+    _FLATPAK["sink"] = sink
+    if _FLATPAK["running"]:
+        install.set_sensitive(False)
+        search_btn.set_sensitive(False)
+        _set_log(True)
+
+    def _drop(*_a) -> None:
+        if _FLATPAK.get("sink") is sink:
+            _FLATPAK["sink"] = None
+
+    box.connect("destroy", _drop)
+
+    def _to_install() -> list[str]:
+        names = []
+        for item in state["rows"]:
+            check = getattr(item, "_check", None)
+            name = str(getattr(item, "_pkg", "") or "")
+            if check is None or getattr(item, "_installed", False):
+                continue
+            if check.get_active() and _valid_flatpak_id(name):
+                names.append(name)
+        return names
+
+    def _to_remove() -> list[str]:
+        names = []
+        for item in state["rows"]:
+            check = getattr(item, "_check", None)
+            name = str(getattr(item, "_pkg", "") or "")
+            if check is None or not getattr(item, "_installed", False):
+                continue
+            if (not check.get_active()) and _valid_flatpak_id(name):
+                names.append(name)
+        return names
+
+    def _refresh_picked(*_a) -> None:
+        if state.get("ignore_toggle"):
+            return
+        ins = _to_install()
+        rem = _to_remove()
+        if not ins and not rem:
+            picked.set_text("No apps selected.")
+            install.set_label("Install selected")
+        elif ins and rem:
+            picked.set_text(f"Install {len(ins)}, uninstall {len(rem)}")
+            install.set_label("Apply selected")
+        elif rem:
+            if len(rem) == 1:
+                picked.set_text("Uninstall " + rem[0])
+            else:
+                picked.set_text(
+                    f"{len(rem)} apps: " + ", ".join(rem[:8]) + ("…" if len(rem) > 8 else "")
+                )
+            install.set_label("Uninstall selected")
+        elif len(ins) == 1:
+            picked.set_text(ins[0])
+            install.set_label("Install selected")
+        else:
+            picked.set_text(
+                f"{len(ins)} apps: " + ", ".join(ins[:8]) + ("…" if len(ins) > 8 else "")
+            )
+            install.set_label("Install selected")
+
+    def _clear_rows() -> None:
+        for child in list(lst.get_children()):
+            lst.remove(child)
+            child.destroy()
+        state["rows"] = []
+        _refresh_picked()
+
+    def _add_row(item: dict) -> None:
+        row = Gtk.ListBoxRow()
+        row.get_style_context().add_class("neuronix-list-row")
+        inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        check = Gtk.CheckButton()
+        check.set_valign(Gtk.Align.CENTER)
+        installed = bool(item.get("installed"))
+        check.set_active(installed)
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        title = Gtk.Label(label=str(item.get("name") or item.get("id") or ""), xalign=0.0)
+        title.set_ellipsize(Pango.EllipsizeMode.END)
+        title.get_style_context().add_class("neuronix-row-title")
+        appid = str(item.get("id") or "")
+        base_desc = str(item.get("desc") or "").strip()
+        version = str(item.get("version") or "").strip()
+        bits = []
+        if installed:
+            bits.append("Installed")
+        if version:
+            bits.append(version)
+        if appid:
+            bits.append(appid)
+        extra = "  ·  ".join(bits)
+        if base_desc:
+            extra = extra + ("  ·  " if extra else "") + base_desc
+        desc = Gtk.Label(label=extra, xalign=0.0)
+        desc.set_ellipsize(Pango.EllipsizeMode.END)
+        desc.get_style_context().add_class("neuronix-row-desc")
+        text.pack_start(title, False, False, 0)
+        text.pack_start(desc, False, False, 0)
+        inner.pack_start(check, False, False, 0)
+        inner.pack_start(text, True, True, 0)
+        row.add(inner)
+        row._pkg = appid  # type: ignore[attr-defined]
+        row._check = check  # type: ignore[attr-defined]
+        row._installed = installed  # type: ignore[attr-defined]
+        row._origin = str(item.get("origin") or "flathub")  # type: ignore[attr-defined]
+        row._installation = str(item.get("installation") or "")  # type: ignore[attr-defined]
+        row._base_desc = base_desc  # type: ignore[attr-defined]
+        row._version = version  # type: ignore[attr-defined]
+        row._pretty = str(item.get("name") or appid)  # type: ignore[attr-defined]
+        row._desc = desc  # type: ignore[attr-defined]
+        check.connect("toggled", _refresh_picked)
+        lst.add(row)
+        state["rows"].append(row)
+
+    def _fill(items: list[dict], err: str) -> None:
+        _clear_rows()
+        if err:
+            status.set_text(err)
+            return
+        if not items:
+            status.set_text("No Flatpaks matched.")
+            return
+        for item in items:
+            _add_row(item)
+        lst.show_all()
+        status.set_text(f"{len(items)} app{'s' if len(items) != 1 else ''}.")
+        _refresh_picked()
+
+    def _search(*_a) -> None:
+        if _FLATPAK["running"]:
+            return
+        needle = query.get_text().strip()
+        state["gen"] += 1
+        gen = state["gen"]
+        status.set_text("Searching…" if needle else "Loading installed Flatpaks…")
+        search_btn.set_sensitive(False)
+
+        def _work() -> None:
+            try:
+                items = _flatpak_search(needle)
+                err = ""
+            except Exception as exc:
+                items = []
+                err = str(exc) or "Search failed."
+
+            def _done() -> bool:
+                if state["gen"] != gen:
+                    return False
+                search_btn.set_sensitive(True)
+                _fill(items, err)
+                return False
+
+            GLib.idle_add(_done)
+
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _set_row_installed(row, installed: bool) -> None:
+        row._installed = installed  # type: ignore[attr-defined]
+        check = getattr(row, "_check", None)
+        desc = getattr(row, "_desc", None)
+        base = str(getattr(row, "_base_desc", "") or "")
+        version = str(getattr(row, "_version", "") or "")
+        appid = str(getattr(row, "_pkg", "") or "")
+        state["ignore_toggle"] = True
+        if check is not None:
+            check.set_active(installed)
+        state["ignore_toggle"] = False
+        bits = []
+        if installed:
+            bits.append("Installed")
+            row._installation = "system"  # type: ignore[attr-defined]
+        if version:
+            bits.append(version)
+        if appid:
+            bits.append(appid)
+        extra = "  ·  ".join(bits)
+        if base:
+            extra = extra + ("  ·  " if extra else "") + base
+        if desc is not None:
+            desc.set_text(extra)
+
+    def _sync_rows() -> None:
+        done_install = set(_FLATPAK.get("done_install") or [])
+        done_remove = set(_FLATPAK.get("done_remove") or [])
+        if not done_install and not done_remove:
+            _refresh_picked()
+            return
+        for item in state["rows"]:
+            name = str(getattr(item, "_pkg", "") or "")
+            if name in done_install:
+                _set_row_installed(item, True)
+            elif name in done_remove:
+                _set_row_installed(item, False)
+        _FLATPAK["done_install"] = []
+        _FLATPAK["done_remove"] = []
+        _refresh_picked()
+
+    sink["sync_rows"] = _sync_rows
+
+    def _toggle(_lb, row) -> None:
+        if _FLATPAK["running"]:
+            return
+        check = getattr(row, "_check", None)
+        if check is not None:
+            check.set_active(not check.get_active())
+
+    def _install(*_a) -> None:
+        if _FLATPAK["running"]:
+            return
+        names = _to_install()
+        remove = _to_remove()
+        if not names and not remove:
+            status.set_text("Tick apps to install, or untick installed ones to uninstall.")
+            return
+        origins = {}
+        where = {}
+        for item in state["rows"]:
+            appid = str(getattr(item, "_pkg", "") or "")
+            if appid in names:
+                origins[appid] = str(getattr(item, "_origin", "") or "flathub")
+            if appid in remove:
+                where[appid] = str(getattr(item, "_installation", "") or "system")
+        need_sudo = bool(names) or any((where.get(appid) or "system") != "user" for appid in remove)
+        if names and remove:
+            prompt = (
+                f"Enter your sudo password to install {len(names)} and "
+                f"uninstall {len(remove)} Flatpak{'s' if (len(names) + len(remove)) != 1 else ''}."
+            )
+            confirm = "Apply"
+            busy = "Applying…"
+        elif remove:
+            prompt = (
+                f"Enter your sudo password to uninstall {len(remove)} "
+                f"Flatpak{'s' if len(remove) != 1 else ''}."
+            )
+            confirm = "Uninstall"
+            busy = "Uninstalling…"
+        else:
+            prompt = (
+                f"Enter your sudo password to install {len(names)} "
+                f"Flatpak{'s' if len(names) != 1 else ''}."
+            )
+            confirm = "Install"
+            busy = "Installing…"
+        password = None
+        if need_sudo:
+            password = _ask_sudo_password(prompt, confirm)
+            if not password:
+                return
+        _FLATPAK["running"] = True
+        _FLATPAK["log"] = ""
+        _FLATPAK["status"] = busy
+        _FLATPAK["done_install"] = []
+        _FLATPAK["done_remove"] = []
+        buf.set_text("")
+        status.set_text(_FLATPAK["status"])
+        search_btn.set_sensitive(False)
+        install.set_sensitive(False)
+        _set_log(True)
+        threading.Thread(
+            target=_flatpak_apply,
+            args=(password, names, remove, origins, where),
+            daemon=True,
+        ).start()
+
+    lst.connect("row-activated", _toggle)
+    search_btn.connect("clicked", _search)
+    query.connect("activate", _search)
+    install.connect("clicked", _install)
+    GLib.idle_add(lambda: (_search(), False)[1])
     return box
 
 

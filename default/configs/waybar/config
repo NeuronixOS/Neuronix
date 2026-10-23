@@ -16,6 +16,7 @@
   ],
   "modules-right": [
     "clock",
+    "custom/weather",
     "custom/gtk-sync",
     "image#volume",
     "image#memory",
@@ -135,6 +136,14 @@
       "\uf240"
     ],
     "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click battery"
+  },
+  "custom/weather": {
+    "exec": "$HOME/.config/waybar/weather.sh",
+    "return-type": "json",
+    "interval": 600,
+    "format": "{}",
+    "tooltip": true,
+    "on-click": "PATH=\"$HOME/.local/bin:$PATH\" neuronix-waybar-click weather"
   },
   "clock": {
     "interval": 30,

@@ -146,8 +146,20 @@ def _toggle_mute(sink: str = "@DEFAULT_SINK@") -> None:
     _run_ok(["pactl", "set-sink-mute", sink, "toggle"])
 
 
+def _move_streams_to(name: str) -> None:
+    """Send audio already playing to the sink that just became default."""
+    out = _run(["pactl", "list", "short", "sink-inputs"])
+    for line in (out or "").splitlines():
+        ident = (line.split("\t") or [""])[0].strip()
+        if ident.isdigit():
+            _run_ok(["pactl", "move-sink-input", ident, name])
+
+
 def _set_default_sink(name: str) -> None:
+    if not name:
+        return
     _run_ok(["pactl", "set-default-sink", name])
+    _move_streams_to(name)
 
 
 def pack_sound_controls(
@@ -209,6 +221,7 @@ def pack_sound_controls(
 
     listbox = Gtk.ListBox()
     listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    listbox.set_activate_on_single_click(True)
     listbox.get_style_context().add_class("neuronix-list")
 
     def _rebuild_sinks() -> None:
@@ -236,7 +249,7 @@ def pack_sound_controls(
 
     def _pick_sink(_lb, row: Gtk.ListBoxRow) -> None:
         name = getattr(row, "_sink_name", "") or ""
-        if not name:
+        if not name or name == _default_sink():
             return
         _set_default_sink(name)
         scale.set_value(_sink_volume_pct())
@@ -304,6 +317,7 @@ def _sound_output_page() -> Gtk.Widget:
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
     listbox = Gtk.ListBox()
     listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    listbox.set_activate_on_single_click(True)
     listbox.get_style_context().add_class("neuronix-list")
 
     def _rebuild() -> None:
@@ -331,7 +345,7 @@ def _sound_output_page() -> Gtk.Widget:
 
     def _pick(_lb, row: Gtk.ListBoxRow) -> None:
         name = getattr(row, "_sink_name", "") or ""
-        if not name:
+        if not name or name == _default_sink():
             return
         _set_default_sink(name)
         _rebuild()
@@ -570,12 +584,13 @@ def _ask_forget(ssid: str) -> bool:
     win.set_decorated(False)
     win.set_resizable(False)
     win.get_style_context().add_class("neuronix-choice")
+    win.get_style_context().add_class("neuronix-settings")
     center_layer_window(win, 440, 220)
     release_keys = hold_layer_keyboard(win)
 
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     outer.get_style_context().add_class("neuronix-root")
-    _glass_root(outer)
+    _glass_root(outer, alpha=1.0, radius=16, color="#1e1e1e")
     win.add(outer)
 
     def _finish(value: Optional[str]) -> bool:
